@@ -1,0 +1,6 @@
+@Eventy.WebApi_HostAddress = http://localhost:5126
+
+GET {{Eventy.WebApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
