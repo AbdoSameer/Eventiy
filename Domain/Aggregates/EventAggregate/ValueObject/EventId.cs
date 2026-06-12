@@ -3,11 +3,11 @@
 namespace Domain.Aggregates.EventAggregate.ValueObject;
 public sealed class EventId: ValueObjectBase
 {
-    public Guid Id { get; }
+    public Guid Value { get; }
 
-    private EventId (Guid id)
+    private EventId (Guid value)
     {
-        Id = id;
+        Value = value;
     }
 
     public static EventId CreateUnqiue()

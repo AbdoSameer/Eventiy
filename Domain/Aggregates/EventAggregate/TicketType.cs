@@ -40,7 +40,7 @@ namespace Domain.Aggregates.EventAggregate
 
         public static TicketType Create(EventId eventId, string name, Money price, int capacity)
         {
-            return new TicketType(TicketTypeId.New(), eventId, name, price, capacity);
+            return new TicketType(TicketTypeId.CreateUnqiue(), eventId, name, price, capacity);
         }
 
         public void UpdatePrice(Money newPrice)

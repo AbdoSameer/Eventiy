@@ -1,6 +1,6 @@
 ﻿using Domain.Aggregates.EventAggregate.ValueObject;
 
-namespace Domain.Aggregates.EventAggregate;
+namespace Domain.Aggregates.EventAggregate.Errors;
 
 internal static class EventErrors
 {

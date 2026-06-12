@@ -5,6 +5,7 @@ using Domain.Aggregates.EventAggregate.ValueObject;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Domain.Aggregates.EventAggregate.Errors;
 
 namespace Domain.Aggregates.EventAggregate
 {
@@ -14,7 +15,7 @@ namespace Domain.Aggregates.EventAggregate
         public EventCapacity Capacity { get; private set; } = null!;
 
         public DateTime Date { get; private set; }
-        public string Location { get; private set; } = string.Empty;
+        public Address Location { get; private set; } = null!;
         public string Description { get; private set; } = string.Empty;
         public bool IsPublished { get; private set; }
         public bool IsCancelled { get; private set; }
@@ -28,16 +29,27 @@ namespace Domain.Aggregates.EventAggregate
 
         private Event(EventId id) : base(id) { }
 
-        private Event(EventId id, EventName name, DateTime date, string location, string description, EventCapacity capacity) : base(id)
+        private Event(
+            EventId id,
+            EventName name,
+            DateTime date,
+            Address location,
+            string description,
+            EventCapacity capacity) : base(id)
         {
             Name = name;
             Date = date;
-            Location = location;
+            Address.Create(location.Country, location.City, location.Street);
             Description = description;
             Capacity = capacity;
         }
 
-        public static Result<Event> Create(string name, DateTime date, string location, int capacityValue, string description = "")
+        public static Result<Event> Create(
+            string name,
+            DateTime date,
+            Address location,
+            int capacityValue,
+            string description = "")
         {
             var nameResult = EventName.Create(name);
             if (nameResult.IsFailure)
@@ -50,14 +62,12 @@ namespace Domain.Aggregates.EventAggregate
             if (date < DateTime.UtcNow)
                 return Result<Event>.Failure("Event date must be in the future.");
 
-            if (string.IsNullOrWhiteSpace(location))
-                return Result<Event>.Failure("Location cannot be empty.");
 
             var newEvent = new Event(
                 EventId.CreateUnqiue(),
                 nameResult.Value,
                 date,
-                location,
+                Address.Create(location.Country, location.City, location.Street),
                 description,
                 capacityResult.Value);
 
@@ -135,12 +145,9 @@ namespace Domain.Aggregates.EventAggregate
             return Result.Success();
         }
 
-        public Result UpdateLocation(string newLocation)
+        public Result UpdateLocation(Address newLocation)
         {
-            if (string.IsNullOrWhiteSpace(newLocation))
-                return Result.Failure(EventErrors.LocationCannotBeEmpty());
-
-            Location = newLocation;
+            Address.Create(newLocation.Country, newLocation.City, newLocation.Street);
             return Result.Success();
         }
 

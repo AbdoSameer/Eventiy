@@ -4,11 +4,11 @@ namespace Domain.Aggregates.EventAggregate.ValueObject;
 
 public sealed class TicketTypeId : ValueObjectBase
 {
-    public Guid Id { get; }
+    public Guid Value { get; }
 
-    private TicketTypeId(Guid id)
+    private TicketTypeId(Guid value)
     {
-        Id = id;
+        Value = value;
     }
 
     public static TicketTypeId CreateUnqiue()
