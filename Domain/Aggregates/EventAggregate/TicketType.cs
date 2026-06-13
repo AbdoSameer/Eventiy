@@ -16,31 +16,42 @@ namespace Domain.Aggregates.EventAggregate
         protected TicketType() : base(default!)
         {
         }
+        private TicketType(TicketTypeId ticketTypeId) : base(ticketTypeId)
+        {
 
-        private TicketType(TicketTypeId ticketTypeId, EventId eventId, string name, Money price, int capacity)
+        }
+
+        private TicketType(EventId eventId, TicketTypeId ticketTypeId, string name, Money price, int capacity)
             : base(ticketTypeId)
         {
-            if (eventId is null)
-                throw new ArgumentNullException(nameof(eventId), "Event ID cannot be null.");
-
-            if (string.IsNullOrWhiteSpace(name))
-                throw new ArgumentException("Ticket name cannot be empty.", nameof(name));
-
-            if (price is null || price.Amount <= 0)
-                throw new ArgumentException("Price must be greater than 0.", nameof(price));
-
-            if (capacity <= 0)
-                throw new ArgumentException("Capacity must be greater than 0.", nameof(capacity));
-
             EventId = eventId;
             Name = name;
             Price = price;
             Capacity = capacity;
         }
 
-        public static TicketType Create(EventId eventId, string name, Money price, int capacity)
+        public Result<TicketType> Create(EventId eventId, string name, Money price, int capacity)
         {
-            return new TicketType(TicketTypeId.CreateUnqiue(), eventId, name, price, capacity);
+            if (eventId is null)
+                Result<TicketType>.Failure("Event ID cannot be null.");
+            if (string.IsNullOrWhiteSpace(name))
+                Result<TicketType>.Failure("Name cannot be empty.");
+            if (price is null || price.Amount <= 0)
+                Result<TicketType>.Failure("Price must be greater than zero.");
+            if (capacity <= 0)
+                Result<TicketType>.Failure("Capacity must be greater than zero.");
+
+            var priceResult = Money.Create(price.Amount, price.Currency);
+
+            if (priceResult.IsFailure)
+                return Result<TicketType>.Failure(priceResult.Error);
+
+            return Result<TicketType>.Success(new TicketType(
+                eventId!,
+                TicketTypeId.CreateUnqiue(),
+                name,
+                price!,
+                capacity));
         }
 
         public void UpdatePrice(Money newPrice)

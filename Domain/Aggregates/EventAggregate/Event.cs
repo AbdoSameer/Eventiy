@@ -1,11 +1,8 @@
 ﻿using Domain.Common;
-using Domain.Exceptions;
 using Domain.Primitives;
 using Domain.Aggregates.EventAggregate.ValueObject;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using Domain.Aggregates.EventAggregate.Errors;
+using Domain.Aggregates.EventAggregate.Enums;
 
 namespace Domain.Aggregates.EventAggregate
 {
@@ -13,22 +10,18 @@ namespace Domain.Aggregates.EventAggregate
     {
         public EventName Name { get; private set; } = null!;
         public EventCapacity Capacity { get; private set; } = null!;
-
         public DateTime Date { get; private set; }
         public Address Location { get; private set; } = null!;
+        public EventStatus Status { get; private set; }
         public string Description { get; private set; } = string.Empty;
-        public bool IsPublished { get; private set; }
-        public bool IsCancelled { get; private set; }
-
         public int TotalSeats => Capacity.Capacity;
-
         private readonly List<TicketType> _ticketTypes = new();
         public IReadOnlyCollection<TicketType> TicketTypes => _ticketTypes.AsReadOnly();
 
         protected Event() : base(default!) { }
 
         private Event(EventId id) : base(id) { }
-
+            
         private Event(
             EventId id,
             EventName name,
@@ -39,9 +32,10 @@ namespace Domain.Aggregates.EventAggregate
         {
             Name = name;
             Date = date;
-            Address.Create(location.Country, location.City, location.Street);
+            Location= location;
             Description = description;
             Capacity = capacity;
+            Status = EventStatus.Draft;
         }
 
         public static Result<Event> Create(
@@ -58,16 +52,19 @@ namespace Domain.Aggregates.EventAggregate
             var capacityResult = EventCapacity.Create(capacityValue);
             if (capacityResult.IsFailure)
                 return Result<Event>.Failure(capacityResult.Error);
-
+            
             if (date < DateTime.UtcNow)
                 return Result<Event>.Failure("Event date must be in the future.");
-
-
-            var newEvent = new Event(
+            
+            var locationResult = Address.Create(location.Country, location.City, location.Street);
+            if (locationResult.IsFailure)
+                return Result<Event>.Failure(locationResult.Error);
+                
+                var newEvent = new Event(
                 EventId.CreateUnqiue(),
                 nameResult.Value,
                 date,
-                Address.Create(location.Country, location.City, location.Street),
+                locationResult.Value,
                 description,
                 capacityResult.Value);
 
@@ -79,27 +76,25 @@ namespace Domain.Aggregates.EventAggregate
             if (Date < DateTime.UtcNow)
                 return Result.Failure(EventErrors.InvalidEventDate(Date));
 
-            if (IsCancelled)
+            if (Status == EventStatus.Cancelled)
                 return Result.Failure(EventErrors.CannotPublishCancelledEvent());
 
             if (_ticketTypes.Count == 0)
                 return Result.Failure(EventErrors.CannotPublishWithoutTicketTypes());
 
-            IsPublished = true;
+            Status = EventStatus.Published;
             return Result.Success();
         }
 
         public Result Cancel()
         {
-            if (IsCancelled)
-
+            if (Status == EventStatus.Cancelled)
                 return Result.Failure(EventErrors.AlreadyCancelled());
 
-            if (IsPublished)
-
+            if (Status == EventStatus.Published)
                 return Result.Failure(EventErrors.CannotCancelPublishedEvent());
 
-            IsCancelled = true;
+            Status = EventStatus.Cancelled;
             return Result.Success();
         }
 
@@ -113,7 +108,9 @@ namespace Domain.Aggregates.EventAggregate
                 return Result.Failure(EventErrors.TicketTypeCapacityExceedsRemainingCapacity(
                     capacity, remainingCapacity));
 
-            _ticketTypes.Add(TicketType.Create(this.Id, name, price, capacity));
+            var ticketTypeResult = TicketType.Create(Id,name, price, capacity);
+            if (ticketTypeResult.IsFailure)
+                return Result.Failure(ticketTypeResult.Error);
             return Result.Success();
         }
 
@@ -129,7 +126,7 @@ namespace Domain.Aggregates.EventAggregate
 
         public Result UpdateCapacity(int newCapacityValue)
         {
-            if (IsPublished)
+            if (Status==EventStatus.Published)
                 return Result.Failure(EventErrors.CannotChangeCapacityAfterPublish());
 
             var capacityResult = EventCapacity.Create(newCapacityValue);
@@ -147,7 +144,11 @@ namespace Domain.Aggregates.EventAggregate
 
         public Result UpdateLocation(Address newLocation)
         {
-            Address.Create(newLocation.Country, newLocation.City, newLocation.Street);
+            var locationResult = Address.Create(newLocation.Country, newLocation.City, newLocation.Street);
+            if(locationResult.IsFailure)
+                return Result.Failure(locationResult.Error);
+            
+            Location = locationResult.Value;
             return Result.Success();
         }
 
@@ -159,5 +160,27 @@ namespace Domain.Aggregates.EventAggregate
             Date = newDate;
             return Result.Success();
         }
-    }
+
+        public Result UpdateStatus(EventStatus newStatus)
+        {
+            if (newStatus == EventStatus.Published && Status == EventStatus.Cancelled)
+                return Result.Failure(EventErrors.CannotPublishCancelledEvent());
+            if (newStatus == EventStatus.Cancelled && Status == EventStatus.Published)
+                return Result.Failure(EventErrors.CannotCancelPublishedEvent());
+            if (newStatus == EventStatus.Published && _ticketTypes.Count == 0)
+                return Result.Failure(EventErrors.CannotPublishWithoutTicketTypes());
+            if (newStatus == EventStatus.Published && Date < DateTime.UtcNow)
+                return Result.Failure(EventErrors.InvalidEventDate(Date));
+            if (newStatus == EventStatus.Cancelled && Status == EventStatus.Completed)
+                return Result.Failure(EventErrors.CannotCancelCompletedEvent());
+            if (newStatus == EventStatus.Completed && Status == EventStatus.Cancelled)
+                return Result.Failure(EventErrors.CannotCompleteCancelledEvent());
+            if (newStatus == EventStatus.Completed && Status == EventStatus.Draft)
+                return Result.Failure(EventErrors.CannotCompleteDraftEvent());
+            Status = newStatus;
+            return Result.Success();
+        }
+
+
+        }
 }

@@ -56,5 +56,17 @@ internal static class EventErrors
     public static string DescriptionTooLong(int maxLength)
         => $"Event description cannot exceed {maxLength} characters.";
 
+    internal static string CannotCancelCompletedEvent()
+        =>"Cannot cancel an event that has already been completed.";
+
+
+    public static string CannotCompleteCancelledEvent()
+        => "Cannot complete an event that has already been cancelled.";
+
+
+    internal static string CannotCompleteDraftEvent()
+        => "Cannot complete a draft event.";
+
+
     // No GetUnexpectedErrorMessage - that belongs to Infrastructure layer
 }
