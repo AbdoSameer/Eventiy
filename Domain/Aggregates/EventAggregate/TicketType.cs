@@ -30,7 +30,7 @@ namespace Domain.Aggregates.EventAggregate
             Capacity = capacity;
         }
 
-        public Result<TicketType> Create(EventId eventId, string name, Money price, int capacity)
+        public static Result<TicketType> Create(EventId eventId, string name, Money price, int capacity)
         {
             if (eventId is null)
                 Result<TicketType>.Failure("Event ID cannot be null.");

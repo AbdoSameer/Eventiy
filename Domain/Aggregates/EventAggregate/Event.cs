@@ -21,7 +21,7 @@ namespace Domain.Aggregates.EventAggregate
         protected Event() : base(default!) { }
 
         private Event(EventId id) : base(id) { }
-            
+
         private Event(
             EventId id,
             EventName name,
@@ -32,7 +32,7 @@ namespace Domain.Aggregates.EventAggregate
         {
             Name = name;
             Date = date;
-            Location= location;
+            Location = location;
             Description = description;
             Capacity = capacity;
             Status = EventStatus.Draft;
@@ -52,37 +52,45 @@ namespace Domain.Aggregates.EventAggregate
             var capacityResult = EventCapacity.Create(capacityValue);
             if (capacityResult.IsFailure)
                 return Result<Event>.Failure(capacityResult.Error);
-            
+
             if (date < DateTime.UtcNow)
                 return Result<Event>.Failure("Event date must be in the future.");
-            
+
             var locationResult = Address.Create(location.Country, location.City, location.Street);
             if (locationResult.IsFailure)
                 return Result<Event>.Failure(locationResult.Error);
-                
-                var newEvent = new Event(
-                EventId.CreateUnqiue(),
-                nameResult.Value,
-                date,
-                locationResult.Value,
-                description,
-                capacityResult.Value);
+
+            var newEvent = new Event(
+            EventId.CreateUnqiue(),
+            nameResult.Value,
+            date,
+            locationResult.Value,
+            description,
+            capacityResult.Value);
 
             return Result<Event>.Success(newEvent);
         }
 
         public Result Publish()
         {
-            if (Date < DateTime.UtcNow)
-                return Result.Failure(EventErrors.InvalidEventDate(Date));
-
             if (Status == EventStatus.Cancelled)
                 return Result.Failure(EventErrors.CannotPublishCancelledEvent());
+
+            if (Status == EventStatus.Completed)
+                return Result.Failure(EventErrors.CannotPublishCompletedEvent());
+
+            if (Status == EventStatus.Published)
+                return Result.Failure(EventErrors.AlreadyPublished());
 
             if (_ticketTypes.Count == 0)
                 return Result.Failure(EventErrors.CannotPublishWithoutTicketTypes());
 
+            if (Date < DateTime.UtcNow)
+                return Result.Failure(EventErrors.InvalidEventDate(Date));
+
             Status = EventStatus.Published;
+
+
             return Result.Success();
         }
 
@@ -91,15 +99,53 @@ namespace Domain.Aggregates.EventAggregate
             if (Status == EventStatus.Cancelled)
                 return Result.Failure(EventErrors.AlreadyCancelled());
 
-            if (Status == EventStatus.Published)
-                return Result.Failure(EventErrors.CannotCancelPublishedEvent());
+            if (Status == EventStatus.Completed)
+                return Result.Failure(EventErrors.CannotCancelCompletedEvent());
 
             Status = EventStatus.Cancelled;
+
             return Result.Success();
         }
 
+        public Result Complete()
+        {
+            if (Status == EventStatus.Completed)
+                return Result.Failure(EventErrors.AlreadyCompleted());
+
+            if (Status == EventStatus.Cancelled)
+                return Result.Failure(EventErrors.CannotCompleteCancelledEvent());
+
+            if (Status == EventStatus.Draft)
+                return Result.Failure(EventErrors.CannotCompleteDraftEvent());
+
+            if (Date > DateTime.UtcNow)
+                return Result.Failure(EventErrors.CannotCompleteFutureEvent(Date));
+
+            Status = EventStatus.Completed;
+
+
+            return Result.Success();
+        }
+
+        public Result Reopen()
+        {
+            if (Status != EventStatus.Completed)
+                return Result.Failure(EventErrors.CanOnlyReopenCompletedEvent());
+
+            if (Date < DateTime.UtcNow)
+                return Result.Failure(EventErrors.CannotReopenPastEvent(Date));
+
+            Status = EventStatus.Published;
+
+            return Result.Success();
+        }
+
+
         public Result AddTicketType(string name, Money price, int capacity)
         {
+            if (Status != EventStatus.Draft)
+                return Result.Failure(EventErrors.CannotModifyTicketTypesAfterDraft());
+
             if (_ticketTypes.Count >= 10)
                 return Result.Failure(EventErrors.MaxTicketTypesExceeded(10));
 
@@ -108,26 +154,14 @@ namespace Domain.Aggregates.EventAggregate
                 return Result.Failure(EventErrors.TicketTypeCapacityExceedsRemainingCapacity(
                     capacity, remainingCapacity));
 
-            var ticketTypeResult = TicketType.Create(Id,name, price, capacity);
-            if (ticketTypeResult.IsFailure)
-                return Result.Failure(ticketTypeResult.Error);
-            return Result.Success();
-        }
-
-        public Result UpdateTitle(string newTitle)
-        {
-            var nameResult = EventName.Create(newTitle);
-            if (nameResult.IsFailure)
-                return Result.Failure(nameResult.Error);
-
-            Name = nameResult.Value;
+            _ticketTypes.Add(TicketType.Create(this.Id, name, price, capacity).Value);
             return Result.Success();
         }
 
         public Result UpdateCapacity(int newCapacityValue)
         {
-            if (Status==EventStatus.Published)
-                return Result.Failure(EventErrors.CannotChangeCapacityAfterPublish());
+            if (Status != EventStatus.Draft)
+                return Result.Failure(EventErrors.CannotModifyCapacityAfterDraft());
 
             var capacityResult = EventCapacity.Create(newCapacityValue);
             if (capacityResult.IsFailure)
@@ -142,45 +176,52 @@ namespace Domain.Aggregates.EventAggregate
             return Result.Success();
         }
 
-        public Result UpdateLocation(Address newLocation)
-        {
-            var locationResult = Address.Create(newLocation.Country, newLocation.City, newLocation.Street);
-            if(locationResult.IsFailure)
-                return Result.Failure(locationResult.Error);
-            
-            Location = locationResult.Value;
-            return Result.Success();
-        }
-
         public Result UpdateDate(DateTime newDate)
         {
+            if (Status != EventStatus.Draft)
+                return Result.Failure(EventErrors.CannotModifyDateAfterDraft());
+
             if (newDate < DateTime.UtcNow)
-                return Result.Failure(EventErrors.InvalidEventDate(Date));
+                return Result.Failure(EventErrors.InvalidEventDate(newDate));
 
             Date = newDate;
             return Result.Success();
         }
 
-        public Result UpdateStatus(EventStatus newStatus)
+
+        public Result UpdateDescription(string newDescription)
         {
-            if (newStatus == EventStatus.Published && Status == EventStatus.Cancelled)
-                return Result.Failure(EventErrors.CannotPublishCancelledEvent());
-            if (newStatus == EventStatus.Cancelled && Status == EventStatus.Published)
-                return Result.Failure(EventErrors.CannotCancelPublishedEvent());
-            if (newStatus == EventStatus.Published && _ticketTypes.Count == 0)
-                return Result.Failure(EventErrors.CannotPublishWithoutTicketTypes());
-            if (newStatus == EventStatus.Published && Date < DateTime.UtcNow)
-                return Result.Failure(EventErrors.InvalidEventDate(Date));
-            if (newStatus == EventStatus.Cancelled && Status == EventStatus.Completed)
-                return Result.Failure(EventErrors.CannotCancelCompletedEvent());
-            if (newStatus == EventStatus.Completed && Status == EventStatus.Cancelled)
-                return Result.Failure(EventErrors.CannotCompleteCancelledEvent());
-            if (newStatus == EventStatus.Completed && Status == EventStatus.Draft)
-                return Result.Failure(EventErrors.CannotCompleteDraftEvent());
-            Status = newStatus;
+            if (Status != EventStatus.Draft)
+                return Result.Failure(EventErrors.CannotModifyDescriptionAfterDraft());
+
+            if (newDescription.Length > 500)
+                return Result.Failure(EventErrors.DescriptionTooLong(500));
+
+            Description = newDescription;
+            return Result.Success();
+        }
+
+        public Result UpdateTitle(string newTitle)
+        {
+            var nameResult = EventName.Create(newTitle);
+            if (nameResult.IsFailure)
+                return Result.Failure(nameResult.Error);
+
+            Name = nameResult.Value;
+            return Result.Success();
+        }
+
+        public Result UpdateLocation(Address newLocation)
+        {
+            var locationResult = Address.Create(newLocation.Country, newLocation.City, newLocation.Street);
+            if (locationResult.IsFailure)
+                return Result.Failure(locationResult.Error);
+
+            Location = locationResult.Value;
             return Result.Success();
         }
 
 
-        }
+
+    }
 }

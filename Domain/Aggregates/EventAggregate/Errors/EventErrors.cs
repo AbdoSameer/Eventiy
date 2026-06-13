@@ -59,14 +59,45 @@ internal static class EventErrors
     internal static string CannotCancelCompletedEvent()
         =>"Cannot cancel an event that has already been completed.";
 
+    // Lifecycle Rules - New errors
+    public static string AlreadyPublished()
+        => "Event is already published.";
+
+    public static string AlreadyCompleted()
+        => "Event is already completed.";
+
+    public static string CannotPublishCompletedEvent()
+        => "Cannot publish a completed event.";
 
     public static string CannotCompleteCancelledEvent()
-        => "Cannot complete an event that has already been cancelled.";
+        => "Cannot complete a cancelled event.";
 
+    public static string CannotCompleteDraftEvent()
+        => "Cannot complete an event that hasn't been published yet.";
 
-    internal static string CannotCompleteDraftEvent()
-        => "Cannot complete a draft event.";
+    public static string CannotCompleteFutureEvent(DateTime eventDate)
+        => $"Cannot complete event with future date {eventDate:yyyy-MM-dd}.";
 
+    public static string CanOnlyReopenCompletedEvent()
+        => "Can only reopen a completed event.";
 
+    public static string CannotReopenPastEvent(DateTime eventDate)
+        => $"Cannot reopen an event that ended on {eventDate:yyyy-MM-dd}.";
+
+    // Modification restrictions
+    public static string CannotModifyTicketTypesAfterDraft()
+        => "Cannot add or modify ticket types after event leaves Draft status.";
+
+    public static string CannotModifyCapacityAfterDraft()
+        => "Cannot modify event capacity after it leaves Draft status.";
+
+    public static string CannotModifyDateAfterDraft()
+        => "Cannot modify event date after it leaves Draft status.";
+
+    public static string CannotModifyLocationAfterDraft()
+        => "Cannot modify event location after it leaves Draft status.";
+
+    public static string CannotModifyDescriptionAfterDraft()
+        => "Cannot modify event description after it leaves Draft status.";
     // No GetUnexpectedErrorMessage - that belongs to Infrastructure layer
 }
