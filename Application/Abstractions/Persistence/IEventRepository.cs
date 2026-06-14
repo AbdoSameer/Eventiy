@@ -1,12 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Application.Abstractions.Persistence
+﻿namespace Application.Abstractions.Persistence
 {
-    internal interface IEventRepository
+    public interface IEventRepository : Domain.Repositories.IEventRepository
     {
     }
 }

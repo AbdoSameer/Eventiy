@@ -1,6 +1,6 @@
 ﻿namespace Application.Features.Events.Queries.GetEventDetails
 {
-    internal class EventDetailsResponse
+    public class EventDetailsResponse
     {
         public Guid Id { get; set; }
         public DateTime Date { get; set; }
@@ -13,4 +13,3 @@
 
     }
 }
-

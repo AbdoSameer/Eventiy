@@ -1,12 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Application.Abstractions.Messaging;
 
 namespace Application.Features.Events.Commands.CreateEvent
 {
-    internal class AddEventCommand
-    {
-    }
+    public sealed record AddEventCommand(
+        string Name,
+        DateTime Date,
+        string Country,
+        string City,
+        string Street,
+        int Capacity,
+        string Description) : ICommand<Guid>;
 }
