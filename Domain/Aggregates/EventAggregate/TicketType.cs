@@ -33,13 +33,13 @@ namespace Domain.Aggregates.EventAggregate
         public static Result<TicketType> Create(EventId eventId, string name, Money price, int capacity)
         {
             if (eventId is null)
-                Result<TicketType>.Failure("Event ID cannot be null.");
+                return Result<TicketType>.Failure("Event ID cannot be null.");
             if (string.IsNullOrWhiteSpace(name))
-                Result<TicketType>.Failure("Name cannot be empty.");
+                return Result<TicketType>.Failure("Name cannot be empty.");
             if (price is null || price.Amount <= 0)
-                Result<TicketType>.Failure("Price must be greater than zero.");
+                return Result<TicketType>.Failure("Price must be greater than zero.");
             if (capacity <= 0)
-                Result<TicketType>.Failure("Capacity must be greater than zero.");
+                return Result<TicketType>.Failure("Capacity must be greater than zero.");
 
             var priceResult = Money.Create(price.Amount, price.Currency);
 
@@ -47,38 +47,39 @@ namespace Domain.Aggregates.EventAggregate
                 return Result<TicketType>.Failure(priceResult.Error);
 
             return Result<TicketType>.Success(new TicketType(
-                eventId!,
+                eventId,
                 TicketTypeId.CreateUnqiue(),
                 name,
-                price!,
+                priceResult.Value!,
                 capacity));
         }
 
-        public void UpdatePrice(Money newPrice)
+        public Result UpdatePrice(Money newPrice)
         {
             if (newPrice is null || newPrice.Amount <= 0)
-                throw new ArgumentException("Price must be greater than zero.", nameof(newPrice));
+                return Result<TicketType>.Failure("Price must be greater than zero.");
 
             Price = newPrice;
+            return Result.Success();
         }
 
-        public void UpdateCapacity(int newCapacity)
+        public Result UpdateCapacity(int newCapacity)
         {
             if (newCapacity <= 0)
-                throw new ArgumentException("Capacity must be greater than zero.", nameof(newCapacity));
-
+                return Result.Failure("Capacity must be greater than zero.");
             if (newCapacity < Capacity)
-                throw new ArgumentException("New capacity cannot be less than current capacity.", nameof(newCapacity));
-
+                return Result.Failure("Capacity cannot be less than the current capacity.");
             Capacity = newCapacity;
+            
+            return Result.Success();
         }
 
-        public void UpdateName(string newName)
+        public Result UpdateName(string newName)
         {
             if (string.IsNullOrWhiteSpace(newName))
-                throw new ArgumentException("Name cannot be empty.", nameof(newName));
-
+            return Result.Failure("Name cannot be empty.");
             Name = newName;
+            return Result.Success();
         }
     }
 }

@@ -4,20 +4,25 @@ namespace Domain.Aggregates.EventAggregate.ValueObject;
 public sealed class EventId: ValueObjectBase
 {
     public Guid Value { get; }
+    protected EventId() { }
 
-    private EventId (Guid value)
+    public EventId (Guid value)
     {
         Value = value;
+    }
+
+    public static EventId CreateUuid(Guid id)
+    {
+        return new(id);
     }
 
     public static EventId CreateUnqiue()
     {
         return new(Guid.NewGuid());
     }
-
     protected override IEnumerable<object> GetEqualityComponents()
     {
-        throw new NotImplementedException();
+        yield return Value;
     }
 
 }

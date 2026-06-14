@@ -6,6 +6,8 @@ namespace Domain.Aggregates.EventAggregate.ValueObject
     {
         public int Capacity { get; private set; }
 
+        private EventCapacity() { }
+
         private EventCapacity(int capacity)
         {
             Capacity = capacity;

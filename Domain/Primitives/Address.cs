@@ -13,6 +13,9 @@ namespace Domain.Primitives
         public string City { get; private set; }
         public string Street { get; private set; }
 
+        
+
+        private Address() { }
 
         private Address(string country, string city, string street)
         {
@@ -27,11 +30,11 @@ namespace Domain.Primitives
             string street)
         {
             if (string.IsNullOrEmpty(country))
-                Result<Address>.Failure("Country cannot be null or empty.");
+               return Result<Address>.Failure("Country cannot be null or empty.");
             if (string.IsNullOrEmpty(city))
-                Result<Address>.Failure("City cannot be null or empty.");
+                return Result<Address>.Failure("City cannot be null or empty.");
             if (string.IsNullOrEmpty(street))
-                Result<Address>.Failure("Street cannot be null or empty.");
+                return Result<Address>.Failure("Street cannot be null or empty.");
 
             return Result<Address>
                     .Success(new Address(country, city, street));

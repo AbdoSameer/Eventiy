@@ -127,20 +127,6 @@ namespace Domain.Aggregates.EventAggregate
             return Result.Success();
         }
 
-        public Result Reopen()
-        {
-            if (Status != EventStatus.Completed)
-                return Result.Failure(EventErrors.CanOnlyReopenCompletedEvent());
-
-            if (Date < DateTime.UtcNow)
-                return Result.Failure(EventErrors.CannotReopenPastEvent(Date));
-
-            Status = EventStatus.Published;
-
-            return Result.Success();
-        }
-
-
         public Result AddTicketType(string name, Money price, int capacity)
         {
             if (Status != EventStatus.Draft)
@@ -154,7 +140,11 @@ namespace Domain.Aggregates.EventAggregate
                 return Result.Failure(EventErrors.TicketTypeCapacityExceedsRemainingCapacity(
                     capacity, remainingCapacity));
 
-            _ticketTypes.Add(TicketType.Create(this.Id, name, price, capacity).Value);
+            var TicketResult = TicketType.Create(this.Id, name, price, capacity);
+            if (TicketResult.IsFailure)
+                return Result.Failure(TicketResult.Error);
+
+            _ticketTypes.Add(TicketResult.Value);
             return Result.Success();
         }
 
@@ -203,6 +193,9 @@ namespace Domain.Aggregates.EventAggregate
 
         public Result UpdateTitle(string newTitle)
         {
+            if (Status != EventStatus.Draft)
+                return Result.Failure(EventErrors.CannotModifyCapacityAfterDraft());
+
             var nameResult = EventName.Create(newTitle);
             if (nameResult.IsFailure)
                 return Result.Failure(nameResult.Error);
@@ -213,6 +206,9 @@ namespace Domain.Aggregates.EventAggregate
 
         public Result UpdateLocation(Address newLocation)
         {
+            if (Status != EventStatus.Draft)
+                return Result.Failure(EventErrors.CannotModifyCapacityAfterDraft());
+
             var locationResult = Address.Create(newLocation.Country, newLocation.City, newLocation.Street);
             if (locationResult.IsFailure)
                 return Result.Failure(locationResult.Error);
@@ -220,8 +216,6 @@ namespace Domain.Aggregates.EventAggregate
             Location = locationResult.Value;
             return Result.Success();
         }
-
-
 
     }
 }

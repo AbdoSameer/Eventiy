@@ -6,7 +6,7 @@ public sealed class TicketTypeId : ValueObjectBase
 {
     public Guid Value { get; }
 
-    private TicketTypeId(Guid value)
+    public TicketTypeId(Guid value)
     {
         Value = value;
     }
@@ -18,10 +18,7 @@ public sealed class TicketTypeId : ValueObjectBase
 
     protected override IEnumerable<object> GetEqualityComponents()
     {
-        
-        yield break;
-
-        throw new NotImplementedException();
+        yield return Value;
     }
 
 }

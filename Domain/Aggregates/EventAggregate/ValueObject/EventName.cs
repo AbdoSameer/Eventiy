@@ -5,11 +5,13 @@ namespace Domain.Aggregates.EventAggregate.ValueObject
     public sealed class EventName : ValueObjectBase
     {
         
-        public string Name { get; private set; }
+        public string Value { get; private set; }
 
-        private EventName(string name)
+        private EventName() { }
+
+        private EventName(string value)
         {
-            Name = name;
+            Value = value;
         }
 
         public static Result<EventName> Create(string name)
@@ -28,7 +30,7 @@ namespace Domain.Aggregates.EventAggregate.ValueObject
 
         protected override IEnumerable<object> GetEqualityComponents()
         {
-            yield return Name;
+            yield return Value;
         }
     }
 }
