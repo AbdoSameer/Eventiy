@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Domain.Common
+﻿namespace Domain.Common
 {
     public class Result
     {
@@ -24,10 +18,7 @@ namespace Domain.Common
 
     public class Result<T>: Result
     {
-        public bool IsSuccess { get; private set; }
-        public bool IsFailure => !IsSuccess;
-        public T Value { get; private set; }
-        public string Error { get; private set; }
+        public T Value { get; }
 
         private Result(bool isSuccess, T value, string error) : base(isSuccess, error)
         {
@@ -41,9 +32,7 @@ namespace Domain.Common
         public static Result<T> Success(T value)=> 
             new Result<T>(true, value,string.Empty);
         
-        public static Result<T> Failure(string error) =>
+        public static new Result<T> Failure(string error) =>
             new Result<T>(false, default(T)!, error);
-
-
     }
 }
