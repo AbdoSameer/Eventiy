@@ -4,9 +4,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Application.Dtos
+namespace Application.Features.Events.Queries.GetEventDetails
 {
-    internal class EventDto
+    internal class GetEventDetailsHandler
     {
+
     }
 }

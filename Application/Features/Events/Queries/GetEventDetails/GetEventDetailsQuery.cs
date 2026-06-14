@@ -4,9 +4,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Application.Events.Commands.AddEventComand
+namespace Application.Features.Events.Queries.GetEventDetails
 {
-    internal class AddEventCommandHandler
+    internal class GetEventDetailsQuery
     {
+
+
+
     }
 }

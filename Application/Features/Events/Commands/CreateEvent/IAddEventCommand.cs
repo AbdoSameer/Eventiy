@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Application.Events.Commands.AddEventComand
+namespace Application.Features.Events.Commands.CreateEvent
 {
-    internal class AddEventCommand
+    internal interface IAddEventCommand 
     {
     }
 }
