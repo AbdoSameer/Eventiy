@@ -9,7 +9,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-namespace Infrastructure.Configuration.EventAggregateConfiguration
+namespace Infrastructure.Persistence.Configuration.EventAggregateConfiguration
 {
     public class EventConfiguration : IEntityTypeConfiguration<Event>
     {

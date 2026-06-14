@@ -8,7 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Infrastructure.Configuration.EventAggregateConfiguration
+namespace Infrastructure.Persistence.Configuration.EventAggregateConfiguration
 {
     internal class TicketTyepConfiguration : IEntityTypeConfiguration<TicketType>
     {

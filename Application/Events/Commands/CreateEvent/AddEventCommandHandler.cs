@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Infrastructure.Data
+namespace Application.Events.Commands.AddEventComand
 {
-    internal class EventyDbContext
+    internal class AddEventCommandHandler
     {
     }
 }
