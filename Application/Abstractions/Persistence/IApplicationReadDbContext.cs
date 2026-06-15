@@ -13,3 +13,4 @@ namespace Application.Abstractions.Persistence
             where TEntity : class;
     }
 }
+    

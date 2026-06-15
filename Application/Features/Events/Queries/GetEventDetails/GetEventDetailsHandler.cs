@@ -5,7 +5,8 @@ using Domain.Common;
 
 namespace Application.Features.Events.Queries.GetEventDetails
 {
-    internal sealed class GetEventDetailsHandler : IQueryHandler<GetEventDetailsQuery, EventDetailsResponse>
+    public sealed class GetEventDetailsHandler :
+        IQueryHandler<GetEventDetailsQuery, EventDetailsResponse>
     {
         private readonly IEventRepository _eventRepository;
 
@@ -38,7 +39,10 @@ namespace Application.Features.Events.Queries.GetEventDetails
                 Date = eventResult.Value.Date,
                 Name = eventResult.Value.Name.Value,
                 Description = eventResult.Value.Description,
-                Status = eventResult.Value.Status.ToString(),
+                Status = eventResult.Value.Status,
+                LowestTicketPrice = eventResult.Value.TicketTypes.Count == 0
+                    ? 0
+                    : eventResult.Value.TicketTypes.Min(ticketType => ticketType.Price.Amount),
                 Location = new AddressResponse
                 {
                     Country = eventResult.Value.Location.Country,
@@ -51,6 +55,7 @@ namespace Application.Features.Events.Queries.GetEventDetails
                         Id = ticketType.Id.Value,
                         Name = ticketType.Name,
                         Price = ticketType.Price.Amount,
+                        Currency = ticketType.Price.Currency,
                         Capacity = ticketType.Capacity
                     })
                     .ToList()
