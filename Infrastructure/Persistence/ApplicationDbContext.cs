@@ -1,20 +1,12 @@
-﻿using Application.Abstractions.Persistence;
-using Domain.Aggregates.EventAggregate;
+﻿using Domain.Aggregates.EventAggregate;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Infrastructure.Persistence
 {
-    internal class ApplicationDbContext : DbContext
+    public class ApplicationDbContext : DbContext
     {
-        public DbSet<Event> Events { get; set; } = null!;
-        public DbSet<TicketType> TicketTypes { get; set; } = null!;
-
-
+        public DbSet<Event> Events => Set<Event>();
+        public DbSet<TicketType> TicketTypes => Set<TicketType>();
 
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
         {
@@ -27,9 +19,10 @@ namespace Infrastructure.Persistence
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
         }
 
-        public Task SaveChangesAsync()
+        public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
-            return base.SaveChangesAsync();
+            return await base.SaveChangesAsync(cancellationToken);
         }
+
     }
 }
