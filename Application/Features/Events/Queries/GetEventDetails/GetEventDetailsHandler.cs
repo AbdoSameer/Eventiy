@@ -34,22 +34,24 @@ namespace Application.Features.Events.Queries.GetEventDetails
                     Min(t => t.Price.Amount),
 
                     Location = new AddressResponse
-                    {
-                        Street = e.Location.Street,
-                        City = e.Location.City,
-                        Country = e.Location.Country
-                    },
+                    (
+                        e.Location.Country,
+                        e.Location.City,
+                        e.Location.Street
+                    ),
 
-                    TicketDetails = e.TicketTypes.Select(t => new TicketDetailsResponse
-                    {
-                        Id = t.Id.Value,
-                        Price = t.Price.Amount,
-                        Currency = t.Price.Currency,
-                    }).ToList()
+                    TicketDetails = e.TicketTypes.Select(t =>
+                    new TicketDetailsResponse(
+                        t.Id.Value,
+                        t.Price.Amount,
+                        t.Price.Currency,
+                        t.Name,
+                        t.Capacity
+                        )).ToList()
 
                 }).FirstOrDefaultAsync(cancellationToken);
 
-         
+
             return Result<EventDetailsResponse>.Success(result!);
         }
     }
