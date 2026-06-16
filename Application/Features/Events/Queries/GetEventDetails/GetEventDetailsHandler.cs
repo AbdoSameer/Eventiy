@@ -1,6 +1,7 @@
 ﻿using Application.Abstractions.Messaging;
 using Application.Abstractions.Persistence;
 using Domain.Aggregates.EventAggregate;
+using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Common;
 using Microsoft.EntityFrameworkCore;
 
@@ -22,7 +23,7 @@ namespace Application.Features.Events.Queries.GetEventDetails
             CancellationToken cancellationToken)
         {
             var result = await _context.Query<Event>()
-                .Where(e => e.Id.Value == request.EventId)
+                .Where(e => e.Id== new EventId(request.Id))
                 .Select(e => new EventDetailsResponse
                 {
                     Id = e.Id.Value,
@@ -30,8 +31,9 @@ namespace Application.Features.Events.Queries.GetEventDetails
                     Name = e.Name.Value,
                     Description = e.Description,
                     Status = e.Status,
-                    LowestTicketPrice = e.TicketTypes.
-                    Min(t => t.Price.Amount),
+
+                    LowestTicketPrice = e.TicketTypes.Any() ?
+                    e.TicketTypes.Min(t => t.Price.Amount): 0m,
 
                     Location = new AddressResponse
                     (
@@ -41,13 +43,12 @@ namespace Application.Features.Events.Queries.GetEventDetails
                     ),
 
                     TicketDetails = e.TicketTypes.Select(t =>
-                    new TicketDetailsResponse(
-                        t.Id.Value,
-                        t.Price.Amount,
-                        t.Price.Currency,
-                        t.Name,
-                        t.Capacity
-                        )).ToList()
+                        new TicketDetailsResponse(
+                            t.Id.Value,
+                            t.Price.Amount,
+                            t.Price.Currency,
+                            t.Name,
+                            t.Capacity)).ToList()
 
                 }).FirstOrDefaultAsync(cancellationToken);
 

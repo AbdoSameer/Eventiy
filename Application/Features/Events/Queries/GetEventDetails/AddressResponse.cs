@@ -3,5 +3,6 @@
     public record AddressResponse(string Country,
                                   string City,
                                   string Street);
+
 }
 

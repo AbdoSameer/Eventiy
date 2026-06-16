@@ -1,9 +1,10 @@
-﻿using Domain.Aggregates.EventAggregate;
+﻿using Application.Abstractions.Persistence;
+using Domain.Aggregates.EventAggregate;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence
 {
-    public class ApplicationDbContext : DbContext
+    public class ApplicationDbContext : DbContext 
     {
         public DbSet<Event> Events => Set<Event>();
         public DbSet<TicketType> TicketTypes => Set<TicketType>();

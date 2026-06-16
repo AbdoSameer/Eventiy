@@ -2,11 +2,7 @@
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+
 
 namespace Infrastructure.Persistence.Configuration.EventAggregateConfiguration
 {
@@ -23,15 +19,17 @@ namespace Infrastructure.Persistence.Configuration.EventAggregateConfiguration
                     id => id.Value,
                     value => new TicketTypeId(value));
 
-            builder.OwnsOne(x => x.Price, money =>
+            builder.ComplexProperty(x => x.Price, money =>
             {
                 money.Property(x => x.Amount)
-                     .HasColumnName("Price");
-
+                     .HasColumnName("Price")
+                     .IsRequired();
                 money.Property(x => x.Currency)
                      .HasColumnName("Currency")
-                     .HasMaxLength(3);
+                     .HasMaxLength(3)
+                     .IsRequired();
             });
+
 
             builder.Property(x => x.EventId)
                    .HasConversion(

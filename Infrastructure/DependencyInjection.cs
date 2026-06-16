@@ -1,5 +1,6 @@
 ﻿using Application.Abstractions.Persistence;
 using Infrastructure.Persistence;
+using Infrastructure.Persistence.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,6 +18,12 @@ namespace Infrastructure
 
             services.AddDbContext<ApplicationDbContext>
                 (options => options.UseSqlServer(connectionString));
+
+            services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+            services.AddScoped<IEventRepository, EventRepository>();
+
+
 
             services.AddScoped<IApplicationReadDbContext, ReadDbContextAdapter>();
 
