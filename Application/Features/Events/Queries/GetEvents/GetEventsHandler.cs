@@ -22,9 +22,10 @@ namespace Application.Features.Events.Queries.GetEvents
             var events = _context.Query<Event>()
                 .Where(e => e.Date > DateTime.UtcNow)
                 .Select(e => new EventCardResponse(
-                    e.Id.Value,
-                    e.Name.Value,
-                    e.Date))
+                   e.Id.Value,
+                   e.Name.Value,
+                   e.Date
+                ))
                 .ToListAsync(cancellationToken);
 
             return Result<List<EventCardResponse>>.Success(await events);

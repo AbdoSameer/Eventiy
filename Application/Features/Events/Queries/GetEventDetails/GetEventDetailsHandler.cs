@@ -43,21 +43,17 @@ namespace Application.Features.Events.Queries.GetEventDetails
                 LowestTicketPrice = eventResult.Value.TicketTypes.Count == 0
                     ? 0
                     : eventResult.Value.TicketTypes.Min(ticketType => ticketType.Price.Amount),
-                Location = new AddressResponse
-                {
-                    Country = eventResult.Value.Location.Country,
-                    City = eventResult.Value.Location.City,
-                    Street = eventResult.Value.Location.Street
-                },
+                Location = new AddressResponse(
+                    eventResult.Value.Location.Country,
+                    eventResult.Value.Location.City,
+                    eventResult.Value.Location.Street),
                 TicketDetails = eventResult.Value.TicketTypes
-                    .Select(ticketType => new TicketDetailsResponse
-                    {
-                        Id = ticketType.Id.Value,
-                        Name = ticketType.Name,
-                        Price = ticketType.Price.Amount,
-                        Currency = ticketType.Price.Currency,
-                        Capacity = ticketType.Capacity
-                    })
+                    .Select(ticketType => new TicketDetailsResponse(
+                        ticketType.Id.Value,
+                        ticketType.Price.Amount,
+                        ticketType.Price.Currency,
+                        ticketType.Name,
+                        ticketType.Capacity))
                     .ToList()
             };
 
