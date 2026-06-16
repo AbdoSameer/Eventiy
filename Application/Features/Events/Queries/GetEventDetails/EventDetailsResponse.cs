@@ -14,6 +14,5 @@ namespace Application.Features.Events.Queries.GetEventDetails
         public List<TicketDetailsResponse> TicketDetails { get; set; }
                                             = new List<TicketDetailsResponse>();
 
-
     }
 }
