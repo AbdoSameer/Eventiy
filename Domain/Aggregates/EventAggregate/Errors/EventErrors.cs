@@ -99,5 +99,9 @@ internal static class EventErrors
 
     public static string CannotModifyDescriptionAfterDraft()
         => "Cannot modify event description after it leaves Draft status.";
+
+    public static string TotalSeatsCannotBeNegative(int capacityValue)
+        => $"Total seats ({capacityValue}) cannot be negative.";
+    
     // No GetUnexpectedErrorMessage - that belongs to Infrastructure layer
 }

@@ -2,11 +2,12 @@
 using Application.Abstractions.Persistence;
 using Domain.Aggregates.EventAggregate;
 using Domain.Common;
+using Domain.Primitives;
 
 
 namespace Application.Features.Events.Commands.CreateEvent
 {
-    internal class CreateEventCommandHandler  
+    internal class CreateEventCommandHandler
                         : ICommandHandler<CreateEventCommand, Guid>
     {
         private readonly IEventRepository _eventRepository;
@@ -19,11 +20,21 @@ namespace Application.Features.Events.Commands.CreateEvent
         }
         public async Task<Result<Guid>> Handle(CreateEventCommand request, CancellationToken cancellationToken)
         {
+            var addressResult = Address.Create(
+                 request.Location.Country,
+                 request.Location.City,
+                 request.Location.Street);
+            
+            if (addressResult.IsFailure)
+            {
+                return Result<Guid>.Failure(addressResult.Error);
+            }
+
             var @event = Event
                         .Create(request.Name,
                                 request.Capacity,
                                 request.Date,
-                                request.Location,
+                                addressResult.Value,
                                 request.Description);
 
             if (@event.IsFailure)

@@ -21,8 +21,7 @@ namespace Infrastructure
 
             services.AddScoped<IApplicationReadDbContext, ReadDbContextAdapter>();
             services.AddScoped<IEventRepository, EventRepository>();
-            services.AddScoped<IUnitOfWork>(serviceProvider =>
-                serviceProvider.GetRequiredService<ApplicationDbContext>());
+            services.AddScoped<IUnitOfWork, UnitOfWork>();
 
             return services;
 
@@ -30,5 +29,4 @@ namespace Infrastructure
     }
 
 }
-
 

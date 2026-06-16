@@ -1,11 +1,9 @@
-﻿using Application.Abstractions.Persistence;
-using Domain.Aggregates.EventAggregate;
-using Domain.Common;
+﻿using Domain.Aggregates.EventAggregate;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence
 {
-    public class ApplicationDbContext : DbContext, IUnitOfWork
+    public class ApplicationDbContext : DbContext
     {
         public DbSet<Event> Events => Set<Event>();
         public DbSet<TicketType> TicketTypes => Set<TicketType>();
@@ -20,25 +18,5 @@ namespace Infrastructure.Persistence
 
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
         }
-
-        public async Task<Result> CommitAsync(CancellationToken cancellationToken = default)
-        {
-            try
-            {
-                await base.SaveChangesAsync(cancellationToken);
-
-                return Result.Success();
-            }
-            catch (Exception exception)
-            {
-                return Result.Failure($"Failed to save changes: {exception.Message}");
-            }
-        }
-
-        public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
-        {
-            return base.SaveChangesAsync(cancellationToken);
-        }
-
     }
 }

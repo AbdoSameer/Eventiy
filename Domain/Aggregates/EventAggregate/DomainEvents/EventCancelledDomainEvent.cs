@@ -8,5 +8,4 @@ namespace Domain.Aggregates.EventAggregate.DomainEvents
         public string Name => nameof(EventCancelledDomainEvent);
         public string Domain => "Event";
     }
-
 }

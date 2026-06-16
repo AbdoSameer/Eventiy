@@ -9,12 +9,12 @@ namespace Domain.Aggregates.EventAggregate
     public class Event : AggregateRoot<EventId>
     {
         public EventName Name { get; private set; } = null!;
-        public EventCapacity Capacity { get; private set; } = null!;
+        public int Capacity { get; private set; } 
         public DateTime Date { get; private set; }
         public Address Location { get; private set; } = null!;
         public EventStatus Status { get; private set; }
         public string Description { get; private set; } = string.Empty;
-        public int TotalSeats => Capacity.Capacity;
+        
         private readonly List<TicketType> _ticketTypes = new();
         public IReadOnlyCollection<TicketType> TicketTypes => _ticketTypes.AsReadOnly();
 
@@ -28,7 +28,7 @@ namespace Domain.Aggregates.EventAggregate
             DateTime date,
             Address location,
             string description,
-            EventCapacity capacity) : base(id)
+            int capacity) : base(id)
         {
             Name = name;
             Date = date;
@@ -40,7 +40,7 @@ namespace Domain.Aggregates.EventAggregate
 
         public static Result<Event> Create(
             string name,
-            int capacityValue,
+            int capacity,
             DateTime date,
             Address location,
             string description = "")
@@ -49,12 +49,11 @@ namespace Domain.Aggregates.EventAggregate
             if (nameResult.IsFailure)
                 return Result<Event>.Failure(nameResult.Error);
 
-            var capacityResult = EventCapacity.Create(capacityValue);
-            if (capacityResult.IsFailure)
-                return Result<Event>.Failure(capacityResult.Error);
-
+            if (capacity < 0)
+                return Result<Event>.Failure(EventErrors.TotalSeatsCannotBeNegative(capacity));
+            
             if (date < DateTime.UtcNow)
-                return Result<Event>.Failure("Event date must be in the future.");
+                return Result<Event>.Failure(EventErrors.InvalidEventDate(date));
 
             var locationResult = Address.Create(location.Country, location.City, location.Street);
             if (locationResult.IsFailure)
@@ -66,7 +65,7 @@ namespace Domain.Aggregates.EventAggregate
             date,
             locationResult.Value,
             description,
-            capacityResult.Value);
+            capacity);
 
             return Result<Event>.Success(newEvent);
         }
@@ -135,7 +134,7 @@ namespace Domain.Aggregates.EventAggregate
             if (_ticketTypes.Count >= 10)
                 return Result.Failure(EventErrors.MaxTicketTypesExceeded(10));
 
-            var remainingCapacity = TotalSeats - _ticketTypes.Sum(t => t.Capacity);
+            var remainingCapacity = Capacity - _ticketTypes.Sum(t => t.Capacity);
             if (capacity > remainingCapacity)
                 return Result.Failure(EventErrors.TicketTypeCapacityExceedsRemainingCapacity(
                     capacity, remainingCapacity));
@@ -153,16 +152,16 @@ namespace Domain.Aggregates.EventAggregate
             if (Status != EventStatus.Draft)
                 return Result.Failure(EventErrors.CannotModifyCapacityAfterDraft());
 
-            var capacityResult = EventCapacity.Create(newCapacityValue);
-            if (capacityResult.IsFailure)
-                return Result.Failure(capacityResult.Error);
+            if (newCapacityValue < 0)
+                return Result<Event>.Failure(EventErrors.TotalSeatsCannotBeNegative(newCapacityValue));
+
 
             var allocatedTickets = _ticketTypes.Sum(t => t.Capacity);
             if (newCapacityValue < allocatedTickets)
                 return Result.Failure(EventErrors.TotalSeatsCannotBeLessThanAllocatedTickets(
                     newCapacityValue, allocatedTickets));
 
-            Capacity = capacityResult.Value;
+            Capacity = newCapacityValue;
             return Result.Success();
         }
 

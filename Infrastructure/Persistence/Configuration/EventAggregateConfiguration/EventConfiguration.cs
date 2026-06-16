@@ -1,14 +1,8 @@
 ﻿using Domain.Aggregates.EventAggregate;
-using Domain.Aggregates.EventAggregate.Enums;
 using Domain.Aggregates.EventAggregate.ValueObject;
-using Domain.Primitives;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+
 namespace Infrastructure.Persistence.Configuration.EventAggregateConfiguration
 {
     public class EventConfiguration : IEntityTypeConfiguration<Event>
@@ -23,18 +17,17 @@ namespace Infrastructure.Persistence.Configuration.EventAggregateConfiguration
                 EventId => EventId.Value,
                 Value => new EventId(Value));
 
-            
-            builder.Property(E => E.Description).HasMaxLength(1000).IsRequired();
+        
+
+        builder.Property(E => E.Description).HasMaxLength(1000).IsRequired();
        
             builder.Property(E=>E.Name).HasMaxLength(100).IsRequired()
                 .HasConversion(
-                EventName => EventName.Value,
+                name => name.Value,
                 Value =>EventName.Create(Value).Value);
-         
-            builder.Property(x => x.Capacity)
-                   .HasConversion(
-                       c => c.Capacity,
-                       value => EventCapacity.Create(value).Value);
+
+
+            builder.Property(x => x.Capacity).IsRequired();
 
 
             builder.Property(E => E.Date).IsRequired();
@@ -56,11 +49,15 @@ namespace Infrastructure.Persistence.Configuration.EventAggregateConfiguration
             builder.Property(x => x.Status)
                    .HasConversion<string>();
 
-            builder.HasMany(typeof(TicketType), "_ticketTypes")
+            builder.Navigation(e => e.TicketTypes)
+                   .HasField("_ticketTypes")
+                   .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+            builder.HasMany(e => e.TicketTypes)
                    .WithOne()
                    .HasForeignKey("EventId");
 
-            builder.Ignore(x => x.TotalSeats);
+
 
 
         }

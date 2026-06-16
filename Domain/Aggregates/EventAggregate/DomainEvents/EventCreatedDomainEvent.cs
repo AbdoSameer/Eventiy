@@ -13,5 +13,4 @@ namespace Domain.Aggregates.EventAggregate.DomainEvents
         public string Name => nameof(EventCreatedDomainEvent);
         public string Domain => "Event";
     }
-
 }

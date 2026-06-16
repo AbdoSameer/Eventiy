@@ -1,4 +1,5 @@
 ﻿using Application.Abstractions.Messaging;
+using Application.Features.Events.Queries.GetEventDetails;
 using Domain.Primitives;
 
 namespace Application.Features.Events.Commands.CreateEvent
@@ -8,7 +9,6 @@ namespace Application.Features.Events.Commands.CreateEvent
         string Name,
         int Capacity,
         DateTime Date,
-        Address Location,
+        AddressResponse Location,
         string Description) : ICommand<Guid>;
-    
 }
