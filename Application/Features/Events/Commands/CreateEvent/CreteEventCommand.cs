@@ -1,13 +1,14 @@
 ﻿using Application.Abstractions.Messaging;
+using Domain.Primitives;
 
 namespace Application.Features.Events.Commands.CreateEvent
 {
-    public sealed record AddEventCommand(
+    public sealed record CreateEventCommand
+       (
         string Name,
-        DateTime Date,
-        string Country,
-        string City,
-        string Street,
         int Capacity,
+        DateTime Date,
+        Address Location,
         string Description) : ICommand<Guid>;
+    
 }

@@ -1,13 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Domain.Common
+﻿namespace Domain.Common
 {
     public interface IDomainEvent
     {
+        // this is a marker interface for domain events
+        string Name { get; }
+        string Domain { get; }
+
+        public static string GetDomainEventName<T>() where T : IDomainEvent
+        {
+            return typeof(T).Name;
+        }
 
     }
 }
