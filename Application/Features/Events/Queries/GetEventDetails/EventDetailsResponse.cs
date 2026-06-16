@@ -10,7 +10,7 @@ namespace Application.Features.Events.Queries.GetEventDetails
         public string Description { get; init; } = string.Empty;
         public EventStatus Status { get; init; }
         public decimal LowestTicketPrice { get; init; }
-        public AddressResponse Location { get; init; } = new AddressResponse();
+        public AddressResponse Location { get; init; }
         public List<TicketDetailsResponse> TicketDetails { get; init; }
                                             = new List<TicketDetailsResponse>();
 

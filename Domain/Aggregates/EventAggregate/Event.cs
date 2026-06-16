@@ -40,9 +40,9 @@ namespace Domain.Aggregates.EventAggregate
 
         public static Result<Event> Create(
             string name,
+            int capacityValue,
             DateTime date,
             Address location,
-            int capacityValue,
             string description = "")
         {
             var nameResult = EventName.Create(name);
