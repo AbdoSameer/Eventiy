@@ -21,6 +21,7 @@ namespace Infrastructure
 
             services.AddScoped<IApplicationReadDbContext, ReadDbContextAdapter>();
             services.AddScoped<IEventRepository, EventRepository>();
+            services.AddScoped<IAddTicketTypeRepository, AddTicketTypeRepository>();
             services.AddScoped<IUnitOfWork, UnitOfWork>();
 
             return services;
@@ -29,4 +30,3 @@ namespace Infrastructure
     }
 
 }
-
