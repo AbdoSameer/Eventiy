@@ -7,13 +7,10 @@ using System.Threading.Tasks;
 
 namespace Application.Abstractions.Persistence
 {
-    public interface IEventRepository
+    public interface IAddTicketTypeRepository
     {
-
-        Task<Event> AddEventAsync(
-            Event @event,
+        Task<TicketType> AddTicketTypeAsync(
+            TicketType ticketType,
             CancellationToken cancellationToken);
-
-
     }
 }

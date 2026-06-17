@@ -1,7 +1,7 @@
-﻿using Application.Features.Events.Commands.CreateEvent;
+﻿using Application.Features.Events.Commands.AddTicketType;
+using Application.Features.Events.Commands.CreateEvent;
 using Application.Features.Events.Queries.GetEventDetails;
 using Application.Features.Events.Queries.GetEvents;
-using Domain.Common;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -51,6 +51,20 @@ namespace Eventy.WebApi.Controllers
                 return BadRequest(events.Error);
            
             return Created($"api/events/{events.Value}", events.Value);
+        }
+
+        [HttpPost]
+        [Route("{eventId}/ticket-types")]
+        public async Task<IActionResult> CreateTicketType(Guid eventId,
+            [FromBody] AddTicketTypeCommand command,
+            CancellationToken cancellationToken)
+        {
+            var ticketType = await _sender.Send(command, cancellationToken);
+            
+            if (ticketType.IsFailure)
+                return BadRequest(ticketType.Error);
+
+            return Ok();
         }
     }
 }
