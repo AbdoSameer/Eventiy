@@ -1,9 +1,11 @@
 ﻿using Application.Abstractions.Persistence;
 using Domain.Aggregates.EventAggregate;
+using Domain.Aggregates.EventAggregate.ValueObject;
+using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence.Repositories
 {
-    public class EventRepository : IEventRepository
+    public class EventRepository : IEventRepository 
     {
         private readonly ApplicationDbContext _applicationDbContext;
 
@@ -20,5 +22,9 @@ namespace Infrastructure.Persistence.Repositories
 
         }
 
+        public async Task<Event?> GetByIdAsync(EventId id, CancellationToken ct = default)
+            => await _applicationDbContext.Events
+                             .Include(e => e.TicketTypes)
+                             .FirstOrDefaultAsync(e => e.Id == id, ct);
     }
 }

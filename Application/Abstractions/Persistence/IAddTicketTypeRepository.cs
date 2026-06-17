@@ -1,16 +1,12 @@
-﻿using Domain.Aggregates.EventAggregate;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿//using Domain.Aggregates.EventAggregate;
 
-namespace Application.Abstractions.Persistence
-{
-    public interface IAddTicketTypeRepository
-    {
-        Task<TicketType> AddTicketTypeAsync(
-            TicketType ticketType,
-            CancellationToken cancellationToken);
-    }
-}
+
+//namespace Application.Abstractions.Persistence
+//{
+//    public interface IAddTicketTypeRepository
+//    {
+//        Task<TicketType> AddTicketTypeAsync(
+//            TicketType ticketType,
+//            CancellationToken cancellationToken);
+//    }
+//}

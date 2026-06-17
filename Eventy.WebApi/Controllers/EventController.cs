@@ -2,6 +2,9 @@
 using Application.Features.Events.Commands.CreateEvent;
 using Application.Features.Events.Queries.GetEventDetails;
 using Application.Features.Events.Queries.GetEvents;
+using Azure.Core;
+using Eventy.WebApi.ControllerErorrs;
+using Eventy.WebApi.Dto;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -24,7 +27,7 @@ namespace Eventy.WebApi.Controllers
                 .Send(new GetEventDetailsQuery(id), cancellationToken);
             if (events.IsFailure)
                 return NotFound(events.Error);
-            
+
             return Ok(events.Value);
         }
 
@@ -32,12 +35,12 @@ namespace Eventy.WebApi.Controllers
         public async Task<IActionResult> GetEvents(CancellationToken cancellationToken)
         {
 
-            var events = await _sender.Send(new GetEventsQuery(),cancellationToken);
-          
+            var events = await _sender.Send(new GetEventsQuery(), cancellationToken);
+
             if (events.IsFailure)
-                 return NotFound(events.Error);
-        
-                 return Ok(events.Value);
+                return NotFound(events.Error);
+
+            return Ok(events.Value);
         }
         [HttpPost]
         public async Task<IActionResult> CreateEvent(
@@ -46,25 +49,33 @@ namespace Eventy.WebApi.Controllers
         {
 
             var events = await _sender.Send(command, cancellationToken);
-          
+
             if (events.IsFailure)
                 return BadRequest(events.Error);
-           
+
             return Created($"api/events/{events.Value}", events.Value);
         }
 
         [HttpPost]
         [Route("{eventId}/ticket-types")]
         public async Task<IActionResult> CreateTicketType(Guid eventId,
-            [FromBody] AddTicketTypeCommand command,
+            [FromBody] AddTicketTypeRequest request,
             CancellationToken cancellationToken)
         {
-            var ticketType = await _sender.Send(command, cancellationToken);
+            var command = new AddTicketTypeCommand(
+                eventId,
+                request.Name,
+                request.Amount,
+                request.Currency,
+                request.Capacity
+            );
             
+            var ticketType = await _sender.Send(command, cancellationToken);
+
             if (ticketType.IsFailure)
                 return BadRequest(ticketType.Error);
 
-            return Ok();
+            return Created($"api/events/{eventId}/ticket-types", null);
         }
     }
 }

@@ -1,9 +1,6 @@
 ﻿using Domain.Aggregates.EventAggregate;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Domain.Aggregates.EventAggregate.ValueObject;
+
 
 namespace Application.Abstractions.Persistence
 {
@@ -14,6 +11,8 @@ namespace Application.Abstractions.Persistence
             Event @event,
             CancellationToken cancellationToken);
 
+        Task<Event?> GetByIdAsync(EventId id, CancellationToken ct = default);
+     
 
     }
 }

@@ -52,6 +52,10 @@ namespace Application.Features.Events.Queries.GetEventDetails
 
                 }).FirstOrDefaultAsync(cancellationToken);
 
+            if (result is null)
+            {
+                return Result<EventDetailsResponse>.Failure("Event not found.");
+            }
 
             return Result<EventDetailsResponse>.Success(result!);
         }

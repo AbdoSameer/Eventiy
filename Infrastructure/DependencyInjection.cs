@@ -23,7 +23,6 @@ namespace Infrastructure
 
             services.AddScoped<IEventRepository, EventRepository>();
 
-            services.AddScoped<IAddTicketTypeRepository, AddTicketTypeRepository>();
 
             services.AddScoped<IApplicationReadDbContext, ReadDbContextAdapter>();
 

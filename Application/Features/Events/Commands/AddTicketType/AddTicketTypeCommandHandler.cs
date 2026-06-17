@@ -4,41 +4,48 @@ using Domain.Aggregates.EventAggregate;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Common;
 using Domain.Primitives;
+using Microsoft.EntityFrameworkCore;
 
 namespace Application.Features.Events.Commands.AddTicketType
 {
     public class AddTicketTypeCommandHandler : ICommandHandler<AddTicketTypeCommand>
     {
-        private readonly IAddTicketTypeRepository _addTicketType;
-        private readonly IUnitOfWork _unitOfWork;
 
-        public AddTicketTypeCommandHandler(IAddTicketTypeRepository addTicketType,
-                                           IUnitOfWork unitOfWork)
+        private readonly IUnitOfWork _unitOfWork;
+        private readonly IEventRepository _eventRepository;
+
+        public AddTicketTypeCommandHandler( IUnitOfWork unitOfWork ,
+                                           IEventRepository eventRepository)
         {
-            _addTicketType = addTicketType;
             _unitOfWork = unitOfWork;
+            _eventRepository = eventRepository;
         }
         public async Task<Result> Handle(AddTicketTypeCommand request, CancellationToken cancellationToken)
         {
-            var @result = TicketType
-                .Create(
-                    new EventId(request.EventId),
-                    request.Name,
-                    Money.Create(request.Amount, request.Currency).Value,
-                    request.capacity
-                );
-            if (@result.IsFailure)
-            {
-                return Result.Failure(result.Error); 
-            }
 
-            await _addTicketType.AddTicketTypeAsync(@result.Value, cancellationToken);
+            var @event = await _eventRepository.GetByIdAsync(
+                                                new EventId(request.EventId),
+                                                           cancellationToken);
+            if (@event is null)
+                return Result.Failure("Event not found.");
+
+            var moneyResult = Money.Create(request.Amount,
+                                           request.Currency);
+            if (moneyResult.IsFailure)
+                return Result.Failure(moneyResult.Error);
+                
+            var AddTicketresult = @event.AddTicketType(request.Name,
+                                                  moneyResult.Value,
+                                                  request.Capacity);
+            if (AddTicketresult.IsFailure)
+                return Result.Failure(AddTicketresult.Error);
+
 
             var addResult = await _unitOfWork.CommitAsync();
             
             if (addResult<=0)
             {
-                return Result<Guid>.Failure("Failed to create event.");
+                return Result.Failure("Failed to add ticket type.");
             }
 
             return Result.Success();
