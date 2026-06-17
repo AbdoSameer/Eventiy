@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence.Repositories
 {
-    public class EventRepository : IEventRepository
+    public class EventRepository : IEventRepository 
     {
         private readonly ApplicationDbContext _context;
 
