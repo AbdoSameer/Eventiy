@@ -1,4 +1,5 @@
-﻿using Domain.Common;
+﻿using Domain.Aggregates.BookingAggregate.ValueObject;
+using Domain.Common;
 
 namespace Domain.Aggregates.EventAggregate.ValueObject;
 
@@ -6,14 +7,17 @@ public sealed class TicketTypeId : ValueObjectBase
 {
     public Guid Value { get; }
 
-    public TicketTypeId(Guid value)
+    private TicketTypeId(Guid value)
     {
         Value = value;
     }
 
-    public static TicketTypeId CreateUnqiue()
+    public static Result<TicketTypeId> Create(Guid value)
     {
-        return new(Guid.NewGuid());
+        if (value == Guid.Empty)
+            return Result<TicketTypeId>.Failure("UserId cannot be empty");
+
+        return Result<TicketTypeId>.Success(new TicketTypeId(value));
     }
 
     protected override IEnumerable<object> GetEqualityComponents()

@@ -42,13 +42,16 @@ namespace Domain.Aggregates.EventAggregate
                 return Result<TicketType>.Failure("Capacity must be greater than zero.");
 
             var priceResult = Money.Create(price.Amount, price.Currency);
-
             if (priceResult.IsFailure)
                 return Result<TicketType>.Failure(priceResult.Error);
 
+            var ticketTypeIdResult = TicketTypeId.Create(Guid.NewGuid());
+            if (ticketTypeIdResult.IsFailure)
+                return Result<TicketType>.Failure(ticketTypeIdResult.Error);
+
             return Result<TicketType>.Success(new TicketType(
                 eventId,
-                TicketTypeId.CreateUnqiue(),
+                ticketTypeIdResult.Value,
                 name,
                 priceResult.Value!,
                 capacity));

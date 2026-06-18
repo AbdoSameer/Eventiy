@@ -1,4 +1,5 @@
-﻿using Domain.Common;
+﻿using Domain.Aggregates.BookingAggregate.ValueObject;
+using Domain.Common;
 
 namespace Domain.Aggregates.EventAggregate.ValueObject;
 public sealed class EventId: ValueObjectBase
@@ -6,19 +7,17 @@ public sealed class EventId: ValueObjectBase
     public Guid Value { get; }
     protected EventId() { }
 
-    public EventId (Guid value)
+    private EventId(Guid value)
     {
         Value = value;
     }
 
-    public static EventId CreateUuid(Guid id)
+    public static Result<EventId> Create(Guid value)
     {
-        return new(id);
-    }
+        if (value == Guid.Empty)
+            return Result<EventId>.Failure("UserId cannot be empty");
 
-    public static EventId CreateUnqiue()
-    {
-        return new(Guid.NewGuid());
+        return Result<EventId>.Success(new EventId(value));
     }
     protected override IEnumerable<object> GetEqualityComponents()
     {
