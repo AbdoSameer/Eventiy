@@ -5,7 +5,7 @@ namespace Domain.Aggregates.EventAggregate.ValueObject
     public sealed class EventName : ValueObjectBase
     {
         
-        public string Value { get; private set; }
+        public string Value { get;  }
 
         private EventName() { }
 

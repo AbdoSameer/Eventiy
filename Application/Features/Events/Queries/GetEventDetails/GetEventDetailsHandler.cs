@@ -19,8 +19,14 @@ namespace Application.Features.Events.Queries.GetEventDetails
             GetEventDetailsQuery request,
             CancellationToken cancellationToken)
         {
+            var eventIdResult = EventId.Create(request.EventId);
+            if (eventIdResult.IsFailure)
+            {
+                return Result<EventDetailsResponse>.Failure(eventIdResult.Error);
+            }
+
             var eventResult = await _eventRepository.GetByIdAsync(
-                EventId.CreateUuid(request.EventId),
+                eventIdResult.Value,
                 cancellationToken);
 
             if (eventResult.IsFailure)

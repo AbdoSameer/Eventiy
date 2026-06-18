@@ -21,9 +21,12 @@ namespace Application.Features.Events.Commands.AddTicketType
         }
         public async Task<Result> Handle(AddTicketTypeCommand request, CancellationToken cancellationToken)
         {
+            var eventIdResult = EventId.Create(request.EventId);
+            if (eventIdResult.IsFailure)
+                return Result.Failure(eventIdResult.Error);
 
             var eventResult = await _eventRepository.GetByIdAsync(
-                                                new EventId(request.EventId),
+                                                eventIdResult.Value,
                                                            cancellationToken);
 
             if (eventResult.IsFailure)

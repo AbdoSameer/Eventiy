@@ -59,8 +59,12 @@ namespace Domain.Aggregates.EventAggregate
             if (locationResult.IsFailure)
                 return Result<Event>.Failure(locationResult.Error);
 
+            var EventIdResult = EventId.Create(Guid.NewGuid());
+            if (EventIdResult.IsFailure)
+                return Result<Event>.Failure(EventIdResult.Error);
+
             var newEvent = new Event(
-            EventId.CreateUnqiue(),
+            EventIdResult.Value,
             nameResult.Value,
             date,
             locationResult.Value,
