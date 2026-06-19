@@ -15,8 +15,8 @@ namespace Domain.Aggregates.BookingAggregate.Errors
         public static string RefundNotAllowed(Guid bookingId)
             => $"Refund not allowed for booking {bookingId}.";
 
-        public static string CannotCancelBooking(Guid bookingId, string reason)
-            => $"Cannot cancel booking {bookingId}: {reason}";
+        public static string CannotCancelBooking(Guid bookingId)
+            => $"Cannot cancel booking {bookingId}";
 
         public static string BookingNotPending(Guid value)
             => $"BookingAggregate {value} is not in pending status. Current status: {value}";

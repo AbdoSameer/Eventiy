@@ -69,7 +69,7 @@ namespace Domain.Aggregates.BookingAggregate
         }
 
         // Cancel booking
-        public Result Cancel( string reason)
+        public Result Cancel()
         {
             {
                 if (Status == BookingStatusEnum.Cancelled)
@@ -79,7 +79,7 @@ namespace Domain.Aggregates.BookingAggregate
                     return Result.Failure(BookingErrors.BookingExpired(Id.Value));
 
                 if (Status == BookingStatusEnum.Refunded)
-                    return Result.Failure(BookingErrors.CannotCancelBooking(Id.Value, reason));
+                    return Result.Failure(BookingErrors.CannotCancelBooking(Id.Value));
 
                 if (Status != BookingStatusEnum.Pending)
                     return Result.Failure(BookingErrors.BookingNotPending(Id.Value));
