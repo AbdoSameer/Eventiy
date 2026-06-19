@@ -23,7 +23,7 @@ namespace Application.Features.Events.Queries.GetEventDetails
             CancellationToken cancellationToken)
         {
             var result = await _context.Query<Event>()
-                .Where(e => e.Id== new EventId(request.Id))
+                .Where(e => e.Id== EventId.Create(request.Id).Value)
                 .Select(e => new EventDetailsResponse
                 {
                     Id = e.Id.Value,

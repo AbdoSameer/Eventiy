@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Application.Features.Bookings.Query.GetBooking
+namespace Application.Features.Bookings.Query.GetBookingsByUser
 {
-    internal class GetBookingByEventQueryHandler
+    internal class GetBookingsByUserQueryHandler
     {
     }
 }

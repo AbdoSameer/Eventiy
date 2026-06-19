@@ -6,7 +6,9 @@ namespace Infrastructure.Persistence
     {
         private readonly ApplicationDbContext _context;
         public ReadDbContextAdapter(ApplicationDbContext context)
-             => _context = context;
+        {
+            _context = context;
+        }
 
         public IQueryable<T> Query<T>()
             where T : class
