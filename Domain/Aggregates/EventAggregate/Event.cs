@@ -9,13 +9,13 @@ namespace Domain.Aggregates.EventAggregate
     public class Event : AggregateRoot<EventId>
     {
         public EventName Name { get; private set; } = null!;
-        public int Capacity { get; private set; } 
+        public int Capacity { get; private set; }
         public DateTime Date { get; private set; }
         public Address Location { get; private set; } = null!;
         public EventStatus Status { get; private set; }
         public string Description { get; private set; } = string.Empty;
-        
-        private readonly List<TicketType> _ticketTypes = new();
+
+        private readonly List<TicketType> _ticketTypes = new List<TicketType>();
         public IReadOnlyCollection<TicketType> TicketTypes => _ticketTypes.AsReadOnly();
 
         protected Event() : base(default!) { }

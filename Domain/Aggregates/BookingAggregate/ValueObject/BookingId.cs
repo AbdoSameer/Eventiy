@@ -14,10 +14,12 @@ namespace Domain.Aggregates.BookingAggregate.ValueObject
             Value = value;
         }
 
+        public static BookingId FromDatabase(Guid value) => new BookingId(value);
+
         public static Result<BookingId> Create(Guid value)
         {
             if (value == Guid.Empty)
-                return Result<BookingId>.Failure("UserId cannot be empty");
+                return Result<BookingId>.Failure("BookingId cannot be empty");
 
             return Result<BookingId>.Success(new BookingId(value));
         }

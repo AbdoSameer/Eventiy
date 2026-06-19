@@ -22,12 +22,12 @@ namespace Application.Features.Events.Commands.AddTicketType
         }
         public async Task<Result> Handle(AddTicketTypeCommand request, CancellationToken cancellationToken)
         {
-
+            var GetEventResult = EventId.Create(request.EventId);
             var @event = await _eventRepository.GetByIdAsync(
-                                                new EventId(request.EventId),
+                                                GetEventResult.Value,
                                                            cancellationToken);
             if (@event is null)
-                return Result.Failure("Event not found.");
+                return Result.Failure("Event not found");
 
             var moneyResult = Money.Create(request.Amount,
                                            request.Currency);

@@ -10,7 +10,6 @@ namespace Domain.Primitives
         public string Street { get; private set; }
 
         
-
         private Address() { }
 
         private Address(string country, string city, string street)

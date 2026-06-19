@@ -15,9 +15,8 @@ namespace Infrastructure.Persistence.Configuration.EventAggregateConfiguration
 
             builder.Property(E => E.Id).HasConversion(
                 EventId => EventId.Value,
-                Value => new EventId(Value));
+                Value =>  EventId.Create(Value).Value);
 
-        
 
         builder.Property(E => E.Description).HasMaxLength(1000).IsRequired();
        

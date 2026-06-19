@@ -11,7 +11,8 @@ public sealed class EventId: ValueObjectBase
     {
         Value = value;
     }
-
+    public static EventId FromDatabase(Guid value) => new EventId(value);
+    
     public static Result<EventId> Create(Guid value)
     {
         if (value == Guid.Empty)

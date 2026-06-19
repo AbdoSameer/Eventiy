@@ -17,7 +17,7 @@ namespace Infrastructure.Persistence.Configuration.EventAggregateConfiguration
             builder.Property(x => x.Id)
                    .HasConversion(
                     id => id.Value,
-                    value => new TicketTypeId(value));
+                    value => TicketTypeId.Create(value).Value);
 
             builder.ComplexProperty(x => x.Price, money =>
             {
@@ -34,7 +34,7 @@ namespace Infrastructure.Persistence.Configuration.EventAggregateConfiguration
             builder.Property(x => x.EventId)
                    .HasConversion(
                        id => id.Value,
-                       value => new EventId(value));
+                       value => EventId.Create(value).Value);
 
             builder.Property(T=> T.Name)
                 .IsRequired()

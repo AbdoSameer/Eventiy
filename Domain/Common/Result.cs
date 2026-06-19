@@ -1,4 +1,6 @@
 ﻿
+using Domain.Aggregates.BookingAggregate;
+
 namespace Domain.Common;
 
 public class Result
@@ -47,4 +49,9 @@ public class Result<T> : Result
 
     public new static Result<T> Failure(string error)
         => new(false, default, error);
+
+    internal static Result<Booking> Failure(object quantityMustBeGreaterThanZero)
+    {
+        throw new NotImplementedException();
+    }
 }

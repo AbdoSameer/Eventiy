@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Domain.Aggregates.BookingAggregate.DomainEvents
+namespace Application.Features.Bookings.Query.GetBooking
 {
-    internal class OrderConfirmedDomainEvent
+    internal class GetBookingByEventQueryHandler
     {
     }
 }

@@ -7,7 +7,7 @@ namespace Domain.Aggregates.EventAggregate.ValueObject
         
         public string Value { get;  }
 
-        private EventName() { }
+        private EventName()  { }
 
         private EventName(string value)
         {

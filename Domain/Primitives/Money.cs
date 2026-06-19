@@ -31,4 +31,5 @@ public record Money
 
         return Result<Money>.Success(new Money(Amount + other.Amount, Currency));
     }
+
 }

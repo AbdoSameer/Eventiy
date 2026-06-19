@@ -1,4 +1,4 @@
-﻿using Application.Abstractions.Persistence;
+﻿using Domain.Aggregates.BookingAggregate;
 using Domain.Aggregates.EventAggregate;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,6 +8,7 @@ namespace Infrastructure.Persistence
     {
         public DbSet<Event> Events => Set<Event>();
         public DbSet<TicketType> TicketTypes => Set<TicketType>();
+        public DbSet<Booking> Bookings => Set<Booking>();
 
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
         {

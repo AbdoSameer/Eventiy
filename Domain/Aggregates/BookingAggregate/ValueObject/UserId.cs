@@ -12,6 +12,8 @@ namespace Domain.Aggregates.BookingAggregate.ValueObject
             Value = value;
         }
 
+        public static UserId FromDatabase(Guid value) => new UserId(value);
+       
         public static Result<UserId> Create(Guid value)
         {
             if (value == Guid.Empty)

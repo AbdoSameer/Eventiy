@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Domain.Aggregates.OrderAggregate.DomainEvents
+namespace Domain.Aggregates.BookingAggregate.DomainEvents
 {
     internal class OrderCreatedDomainEvent
     {
