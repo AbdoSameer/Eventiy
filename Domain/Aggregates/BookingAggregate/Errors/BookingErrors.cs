@@ -1,4 +1,6 @@
 ﻿
+using Domain.Aggregates.BookingAggregate.Enums;
+
 namespace Domain.Aggregates.BookingAggregate.Errors
 {
     public static class BookingErrors
@@ -22,7 +24,11 @@ namespace Domain.Aggregates.BookingAggregate.Errors
             => $"BookingAggregate {value} is not in pending status. Current status: {value}";
 
         public static string InsufficientSeats(int quantity, int v)
-          => $"Insufficient seats. Requested: {quantity}, Available: {v}";
+            => $"Insufficient seats. Requested: {quantity}, Available: {v}";
+
+        public static string BookingNotFound(Guid bookingId)
+            => $"Booking not found: {bookingId}";
+
     }
 }
 

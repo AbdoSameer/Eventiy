@@ -11,6 +11,8 @@ namespace Domain.Aggregates.BookingAggregate
     {
         public UserId UserId { get; private set; }
         public EventId EventId { get; private set; }
+        public TicketTypeId TicketTypeId { get; private set; }
+        public string EventTitle { get; private set; } 
         public int Quantity { get; private set; }
         public DateTime BookingDate { get; private set; }
         public BookingStatusEnum Status { get; private set; }
@@ -23,11 +25,15 @@ namespace Domain.Aggregates.BookingAggregate
         private Booking(BookingId id,
                         UserId userId,
                         EventId eventId,
+                        TicketTypeId ticketTypeId,
+                        string eventTitle,
                         int quantity,
                         Money money) : base(id)
         {
             UserId = userId;
             EventId = eventId;
+            TicketTypeId = ticketTypeId;
+            EventTitle = eventTitle;
             Quantity = quantity;
             Status = BookingStatusEnum.Pending;
             Money = money;
@@ -39,13 +45,15 @@ namespace Domain.Aggregates.BookingAggregate
         public static Result<Booking> Create(
             UserId userId,
             EventId eventId,
+            TicketTypeId ticketTypeId,
+            string EventTitle,
             int quantity,
             Money money)
         {
             if (quantity <= 0)
                 return Result<Booking>.Failure(BookingErrors.QuantityMustBeGreaterThanZero());
 
-
+  
             var bookingId = BookingId.Create(Guid.NewGuid());
             if (bookingId.IsFailure)
                 return Result<Booking>.Failure(bookingId.Error);
@@ -53,6 +61,8 @@ namespace Domain.Aggregates.BookingAggregate
             var booking = new Booking(bookingId.Value,
                                       userId,
                                       eventId,
+                                      ticketTypeId,
+                                      EventTitle,
                                       quantity,
                                       money);
 
@@ -81,8 +91,8 @@ namespace Domain.Aggregates.BookingAggregate
                 if (Status == BookingStatusEnum.Refunded)
                     return Result.Failure(BookingErrors.CannotCancelBooking(Id.Value));
 
-                if (Status != BookingStatusEnum.Pending)
-                    return Result.Failure(BookingErrors.BookingNotPending(Id.Value));
+                if (Status == BookingStatusEnum.Confirmed)
+                    return Result.Failure(BookingErrors.CannotCancelBooking(Id.Value));
 
                 Status = BookingStatusEnum.Cancelled;
                 return Result.Success();

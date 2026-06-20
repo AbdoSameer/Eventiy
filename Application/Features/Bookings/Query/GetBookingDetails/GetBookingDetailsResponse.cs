@@ -4,6 +4,8 @@
         Guid Id,
         Guid EventId,
         Guid UserId,
+        Guid TicketTypeId,
+        string EventTitle,
         int Quantity,
         DateTime BookingDate,
         string Status,

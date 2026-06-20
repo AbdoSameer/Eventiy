@@ -5,10 +5,9 @@ namespace Application.Features.Bookings.Command.MakeBooking
     public sealed record MakeBookingCommand(
         
         Guid EventId,
-        Guid UserId,
-        int Quantity,
-        decimal price,
-        string Currency
+        //Guid UserId,
+        Guid TicketTypeId,
+        int Quantity
         ) : ICommand<Guid>;
     
 }

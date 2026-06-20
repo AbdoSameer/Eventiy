@@ -11,6 +11,7 @@ public sealed class TicketTypeId : ValueObjectBase
     {
         Value = value;
     }
+    public static TicketTypeId FromDatabase(Guid value) => new TicketTypeId(value);
 
     public static Result<TicketTypeId> Create(Guid value)
     {

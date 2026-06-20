@@ -35,6 +35,8 @@ namespace Application.Features.Bookings.Query.GetBookingDetails
                     x.Id.Value,
                     x.EventId.Value,
                     x.UserId.Value,
+                    x.TicketTypeId.Value,
+                    x.EventTitle,
                     x.Quantity,
                     x.BookingDate,
                     x.Status.ToString(),

@@ -38,6 +38,10 @@ namespace Infrastructure.Persistence.Configuration.BookingAggregateConfiguration
             builder.Property(b => b.Status)
                    .HasConversion<string>()
                    .IsRequired();
+            builder.Property(b => b.TicketTypeId)
+                .HasConversion(
+                id => id.Value,
+                value => TicketTypeId.FromDatabase(value));
 
             builder.Property(b => b.Quantity).IsRequired();
             builder.Property(b => b.TotalAmount).IsRequired();

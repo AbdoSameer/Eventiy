@@ -1,4 +1,5 @@
-﻿using Domain.Aggregates.EventAggregate.ValueObject;
+﻿using Domain.Aggregates.BookingAggregate.ValueObject;
+using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Common;
 using Domain.Primitives;
 using System;

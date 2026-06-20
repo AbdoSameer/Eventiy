@@ -1,12 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
+﻿using Application.Abstractions.Messaging;
+using Application.Abstractions.Persistence;
 namespace Application.Features.Bookings.Query.GetBookingByEvent
 {
-    internal class GetBookingByEventQuery
-    {
-    }
+    public sealed record GetBookingByEventQuery(
+        Guid EventId
+        ) : IQuery<List<GetBookingByEventQueryResponse>>;
 }

@@ -55,21 +55,25 @@ namespace Application.Features.Bookings.Command.MakeBooking
                         request.Quantity,
                         @event.Capacity - reservedQuantity));
 
-            var validPrice = Money.Create(request.price, request.Currency);
-            
-            if (validPrice.IsFailure) 
-                return Result<Guid>.Failure(validPrice.Error);
-
-            var validUser = UserId.Create(request.UserId);
+            var validUser = UserId.Create(Guid.NewGuid());
 
             if (validUser.IsFailure)
                 return Result<Guid>.Failure(validUser.Error);
 
+            var validTicketType = TicketTypeId.Create(request.TicketTypeId);
+            if (validTicketType.IsFailure)
+                return Result<Guid>.Failure(validTicketType.Error);
+
+            var ticketType= @event.TicketTypes.FirstOrDefault(x=> x.Id == validTicketType.Value );
+            var EventTitle = @event.Name.Value;
+
             var @booking = Booking.Create(
                 validUser.Value,
                 @event.Id,
+                validTicketType.Value,
+                EventTitle,
                 request.Quantity,
-                validPrice.Value);
+                ticketType!.Price);
                 
             if (@booking.IsFailure)
                 return Result<Guid>.Failure(@booking.Error);

@@ -23,6 +23,7 @@ namespace Infrastructure
 
             services.AddScoped<IEventRepository, EventRepository>();
 
+            services.AddScoped<IBookingRepository, BookingRepository>();
 
             services.AddScoped<IApplicationReadDbContext, ReadDbContextAdapter>();
 
