@@ -1,4 +1,4 @@
-﻿using Application.Abstractions.Persistence;
+﻿using Domain.Abstractions.Persistence;
 using Domain.Aggregates.EventAggregate;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Microsoft.EntityFrameworkCore;

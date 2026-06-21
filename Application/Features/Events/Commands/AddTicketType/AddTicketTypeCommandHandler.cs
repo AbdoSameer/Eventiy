@@ -1,5 +1,6 @@
 ﻿using Application.Abstractions.Messaging;
 using Application.Abstractions.Persistence;
+using Domain.Abstractions.Persistence;
 using Domain.Aggregates.EventAggregate;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Common;

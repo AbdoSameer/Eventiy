@@ -1,4 +1,4 @@
-﻿using Application.Abstractions.Persistence;
+﻿using Domain.Abstractions.Persistence;
 using Domain.Aggregates.BookingAggregate;
 using Domain.Aggregates.BookingAggregate.Enums;
 using Domain.Aggregates.BookingAggregate.ValueObject;
