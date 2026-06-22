@@ -56,7 +56,7 @@ namespace Domain.Aggregates.BookingAggregate
   
             var bookingId = BookingId.Create(Guid.NewGuid());
             if (bookingId.IsFailure)
-                return Result<Booking>.Failure(bookingId.Error);
+                return Result<Booking>.Failure(bookingId.Errors.ToArray());
 
             var booking = new Booking(bookingId.Value,
                                       userId,

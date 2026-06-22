@@ -24,7 +24,7 @@ namespace Eventy.WebApi.Controllers
         {
             var bookings = await _sender.Send(new GetBookingDetailsQuery(id), cancellationToken);
             if (bookings.IsFailure)
-                return NotFound(bookings.Error);
+                return NotFound(bookings.Errors);
 
             return Ok(bookings.Value);
         }
@@ -34,7 +34,7 @@ namespace Eventy.WebApi.Controllers
         {
             var bookings = await _sender.Send(new GetBookingByEventQuery(eventId), cancellationToken);
             if (bookings.IsFailure)
-                return NotFound(bookings.Error);
+                return NotFound(bookings.Errors);
 
             return Ok(bookings.Value);
         }
@@ -44,7 +44,7 @@ namespace Eventy.WebApi.Controllers
         {
             var booking = await _sender.Send(command, cancellationToken);
             if (booking.IsFailure)
-                return BadRequest(booking.Error);
+                return BadRequest(booking.Errors);
 
             return Ok(booking.Value);
         }
@@ -53,7 +53,7 @@ namespace Eventy.WebApi.Controllers
         {
             var result = await _sender.Send(new ConfirmBookingCommand(bookingId), cancellationToken);
             if (result.IsFailure)
-                return BadRequest(result.Error);
+                return BadRequest(result.Errors);
             return Ok(result.Value);
         }
 
@@ -62,7 +62,7 @@ namespace Eventy.WebApi.Controllers
         {
             var result = await _sender.Send(new CancelBookingCommand(bookingId), cancellationToken);
             if (result.IsFailure)
-                return BadRequest(result.Error);
+                return BadRequest(result.Errors);
             return Ok(result.Value);
         }
     }

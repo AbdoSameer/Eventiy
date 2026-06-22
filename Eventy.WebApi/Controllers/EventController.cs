@@ -26,7 +26,7 @@ namespace Eventy.WebApi.Controllers
             var events = await _sender
                 .Send(new GetEventDetailsQuery(id), cancellationToken);
             if (events.IsFailure)
-                return NotFound(events.Error);
+                return NotFound(events.Errors);
 
             return Ok(events.Value);
         }
@@ -38,7 +38,7 @@ namespace Eventy.WebApi.Controllers
             var events = await _sender.Send(new GetEventsQuery(), cancellationToken);
 
             if (events.IsFailure)
-                return NotFound(events.Error);
+                return NotFound(events.Errors);
 
             return Ok(events.Value);
         }
@@ -51,7 +51,7 @@ namespace Eventy.WebApi.Controllers
             var events = await _sender.Send(command, cancellationToken);
 
             if (events.IsFailure)
-                return BadRequest(events.Error);
+                return BadRequest(events.Errors);
 
             return Created($"api/events/{events.Value}", events.Value);
         }
@@ -73,7 +73,7 @@ namespace Eventy.WebApi.Controllers
             var ticketType = await _sender.Send(command, cancellationToken);
 
             if (ticketType.IsFailure)
-                return BadRequest(ticketType.Error);
+                return BadRequest(ticketType.Errors);
 
             return Created($"api/events/{eventId}/ticket-types", null);
         }

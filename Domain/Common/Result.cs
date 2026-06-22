@@ -1,57 +1,60 @@
-﻿
-using Domain.Aggregates.BookingAggregate;
-
-namespace Domain.Common;
+﻿namespace Domain.Common;
 
 public class Result
 {
-    public bool IsSuccess { get; }
-    public bool IsFailure => !IsSuccess;
-    public string Error { get; }
-
     protected Result(
         bool isSuccess,
-        string error)
-    {       
-        if (isSuccess && !string.IsNullOrEmpty(error))
-            throw new ArgumentException("A successful result cannot contain an error.", nameof(error));
+        IReadOnlyList<string> errors)
+    {
+        if (isSuccess && errors.Any())
+            throw new ArgumentException(
+                "Successful result cannot contain errors.");
 
-        if (!isSuccess && string.IsNullOrEmpty(error))
-            throw new ArgumentException("A failed result must contain an error.", nameof(error));
+        if (!isSuccess && !errors.Any())
+            throw new ArgumentException(
+                "Failed result must contain errors.");
 
         IsSuccess = isSuccess;
-        Error = error;
+        Errors = errors;
     }
 
+    public bool IsSuccess { get; }
+
+    public bool IsFailure => !IsSuccess;
+
+    public IReadOnlyList<string> Errors { get; }
+
     public static Result Success()
-        => new(true, string.Empty);
+        => new(true, []);
 
-    public static Result Failure(string error)
-        => new(false, error);
-
+    public static Result Failure(
+        params string[] errors)
+        => new(false, errors);
 }
 
 public class Result<T> : Result
 {
     private readonly T? _value;
 
-    private Result(bool isSuccess, T? value, string error)
-        : base(isSuccess, error)
+    private Result(
+        bool isSuccess,
+        T? value,
+        IReadOnlyList<string> errors)
+        : base(isSuccess, errors)
     {
         _value = value;
     }
 
-    public T Value => IsSuccess ? _value!
-        : throw new InvalidOperationException($"Cannot access the value of a failed result. Error: {Error}");
+    public T Value =>
+        IsSuccess
+            ? _value!
+            : throw new InvalidOperationException(
+                "Cannot access value of failed result.");
 
     public static Result<T> Success(T value)
-        => new(true, value, string.Empty);
+        => new(true, value, []);
 
-    public new static Result<T> Failure(string error)
-        => new(false, default, error);
-
-    internal static Result<Booking> Failure(object quantityMustBeGreaterThanZero)
-    {
-        throw new NotImplementedException();
-    }
+    public new static Result<T> Failure(
+        params string[] errors)
+        => new(false, default, errors);
 }

@@ -47,7 +47,7 @@ namespace Domain.Aggregates.EventAggregate
         {
             var nameResult = EventName.Create(name);
             if (nameResult.IsFailure)
-                return Result<Event>.Failure(nameResult.Error);
+                return Result<Event>.Failure(nameResult.Errors.ToArray());
 
             if (capacity < 0)
                 return Result<Event>.Failure(EventErrors.TotalSeatsCannotBeNegative(capacity));
@@ -57,11 +57,11 @@ namespace Domain.Aggregates.EventAggregate
 
             var locationResult = Address.Create(location.Country, location.City, location.Street);
             if (locationResult.IsFailure)
-                return Result<Event>.Failure(locationResult.Error);
+                return Result<Event>.Failure(locationResult.Errors.ToArray());
 
             var EventIdResult = EventId.Create(Guid.NewGuid());
             if (EventIdResult.IsFailure)
-                return Result<Event>.Failure(EventIdResult.Error);
+                return Result<Event>.Failure(EventIdResult.Errors.ToArray());
 
             var newEvent = new Event(
             EventIdResult.Value,
@@ -145,7 +145,7 @@ namespace Domain.Aggregates.EventAggregate
 
             var TicketResult = TicketType.Create(this.Id, name, price, capacity);
             if (TicketResult.IsFailure)
-                return Result.Failure(TicketResult.Error);
+                return Result.Failure(TicketResult.Errors.ToArray());
 
             _ticketTypes.Add(TicketResult.Value);
             return Result.Success();
@@ -201,7 +201,7 @@ namespace Domain.Aggregates.EventAggregate
 
             var nameResult = EventName.Create(newTitle);
             if (nameResult.IsFailure)
-                return Result.Failure(nameResult.Error);
+                return Result.Failure(nameResult.Errors.ToArray());
 
             Name = nameResult.Value;
             return Result.Success();
@@ -214,7 +214,7 @@ namespace Domain.Aggregates.EventAggregate
 
             var locationResult = Address.Create(newLocation.Country, newLocation.City, newLocation.Street);
             if (locationResult.IsFailure)
-                return Result.Failure(locationResult.Error);
+                return Result.Failure(locationResult.Errors.ToArray());
 
             Location = locationResult.Value;
             return Result.Success();

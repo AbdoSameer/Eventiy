@@ -44,11 +44,11 @@ namespace Domain.Aggregates.EventAggregate
 
             var priceResult = Money.Create(price.Amount, price.Currency);
             if (priceResult.IsFailure)
-                return Result<TicketType>.Failure(priceResult.Error);
+                return Result<TicketType>.Failure(priceResult.Errors.ToArray());
 
             var ticketTypeIdResult = TicketTypeId.Create(Guid.NewGuid());
             if (ticketTypeIdResult.IsFailure)
-                return Result<TicketType>.Failure(ticketTypeIdResult.Error);
+                return Result<TicketType>.Failure(ticketTypeIdResult.Errors.ToArray());
 
             return Result<TicketType>.Success(new TicketType(
                 eventId,
