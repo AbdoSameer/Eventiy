@@ -4,7 +4,7 @@ using Application.Features.Events.Queries.GetEventDetails;
 using Application.Features.Events.Queries.GetEvents;
 using Azure.Core;
 using Eventy.WebApi.ControllerErorrs;
-using Eventy.WebApi.Dto;
+using Eventy.WebApi.RequestsDesign;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 

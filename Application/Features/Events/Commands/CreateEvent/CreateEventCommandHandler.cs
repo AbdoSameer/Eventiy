@@ -29,7 +29,7 @@ namespace Application.Features.Events.Commands.CreateEvent
             
             if (addressResult.IsFailure)
             {
-                return Result<Guid>.Failure(addressResult.Error);
+                return Result<Guid>.Failure(addressResult.Errors.ToArray());
             }
 
             var @event = Event
@@ -41,7 +41,7 @@ namespace Application.Features.Events.Commands.CreateEvent
 
             if (@event.IsFailure)
             {
-                return Result<Guid>.Failure(@event.Error);
+                return Result<Guid>.Failure(@event.Errors.ToArray());
             }
 
             await _eventRepository.AddEventAsync(@event.Value, cancellationToken);
@@ -51,7 +51,10 @@ namespace Application.Features.Events.Commands.CreateEvent
 
             if (result <= 0)
             {
-                return Result<Guid>.Failure("Failed to create event.");
+                return Result<Guid>.Failure(
+                    Error.Failure(
+                        "EventCreationFailed",
+                        "Failed to create the event. Please try again later."));
             }
 
             return Result<Guid>.Success(@event.Value.Id.Value);

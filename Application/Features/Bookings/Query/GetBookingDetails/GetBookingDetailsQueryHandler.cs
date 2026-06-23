@@ -1,7 +1,6 @@
 ﻿using Application.Abstractions.Messaging;
 using Application.Abstractions.Persistence;
 using Domain.Aggregates.BookingAggregate;
-using Domain.Aggregates.BookingAggregate.Errors;
 using Domain.Aggregates.BookingAggregate.ValueObject;
 using Domain.Common;
 using Microsoft.EntityFrameworkCore;
@@ -25,7 +24,7 @@ namespace Application.Features.Bookings.Query.GetBookingDetails
             if (bookingIdResult.IsFailure)
             {
                 return Result<GetBookingDetailsResponse>.Failure(
-                    bookingIdResult.Error);
+                    bookingIdResult.Errors.ToArray());
             }
 
             // Query the booking

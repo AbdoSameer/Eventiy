@@ -5,9 +5,13 @@ namespace Domain.Abstractions.Persistence;
 
 public interface IEventRepository
 {
-    Task<Event> AddEventAsync(
+    Task AddEventAsync(
         Event @event,
         CancellationToken cancellationToken);
 
-    Task<Event?> GetByIdAsync(EventId id, CancellationToken ct = default);
+    Task<Event?> GetByIdAsync(
+        EventId id,
+        CancellationToken cancellationToken);
+
+    void Update(Event @event);
 }

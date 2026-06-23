@@ -2,7 +2,6 @@
 {
     public interface IDomainEvent
     {
-        // this is a marker interface for domain events
         string Name { get; }
         string Domain { get; }
 
@@ -10,6 +9,5 @@
         {
             return typeof(T).Name;
         }
-
     }
 }

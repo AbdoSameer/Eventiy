@@ -1,12 +1,11 @@
 ﻿using Domain.Common;
 
-
 namespace Domain.Aggregates.BookingAggregate.ValueObject
 {
     public class BookingId : ValueObjectBase
     {
         public Guid Value { get; }
-        
+
         protected BookingId() { }
 
         private BookingId(Guid value)
@@ -19,7 +18,7 @@ namespace Domain.Aggregates.BookingAggregate.ValueObject
         public static Result<BookingId> Create(Guid value)
         {
             if (value == Guid.Empty)
-                return Result<BookingId>.Failure("BookingId cannot be empty");
+                return Result<BookingId>.Failure(BookingErrors.InvalidBookingId(value));
 
             return Result<BookingId>.Success(new BookingId(value));
         }
@@ -28,5 +27,10 @@ namespace Domain.Aggregates.BookingAggregate.ValueObject
         {
             yield return Value;
         }
+
+        public override string ToString() => Value.ToString();
+
+        public static implicit operator Guid(BookingId bookingId) => bookingId.Value;
+        public static implicit operator BookingId(Guid value) => new BookingId(value);
     }
 }

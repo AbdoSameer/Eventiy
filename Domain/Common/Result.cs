@@ -1,60 +1,45 @@
 ﻿namespace Domain.Common;
-
 public class Result
 {
-    protected Result(
-        bool isSuccess,
-        IReadOnlyList<string> errors)
+    protected Result(bool isSuccess, IReadOnlyList<Error> errors)
     {
-        if (isSuccess && errors.Any())
-            throw new ArgumentException(
-                "Successful result cannot contain errors.");
+        if (isSuccess && errors.Any(e => e != Error.None))
+            throw new ArgumentException("A successful result cannot contain errors.", nameof(errors));
 
         if (!isSuccess && !errors.Any())
-            throw new ArgumentException(
-                "Failed result must contain errors.");
+            throw new ArgumentException("A failed result must contain at least one error.", nameof(errors));
 
         IsSuccess = isSuccess;
         Errors = errors;
     }
 
     public bool IsSuccess { get; }
-
     public bool IsFailure => !IsSuccess;
+    public IReadOnlyList<Error> Errors { get; }
 
-    public IReadOnlyList<string> Errors { get; }
+    public static Result Success() => new(true, [Error.None]);
 
-    public static Result Success()
-        => new(true, []);
-
-    public static Result Failure(
-        params string[] errors)
-        => new(false, errors);
+    public static Result Failure(params Error[] errors) => new(false, errors);
 }
 
-public class Result<T> : Result
+public class Result<TValue> : Result
 {
-    private readonly T? _value;
+    private readonly TValue? _value;
 
-    private Result(
-        bool isSuccess,
-        T? value,
-        IReadOnlyList<string> errors)
+    protected internal Result(bool isSuccess, TValue? value, IReadOnlyList<Error> errors)
         : base(isSuccess, errors)
     {
         _value = value;
     }
 
-    public T Value =>
-        IsSuccess
-            ? _value!
-            : throw new InvalidOperationException(
-                "Cannot access value of failed result.");
+    public TValue Value => IsSuccess
+        ? _value!
+        : throw new InvalidOperationException("Cannot access the value of a failed result.");
 
-    public static Result<T> Success(T value)
-        => new(true, value, []);
+    public static implicit operator Result<TValue>(TValue? value) =>
+        value is not null ? Success(value) : Failure(Error.NullValue);
 
-    public new static Result<T> Failure(
-        params string[] errors)
-        => new(false, default, errors);
+    public static Result<TValue> Success(TValue value) => new(true, value, [Error.None]);
+
+    public new static Result<TValue> Failure(params Error[] errors) => new(false, default, errors);
 }

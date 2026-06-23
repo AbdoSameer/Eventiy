@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence.Repositories
 {
-    public class EventRepository : IEventRepository
+    public sealed class EventRepository : IEventRepository
     {
         private readonly ApplicationDbContext _applicationDbContext;
 
@@ -14,21 +14,21 @@ namespace Infrastructure.Persistence.Repositories
             _applicationDbContext = applicationDbContext;
         }
 
-        public Task<Event> AddEventAsync(Event @event, CancellationToken cancellationToken)
+        public async Task AddEventAsync(Event @event, CancellationToken cancellationToken)
         {
-            var entityEntry = _applicationDbContext.Events.Add(@event);
-
-            return Task.FromResult(entityEntry.Entity);
-
+            await _applicationDbContext.Events.AddAsync(@event, cancellationToken);
         }
 
-        public async Task<Event?> GetByIdAsync(EventId id, CancellationToken ct = default)
+        public async Task<Event?> GetByIdAsync(EventId id, CancellationToken cancellationToken)
         {
             return await _applicationDbContext.Events
-                             .Include(e => e.TicketTypes)
-                             .FirstOrDefaultAsync(e => e.Id == id, ct);
+                .Include(e => e.TicketTypes)
+                .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
+        }
 
-        } 
+        public void Update(Event @event)
+        {
+
+        }
     }
-    
 }

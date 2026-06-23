@@ -23,30 +23,33 @@ namespace Application.Features.Events.Commands.AddTicketType
         }
         public async Task<Result> Handle(AddTicketTypeCommand request, CancellationToken cancellationToken)
         {
-            var GetEventResult = EventId.Create(request.EventId);
+            var EventIdResult = EventId.Create(request.EventId);
             var @event = await _eventRepository.GetByIdAsync(
-                                                GetEventResult.Value,
+                                                EventIdResult.Value,
                                                            cancellationToken);
             if (@event is null)
-                return Result.Failure("Event not found");
+                return Result.Failure(EventErrors.EventNotFound(EventIdResult.Value));
 
             var moneyResult = Money.Create(request.Amount,
                                            request.Currency);
             if (moneyResult.IsFailure)
-                return Result.Failure(moneyResult.Error);
+                return Result.Failure(moneyResult.Errors.ToArray());
                 
             var AddTicketresult = @event.AddTicketType(request.Name,
                                                   moneyResult.Value,
                                                   request.Capacity);
             if (AddTicketresult.IsFailure)
-                return Result.Failure(AddTicketresult.Error);
+                return Result.Failure(AddTicketresult.Errors.ToArray());
 
 
             var addResult = await _unitOfWork.CommitAsync();
             
             if (addResult<=0)
             {
-                return Result.Failure("Failed to add ticket type.");
+                return Result.Failure(
+                    Error.Failure(
+                    "TicketTypeCreationFailed",
+                    "Failed to add ticket type to the event"));
             }
 
             return Result.Success();

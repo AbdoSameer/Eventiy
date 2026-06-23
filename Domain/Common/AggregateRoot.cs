@@ -1,22 +1,28 @@
-﻿using Domain.Common;
+﻿using Domain.Primitives;
 
-public abstract class AggregateRoot<TId> : Entity<TId>
+namespace Domain.Common
 {
-    protected AggregateRoot(TId id) : base(id)
+    public abstract class AggregateRoot<TId> : Entity<TId>
+        where TId : ValueObjectBase
     {
-    }
-    
-    private readonly List<IDomainEvent> _domainEvents = new();
+        private readonly List<IDomainEvent> _domainEvents = new();
 
-    public IReadOnlyList<IDomainEvent> DomainEvents => _domainEvents.AsReadOnly();
+        protected AggregateRoot(TId id) : base(id)
+        {
+        }
 
-    protected void RaiseDomainEvent(IDomainEvent domainEvent)
-    {
-        _domainEvents.Add(domainEvent);
-    }
+        protected AggregateRoot() { }
 
-    public void ClearDomainEvents()
-    {
-        _domainEvents.Clear();
+        public IReadOnlyList<IDomainEvent> DomainEvents => _domainEvents.AsReadOnly();
+
+        protected void RaiseDomainEvent(IDomainEvent domainEvent)
+        {
+            _domainEvents.Add(domainEvent);
+        }
+
+        public void ClearDomainEvents()
+        {
+            _domainEvents.Clear();
+        }
     }
 }

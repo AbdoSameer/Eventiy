@@ -1,6 +1,7 @@
 ﻿using Application.Abstractions.Messaging;
 using Application.Abstractions.Persistence;
 using Domain.Aggregates.BookingAggregate;
+using Domain.Aggregates.EventAggregate;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Common;
 using Microsoft.EntityFrameworkCore;
@@ -23,7 +24,7 @@ namespace Application.Features.Bookings.Query.GetBookingByEvent
             if (EventIdResult.IsFailure)
             {
                 return Result<List<GetBookingByEventQueryResponse>>
-                    .Failure(EventIdResult.Error);
+                    .Failure(EventIdResult.Errors.ToArray());
             }
 
 
@@ -41,8 +42,10 @@ namespace Application.Features.Bookings.Query.GetBookingByEvent
 
             if (!bookings.Any())
             {
-                return Result<List<GetBookingByEventQueryResponse>>
-                    .Failure("No bookings found for the specified event.");
+                return Result<List<GetBookingByEventQueryResponse>>.Failure(
+                    Error.NotFound(
+                        "Booking.NotFound",
+                        $"No bookings found for event with ID {request.EventId}"));
             }
 
             return Result<List<GetBookingByEventQueryResponse>>.Success(bookings);

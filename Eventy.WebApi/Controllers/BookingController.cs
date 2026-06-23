@@ -1,6 +1,6 @@
 ﻿using Application.Features.Bookings.Command.CancelBooking;
 using Application.Features.Bookings.Command.ConfirmBooking;
-using Application.Features.Bookings.Command.MakeBooking;
+using Application.Features.Bookings.Command.CreateBooking;
 using Application.Features.Bookings.Query.GetBookingByEvent;
 using Application.Features.Bookings.Query.GetBookingDetails;
 using MediatR;
@@ -40,7 +40,7 @@ namespace Eventy.WebApi.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateBooking([FromBody] MakeBookingCommand command, CancellationToken cancellationToken)
+        public async Task<IActionResult> CreateBooking([FromBody] CreateBookingCommand command, CancellationToken cancellationToken)
         {
             var booking = await _sender.Send(command, cancellationToken);
             if (booking.IsFailure)

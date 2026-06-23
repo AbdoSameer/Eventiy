@@ -23,7 +23,7 @@ namespace Application.Features.Events.Queries.GetEvents
                 .Where(e => e.Date > DateTime.UtcNow)
                 .Select(e => new EventCardResponse(
                    e.Id.Value,
-                   e.Name.Value,
+                   e.EventName.Value,
                    e.Date
                 ))
                 .ToListAsync(cancellationToken);

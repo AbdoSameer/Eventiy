@@ -17,7 +17,7 @@ namespace Domain.Aggregates.BookingAggregate.ValueObject
         public static Result<UserId> Create(Guid value)
         {
             if (value == Guid.Empty)
-                return Result<UserId>.Failure("UserId cannot be empty");
+                return Result<UserId>.Failure(Error.Validation("User.InvalidId", "The provided User ID Is invalid"));
 
             return Result<UserId>.Success(new UserId(value));
         }

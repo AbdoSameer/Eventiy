@@ -1,5 +1,4 @@
-﻿using Domain.Aggregates.BookingAggregate.ValueObject;
-using Domain.Common;
+﻿using Domain.Common;
 
 namespace Domain.Aggregates.EventAggregate.ValueObject;
 
@@ -16,7 +15,7 @@ public sealed class TicketTypeId : ValueObjectBase
     public static Result<TicketTypeId> Create(Guid value)
     {
         if (value == Guid.Empty)
-            return Result<TicketTypeId>.Failure("UserId cannot be empty");
+            return Result<TicketTypeId>.Failure(EventErrors.InvalidEventId(value));
 
         return Result<TicketTypeId>.Success(new TicketTypeId(value));
     }

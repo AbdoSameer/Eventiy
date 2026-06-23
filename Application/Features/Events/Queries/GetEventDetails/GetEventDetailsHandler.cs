@@ -28,7 +28,7 @@ namespace Application.Features.Events.Queries.GetEventDetails
                 {
                     Id = e.Id.Value,
                     Date = e.Date,
-                    Name = e.Name.Value,
+                    Name = e.EventName.Value,
                     Description = e.Description,
                     Status = e.Status,
 
@@ -47,14 +47,18 @@ namespace Application.Features.Events.Queries.GetEventDetails
                             t.Id.Value,
                             t.Price.Amount,
                             t.Price.Currency,
-                            t.Name,
+                            t.TicketTypeName,
                             t.Capacity)).ToList()
 
                 }).FirstOrDefaultAsync(cancellationToken);
 
             if (result is null)
             {
-                return Result<EventDetailsResponse>.Failure("Event not found.");
+                return Result<EventDetailsResponse>.Failure(
+                    Error.NotFound(
+                        "Event.NotFound",
+                        $"Event with id {request.Id} was not found."));
+
             }
 
             return Result<EventDetailsResponse>.Success(result!);

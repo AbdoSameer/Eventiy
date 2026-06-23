@@ -1,19 +1,27 @@
 ﻿using Domain.Aggregates.BookingAggregate;
 using Domain.Aggregates.EventAggregate;
+using Infrastructure.Seed;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Infrastructure.Persistence
 {
-    public class ApplicationDbContext : DbContext 
+    public class ApplicationDbContext : DbContext
     {
-        public DbSet<Event> Events => Set<Event>();
-        public DbSet<TicketType> TicketTypes => Set<TicketType>();
-        public DbSet<Booking> Bookings => Set<Booking>();
+        private readonly ILogger<ApplicationDbContext> _logger;
 
-        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
+        public DbSet<Booking> Bookings { get; set; }
+        public DbSet<Event> Events { get; set; }
+        public DbSet<TicketType> TicketTypes { get; set; }
+
+        public ApplicationDbContext(
+            DbContextOptions<ApplicationDbContext> options,
+            ILogger<ApplicationDbContext> logger = null)
+            : base(options)
         {
-
+            _logger = logger;
         }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -23,8 +31,43 @@ namespace Infrastructure.Persistence
 
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
-            return await base.SaveChangesAsync(cancellationToken);
+            try
+            {
+                var result = await base.SaveChangesAsync(cancellationToken);
+                return result;
+            }
+            catch (DbUpdateException ex)
+            {
+                _logger?.LogError(ex, "Database update error");
+
+                // Log inner exception details
+                if (ex.InnerException != null)
+                {
+                    _logger?.LogError($"Inner exception: {ex.InnerException.Message}");
+                }
+
+                // Log entity entries that caused the error
+                foreach (var entry in ex.Entries)
+                {
+                    _logger?.LogError($"Entity: {entry.Entity.GetType().Name}, State: {entry.State}");
+                }
+
+                throw;
+            }
         }
 
+        // Method to seed data
+        public async Task SeedDataAsync()
+        {
+            try
+            {
+                await DatabaseSeeder.SeedAsync(this);
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Error seeding database");
+                throw;
+            }
+        }
     }
 }

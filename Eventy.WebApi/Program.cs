@@ -1,10 +1,5 @@
-using Application;
-using EventManagementSystem.Application.Abstractions.Behaviors;
-using EventManagementSystem.Application.Features.Bookings.Commands.MakeBooking;
-using FluentValidation;
 using Infrastructure;
-using Infrastructure.Persistence;
-using MediatR;
+using Infrastructure.Seed;
 using Scalar.AspNetCore;
 
 namespace Eventy.WebApi
@@ -16,19 +11,13 @@ namespace Eventy.WebApi
             var builder = WebApplication.CreateBuilder(args);
 
             builder.Services.AddControllers();
-
             builder.Services.AddOpenApi();
 
-            builder.Services.AddApplication();
-
+            builder.Services.AddApplication(); 
             builder.Services.AddInfrastructure(builder.Configuration);
 
-            builder.Services.AddValidatorsFromAssemblyContaining<
-                                         MakeBookingCommandValidator>();
+            builder.Services.AddHostedService<DatabaseSeederService>();
 
-            builder.Services.AddTransient(
-                typeof(IPipelineBehavior<,>),
-                typeof(ValidationPipelineBehavior<,>));
 
             var app = builder.Build();
 
@@ -45,6 +34,7 @@ namespace Eventy.WebApi
             app.UseHttpsRedirection();
             app.UseAuthorization();
             app.MapControllers();
+
             app.Run();
         }
     }

@@ -1,43 +1,35 @@
-﻿
-
-namespace Domain.Common
+﻿namespace Domain.Common
 {
-    public abstract class ValueObjectBase : IEquatable<ValueObjectBase>
+    public abstract class ValueObjectBase
     {
         protected abstract IEnumerable<object> GetEqualityComponents();
 
         public override bool Equals(object? obj)
         {
-            if (obj is null || obj.GetType() != GetType())
+            if (obj == null || obj.GetType() != GetType())
                 return false;
 
-            return GetEqualityComponents()
-                .SequenceEqual(((ValueObjectBase)obj).GetEqualityComponents());
-        }
-
-        public override int GetHashCode()
-        {
-            return GetEqualityComponents()
-                .Aggregate(default(int), HashCode.Combine);
-        }
-
-        public bool Equals(ValueObjectBase? other)
-        {
-            if (other is null)
-                return false;
+            var other = (ValueObjectBase)obj;
 
             return GetEqualityComponents()
                 .SequenceEqual(other.GetEqualityComponents());
         }
 
-        public static bool operator ==(ValueObjectBase? left, ValueObjectBase? right)
+        public override int GetHashCode()
         {
-            if (left is null && right is null) return true;
-            if (left is null || right is null) return false;
-            return left.Equals(right);
+            return GetEqualityComponents()
+                .Select(x => x?.GetHashCode() ?? 0)
+                .Aggregate((x, y) => x ^ y);
         }
 
-        public static bool operator !=(ValueObjectBase? left, ValueObjectBase? right)
-            => !(left == right);
+        public static bool operator ==(ValueObjectBase left, ValueObjectBase right)
+        {
+            return Equals(left, right);
+        }
+
+        public static bool operator !=(ValueObjectBase left, ValueObjectBase right)
+        {
+            return !Equals(left, right);
+        }
     }
 }
