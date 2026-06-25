@@ -7,7 +7,7 @@ namespace Domain.Aggregates.EventAggregate.Events
     public class EventCapacityUpdatedEvent : DomainEvent, IDomainEvent
     {
         public override string Name => nameof(EventCapacityUpdatedEvent);
-        public override string Domain => "Booking";
+        public override string Domain => "Event";
 
         public EventId EventId { get; }
         public int OldCapacity { get; }

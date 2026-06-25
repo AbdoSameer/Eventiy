@@ -1,6 +1,9 @@
-﻿using Application.Abstractions.Persistence;
+﻿using Application.Abstractions.Outbox;
+using Application.Abstractions.Persistence;
 using Domain.Abstractions.Persistence;
+using Infrastructure.BackgroundJobs;
 using Infrastructure.Persistence;
+using Infrastructure.Persistence.Outbox;
 using Infrastructure.Persistence.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -47,6 +50,17 @@ namespace Infrastructure
             services.AddScoped<IUnitOfWork, UnitOfWork>();
             services.AddScoped<IEventRepository, EventRepository>();
             services.AddScoped<IBookingRepository, BookingRepository>();
+
+            // Outbox
+            services.AddScoped<IEventSerializer, EventSerializer>();
+            services.AddScoped<IOutboxMessageService, OutboxMessageService>();
+            services.AddScoped<IOutboxRepository, OutboxRepository>();
+            services.AddScoped<IEventSerializer, EventSerializer>();
+
+
+            // Background Processor
+            services.AddHostedService<OutboxProcessor>();
+
 
             // Register the read context adapter
             services.AddScoped<IApplicationReadDbContext, ReadDbContextAdapter>();

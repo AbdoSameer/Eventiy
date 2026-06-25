@@ -10,7 +10,7 @@ namespace Domain.Aggregates.EventAggregate.Events
         public DateTime Date { get; }
         public int Capacity { get; }
         public override string Name => nameof(EventCreatedEvent);
-        public override string Domain => "Booking";
+        public override string Domain => "Event";
 
 
         public EventCreatedEvent(

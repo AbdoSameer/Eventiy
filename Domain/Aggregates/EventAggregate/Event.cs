@@ -56,12 +56,6 @@ namespace Domain.Aggregates.EventAggregate
             Address location,
             string description = "")
         {
-            // Validate name
-            if (string.IsNullOrWhiteSpace(name))
-                return Result<Event>.Failure(EventErrors.NameCannotBeEmpty());
-
-            if (name.Length > MAX_NAME_LENGTH)
-                return Result<Event>.Failure(EventErrors.NameTooLong(MAX_NAME_LENGTH));
 
             // Validate capacity
             if (capacity < MIN_CAPACITY)

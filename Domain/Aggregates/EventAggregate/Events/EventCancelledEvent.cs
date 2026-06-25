@@ -9,7 +9,7 @@ namespace Domain.Aggregates.EventAggregate.Events
         public DateTime CancelledAt { get; }
         public string? Reason { get; }
         public override string Name => nameof(EventCancelledEvent);
-        public override string Domain => "Booking";
+        public override string Domain => "Event";
 
         public EventCancelledEvent(
             EventId eventId,

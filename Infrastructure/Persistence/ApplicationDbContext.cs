@@ -1,5 +1,6 @@
 ﻿using Domain.Aggregates.BookingAggregate;
 using Domain.Aggregates.EventAggregate;
+using Infrastructure.Persistence.Outbox;
 using Infrastructure.Seed;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -13,6 +14,7 @@ namespace Infrastructure.Persistence
         public DbSet<Booking> Bookings { get; set; }
         public DbSet<Event> Events { get; set; }
         public DbSet<TicketType> TicketTypes { get; set; }
+        public DbSet<OutboxMessage> OutboxMessages { get; set; } 
 
         public ApplicationDbContext(
             DbContextOptions<ApplicationDbContext> options,

@@ -2,13 +2,13 @@
 {
     public abstract class DomainEvent : IDomainEvent
     {
-        public DateTime OccurredOn { get; protected set; }
+        public DateTime OccurredOnUtc { get;  }
         public abstract string Name { get; }
         public abstract string Domain { get; }
 
         protected DomainEvent()
         {
-            OccurredOn = DateTime.UtcNow;
+            OccurredOnUtc = DateTime.UtcNow;
         }
     }
 }

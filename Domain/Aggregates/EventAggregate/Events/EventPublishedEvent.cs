@@ -9,7 +9,7 @@ namespace Domain.Aggregates.EventAggregate.Events
         public DateTime PublishedAt { get; }
         public int TotalTicketTypes { get; }
         public override string Name => nameof(EventPublishedEvent);
-        public override string Domain => "Booking";
+        public override string Domain => "Event";
 
         public EventPublishedEvent(
             EventId eventId,

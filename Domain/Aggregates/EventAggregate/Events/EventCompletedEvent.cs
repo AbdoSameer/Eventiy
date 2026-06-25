@@ -8,7 +8,7 @@ namespace Domain.Aggregates.EventAggregate.Events
         public EventId EventId { get; }
         public DateTime CompletedAt { get; }
         public override string Name => nameof(EventCompletedEvent);
-        public override string Domain => "Booking";
+        public override string Domain => "Event";
 
         public EventCompletedEvent(EventId eventId)
         {

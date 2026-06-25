@@ -12,7 +12,7 @@ namespace Domain.Aggregates.EventAggregate.Events.TicketTypeEvents
         public int Capacity { get; }
         public string Currency { get; }
         public override string Name => nameof(TicketTypeCreatedEvent);
-        public override string Domain => "Booking";
+        public override string Domain => "Event";
 
         public TicketTypeCreatedEvent(
             TicketTypeId ticketTypeId,
