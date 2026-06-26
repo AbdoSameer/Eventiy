@@ -1,6 +1,6 @@
 ﻿using Domain.Common;
 
-namespace Domain.Common
+namespace Domain.Errors
 {
     public static class AddressErrors
     {

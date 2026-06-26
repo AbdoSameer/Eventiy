@@ -13,10 +13,12 @@ namespace Domain.Aggregates.EventAggregate.Events
 
         public EventPublishedEvent(
             EventId eventId,
-            int totalTicketTypes)
+            int totalTicketTypes,
+            IDateTimeProvider dateTimeProvider,
+            EventMetadata metadata) : base(dateTimeProvider, metadata)
         {
             EventId = eventId;
-            PublishedAt = DateTime.UtcNow;
+            PublishedAt = dateTimeProvider.UtcNow;
             TotalTicketTypes = totalTicketTypes;
         }
     }

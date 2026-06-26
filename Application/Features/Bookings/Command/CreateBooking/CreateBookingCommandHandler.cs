@@ -3,9 +3,9 @@ using Application.Abstractions.Persistence;
 using Domain.Abstractions.Persistence;
 using Domain.Aggregates.BookingAggregate;
 using Domain.Aggregates.BookingAggregate.ValueObject;
-using Domain.Aggregates.EventAggregate;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Common;
+using Domain.Errors;
 
 namespace Application.Features.Bookings.Command.CreateBooking
 {
@@ -14,15 +14,18 @@ namespace Application.Features.Bookings.Command.CreateBooking
         private readonly IBookingRepository _bookingRepository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IEventRepository _eventRepository;
+        private readonly IDateTimeProvider _dateTimeProvider;
 
         public CreateBookingCommandHandler(IBookingRepository bookingRepository,
                                            IUnitOfWork unitOfWork ,
-                                           IEventRepository eventRepository
+                                           IEventRepository eventRepository,
+                                           IDateTimeProvider dateTimeProvider
                                            )
         {
             _bookingRepository = bookingRepository;
             _unitOfWork = unitOfWork;
             _eventRepository = eventRepository;
+            _dateTimeProvider = dateTimeProvider;
         }
 
         public async Task<Result<BookingId>> Handle(CreateBookingCommand request, CancellationToken cancellationToken)
@@ -68,19 +71,22 @@ namespace Application.Features.Bookings.Command.CreateBooking
                     BookingErrors.InsufficientSeats(request.Quantity, TicketTypeResult.AvailableCount));
             }
 
+            var metadata = new EventMetadata(Guid.NewGuid().ToString(), null, null);
 
             var booking = Booking.Create(UserIdResult.Value,
                                          eventIdResult.Value,
                                          ticketTypeIdResult.Value,
                                          eventResult.EventName.Value,
                                          request.Quantity,
-                                         TicketTypeResult.Price);
+                                         TicketTypeResult.Price,
+                                         _dateTimeProvider,
+                                         metadata);
             if (booking.IsFailure)
             {
                 return Result<BookingId>.Failure(booking.Errors.ToArray());
             }
 
-            var reservationResult = eventResult.ReserveSeats(ticketTypeIdResult.Value, request.Quantity); 
+            var reservationResult = eventResult.ReserveSeats(ticketTypeIdResult.Value, request.Quantity, _dateTimeProvider, metadata); 
             if (reservationResult.IsFailure)
             {
                 return Result<BookingId>.Failure(reservationResult.Errors.ToArray());

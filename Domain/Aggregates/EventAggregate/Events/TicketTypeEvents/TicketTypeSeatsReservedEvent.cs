@@ -19,7 +19,9 @@ namespace Domain.Aggregates.EventAggregate.Events.TicketTypeEvents
             EventId eventId,
             int quantityReserved,
             int totalSold,
-            int availableRemaining)
+            int availableRemaining,
+            IDateTimeProvider dateTimeProvider,
+            EventMetadata metadata) : base(dateTimeProvider, metadata)
         {
             TicketTypeId = ticketTypeId;
             EventId = eventId;

@@ -1,4 +1,5 @@
 ﻿using Domain.Common;
+using Domain.Errors;
 
 namespace Domain.Aggregates.BookingAggregate.ValueObject
 {
@@ -31,6 +32,5 @@ namespace Domain.Aggregates.BookingAggregate.ValueObject
         public override string ToString() => Value.ToString();
 
         public static implicit operator Guid(BookingId bookingId) => bookingId.Value;
-        public static implicit operator BookingId(Guid value) => new BookingId(value);
     }
 }

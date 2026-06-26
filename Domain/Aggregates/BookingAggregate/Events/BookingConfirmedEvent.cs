@@ -17,12 +17,15 @@ namespace Domain.Aggregates.BookingAggregate.Events
         public BookingConfirmedEvent(
             BookingId bookingId,
             UserId userId,
-            EventId eventId)
+            EventId eventId,
+            IDateTimeProvider dateTimeProvider,
+            EventMetadata metadata): base(dateTimeProvider, metadata)
+
         {
             BookingId = bookingId;
             UserId = userId;
             EventId = eventId;
-            ConfirmedAt = DateTime.UtcNow;
+            ConfirmedAt = dateTimeProvider.UtcNow;
         }
     }
 }

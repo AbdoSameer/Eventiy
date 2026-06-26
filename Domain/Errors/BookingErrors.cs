@@ -1,7 +1,7 @@
 ﻿using Domain.Aggregates.BookingAggregate.Enums;
 using Domain.Common;
 
-namespace Domain.Aggregates.BookingAggregate
+namespace Domain.Errors
 {
     public static class BookingErrors
     {

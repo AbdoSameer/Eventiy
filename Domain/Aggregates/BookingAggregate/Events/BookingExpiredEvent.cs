@@ -16,12 +16,15 @@ namespace Domain.Aggregates.BookingAggregate.Events
         public BookingExpiredEvent(
             BookingId bookingId,
             UserId userId,
-            EventId eventId)
+            EventId eventId,
+            IDateTimeProvider dateTimeProvider,
+            EventMetadata metadata) : base(dateTimeProvider, metadata)
+
         {
             BookingId = bookingId;
             UserId = userId;
             EventId = eventId;
-            ExpiredAt = DateTime.UtcNow;
+            ExpiredAt = dateTimeProvider.UtcNow;
         }
     }
 }

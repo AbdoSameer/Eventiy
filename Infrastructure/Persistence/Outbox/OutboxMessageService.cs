@@ -1,36 +1,61 @@
 ﻿using Application.Abstractions.Outbox;
-using Domain.Common; 
+using Domain.Common;
+using Infrastructure.Persistence.Repositories;
+using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.Persistence.Outbox; 
+namespace Infrastructure.Persistence.Outbox;
+
 public sealed class OutboxMessageService : IOutboxMessageService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly OutboxRepository _outboxRepository;
     private readonly IEventSerializer _serializer;
+    private readonly ILogger<OutboxMessageService> _logger;
 
-    public OutboxMessageService(ApplicationDbContext context, IEventSerializer serializer)
+    public OutboxMessageService(
+        OutboxRepository outboxRepository,
+        IEventSerializer serializer,
+        ILogger<OutboxMessageService> logger = null)
     {
-        _context = context;
+        _outboxRepository = outboxRepository;
         _serializer = serializer;
+        _logger = logger;
     }
 
-    public async Task AddFromDomainEventsAsync(
-        IEnumerable<IDomainEvent> domainEvents,
-        CancellationToken cancellationToken = default)
+    public void AddFromDomainEvents(IEnumerable<IDomainEvent> domainEvents)
     {
         var events = domainEvents.ToList();
         if (!events.Any())
-            return;
-
-        foreach (var domainEvent in events)
         {
-            // Serialize Domain Event
-            var payload = _serializer.Serialize(domainEvent);
-
-            // Create Infrastructure Entity
-            var outboxMessage = new OutboxMessage(domainEvent, payload);
-
-            // Save to Infrastructure DbContext
-            await _context.OutboxMessages.AddAsync(outboxMessage, cancellationToken);
+            _logger?.LogDebug("📭 No domain events to stage in Outbox");
+            return;
         }
+
+        // ✅ Build DTOs (not Infrastructure Entities)
+        var messages = events
+            .Select(de =>
+            {
+                var payload = _serializer.Serialize(de);
+                return new OutboxMessageDto(
+                    Id: Guid.NewGuid(),
+                    EventName: de.Name,
+                    Domain: de.Domain,
+                    Payload: payload,
+                    OccurredOnUtc: de.OccurredOnUtc,
+                    ProcessedOnUtc: null,
+                    NextRetryOnUtc: null,
+                    Error: null,
+                    RetryCount: 0,
+                    IsProcessed: false,
+                    IsReadyForProcessing: true);
+            })
+            .ToList();
+
+        // ✅ Use Interface method
+        _outboxRepository.AddRange(messages);
+
+        _logger?.LogDebug(
+            "📝 Staged {Count} outbox messages for atomic commit: {Events}",
+            messages.Count,
+            string.Join(", ", events.Select(e => e.Name)));
     }
 }

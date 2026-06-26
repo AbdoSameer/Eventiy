@@ -17,12 +17,14 @@ namespace Domain.Aggregates.EventAggregate.Events.TicketTypeEvents
             EventId eventId,
             decimal oldPrice,
             decimal newPrice,
-            string currency) : base(ticketTypeId, eventId)
+            string currency,
+            IDateTimeProvider dateTimeProvider,
+            EventMetadata metadata) : base(ticketTypeId, eventId, dateTimeProvider, metadata)
         {
             OldPrice = oldPrice;
             NewPrice = newPrice;
             Currency = currency;
-            UpdatedAt = DateTime.UtcNow;
+            UpdatedAt = dateTimeProvider.UtcNow;
         }
     }
 }

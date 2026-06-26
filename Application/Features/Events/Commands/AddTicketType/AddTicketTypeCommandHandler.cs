@@ -1,9 +1,9 @@
 ﻿using Application.Abstractions.Messaging;
 using Application.Abstractions.Persistence;
 using Domain.Abstractions.Persistence;
-using Domain.Aggregates.EventAggregate;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Common;
+using Domain.Errors;
 using Domain.Primitives;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,12 +14,15 @@ namespace Application.Features.Events.Commands.AddTicketType
 
         private readonly IUnitOfWork _unitOfWork;
         private readonly IEventRepository _eventRepository;
+        private readonly IDateTimeProvider _dateTimeProvider;
 
         public AddTicketTypeCommandHandler( IUnitOfWork unitOfWork ,
-                                           IEventRepository eventRepository)
+                                           IEventRepository eventRepository,
+                                           IDateTimeProvider dateTimeProvider)
         {
             _unitOfWork = unitOfWork;
             _eventRepository = eventRepository;
+            _dateTimeProvider = dateTimeProvider;
         }
         public async Task<Result> Handle(AddTicketTypeCommand request, CancellationToken cancellationToken)
         {
@@ -35,9 +38,12 @@ namespace Application.Features.Events.Commands.AddTicketType
             if (moneyResult.IsFailure)
                 return Result.Failure(moneyResult.Errors.ToArray());
                 
+            var metadata = new EventMetadata(Guid.NewGuid().ToString(), null, null);
             var AddTicketresult = @event.AddTicketType(request.Name,
                                                   moneyResult.Value,
-                                                  request.Capacity);
+                                                  request.Capacity,
+                                                  _dateTimeProvider,
+                                                  metadata);
             if (AddTicketresult.IsFailure)
                 return Result.Failure(AddTicketresult.Errors.ToArray());
 

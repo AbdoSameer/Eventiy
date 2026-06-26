@@ -16,12 +16,15 @@ namespace Domain.Aggregates.BookingAggregate.Events
         public BookingQuantityUpdatedEvent(
             BookingId bookingId,
             decimal oldTotalAmount,
-            decimal newTotalAmount)
+            decimal newTotalAmount,
+            IDateTimeProvider dateTimeProvider,
+            EventMetadata metadata) : base(dateTimeProvider, metadata)
+
         {
             BookingId = bookingId;
             OldTotalAmount = oldTotalAmount;
             NewTotalAmount = newTotalAmount;
-            UpdatedAt = DateTime.UtcNow;
+            UpdatedAt = dateTimeProvider.UtcNow;
         }
     }
 }

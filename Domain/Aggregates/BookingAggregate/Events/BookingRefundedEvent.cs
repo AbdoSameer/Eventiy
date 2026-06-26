@@ -18,13 +18,16 @@ namespace Domain.Aggregates.BookingAggregate.Events
             BookingId bookingId,
             UserId userId,
             EventId eventId,
-            decimal refundAmount)
+            decimal refundAmount,
+            IDateTimeProvider dateTimeProvider,
+            EventMetadata metadata) : base(dateTimeProvider, metadata)
+
         {
             BookingId = bookingId;
             UserId = userId;
             EventId = eventId;
             RefundAmount = refundAmount;
-            RefundedAt = DateTime.UtcNow;
+            RefundedAt = dateTimeProvider.UtcNow;
         }
     }
 }

@@ -4,8 +4,6 @@ namespace Application.Abstractions.Outbox
 {
     public interface IOutboxMessageService
     {
-        Task AddFromDomainEventsAsync(
-            IEnumerable<IDomainEvent> domainEvents,
-            CancellationToken cancellationToken = default);
+        void AddFromDomainEvents(IEnumerable<IDomainEvent> domainEvents);
     }
 }

@@ -1,9 +1,9 @@
 ﻿using Application.Abstractions.Messaging;
 using Application.Abstractions.Persistence;
 using Domain.Abstractions.Persistence;
-using Domain.Aggregates.BookingAggregate;
 using Domain.Aggregates.BookingAggregate.ValueObject;
 using Domain.Common;
+using Domain.Errors;
 
 namespace Application.Features.Bookings.Command.CancelBooking
 {
@@ -11,12 +11,15 @@ namespace Application.Features.Bookings.Command.CancelBooking
     {
         private readonly IBookingRepository _bookingRepository;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IDateTimeProvider _dateTimeProvider;
 
         public CancelBookingCommandHandler(IBookingRepository bookingRepository,
-                                           IUnitOfWork unitOfWork)
+                                           IUnitOfWork unitOfWork,
+                                           IDateTimeProvider dateTimeProvider)
         {
             _bookingRepository = bookingRepository;
             _unitOfWork = unitOfWork;
+            _dateTimeProvider = dateTimeProvider;
         }
 
         public async Task<Result<bool>> Handle(CancelBookingCommand request, CancellationToken cancellationToken)
@@ -35,7 +38,9 @@ namespace Application.Features.Bookings.Command.CancelBooking
 
             }
 
-            var CancelResult = booking.Cancel();
+            var metadata = new EventMetadata(Guid.NewGuid().ToString(), null, null);
+
+            var CancelResult = booking.Cancel(_dateTimeProvider, metadata);
             if (CancelResult.IsFailure)
             {
                 return Result<bool>.Failure(CancelResult.Errors.ToArray());

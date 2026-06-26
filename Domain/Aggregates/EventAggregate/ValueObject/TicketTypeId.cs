@@ -1,4 +1,5 @@
 ﻿using Domain.Common;
+using Domain.Errors;
 
 namespace Domain.Aggregates.EventAggregate.ValueObject;
 

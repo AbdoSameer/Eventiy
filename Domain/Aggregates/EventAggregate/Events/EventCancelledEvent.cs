@@ -13,10 +13,12 @@ namespace Domain.Aggregates.EventAggregate.Events
 
         public EventCancelledEvent(
             EventId eventId,
-            string? reason = null)
+            IDateTimeProvider dateTimeProvider,
+            EventMetadata metadata,
+            string? reason = null) : base(dateTimeProvider, metadata)
         {
             EventId = eventId;
-            CancelledAt = DateTime.UtcNow;
+            CancelledAt = dateTimeProvider.UtcNow;
             Reason = reason;
         }
     }

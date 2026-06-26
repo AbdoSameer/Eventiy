@@ -1,5 +1,4 @@
-﻿
-using Domain.Aggregates.EventAggregate.ValueObject;
+﻿using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Common;
 
 namespace Domain.Aggregates.EventAggregate.Events
@@ -18,12 +17,14 @@ namespace Domain.Aggregates.EventAggregate.Events
         public EventCapacityUpdatedEvent(
             EventId eventId,
             int oldCapacity,
-            int newCapacity)
+            int newCapacity,
+            IDateTimeProvider dateTimeProvider,
+            EventMetadata metadata) : base(dateTimeProvider, metadata)
         {
             EventId = eventId;
             OldCapacity = oldCapacity;
             NewCapacity = newCapacity;
-            UpdatedAt = DateTime.UtcNow;
+            UpdatedAt = dateTimeProvider.UtcNow;
         }
     }
 }

@@ -15,12 +15,14 @@ namespace Domain.Aggregates.EventAggregate.Events.TicketTypeEvents
         public TicketTypeRemovedEvent(
             TicketTypeId ticketTypeId,
             EventId eventId,
-            string name)
+            string name,
+            IDateTimeProvider dateTimeProvider,
+            EventMetadata metadata) : base(dateTimeProvider, metadata)
         {
             TicketTypeId = ticketTypeId;
             EventId = eventId;
             TicketTypeName = name;
-            RemovedAt = DateTime.UtcNow;
+            RemovedAt = dateTimeProvider.UtcNow;
         }
     }
 }

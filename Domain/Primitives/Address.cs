@@ -1,6 +1,7 @@
 ﻿using Domain.Common;
+using Domain.Errors;
 
-namespace Domain.Common
+namespace Domain.Primitives
 {
     public class Address : ValueObjectBase
     {

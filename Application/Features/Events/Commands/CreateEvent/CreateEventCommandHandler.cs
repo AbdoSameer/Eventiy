@@ -14,11 +14,13 @@ namespace Application.Features.Events.Commands.CreateEvent
     {
         private readonly IEventRepository _eventRepository;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IDateTimeProvider _dateTimeProvider;
 
-        public CreateEventCommandHandler(IEventRepository eventRepository, IUnitOfWork unitOfWork)
+        public CreateEventCommandHandler(IEventRepository eventRepository, IUnitOfWork unitOfWork, IDateTimeProvider dateTimeProvider)
         {
             _eventRepository = eventRepository;
             _unitOfWork = unitOfWork;
+            _dateTimeProvider = dateTimeProvider;
         }
         public async Task<Result<Guid>> Handle(CreateEventCommand request, CancellationToken cancellationToken)
         {
@@ -32,12 +34,16 @@ namespace Application.Features.Events.Commands.CreateEvent
                 return Result<Guid>.Failure(addressResult.Errors.ToArray());
             }
 
+            var metadata = new EventMetadata(Guid.NewGuid().ToString(), null, null);
+
             var @event = Event
                         .Create(request.Name,
                                 request.Capacity,
                                 request.Date,
                                 addressResult.Value,
-                                request.Description);
+                                request.Description,
+                                _dateTimeProvider,
+                                metadata);
 
             if (@event.IsFailure)
             {

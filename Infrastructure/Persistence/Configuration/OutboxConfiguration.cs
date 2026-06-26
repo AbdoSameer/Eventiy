@@ -1,6 +1,4 @@
-﻿namespace Infrastructure.Persistence.Configuration;
-
-using Infrastructure.Persistence.Outbox;
+﻿using Infrastructure.Persistence.Outbox;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -30,6 +28,16 @@ public sealed class OutboxConfiguration : IEntityTypeConfiguration<OutboxMessage
         builder.Property(x => x.OccurredOnUtc)
             .IsRequired();
 
+        // ✅ NEW: Idempotency Key
+        builder.Property(x => x.IdempotencyKey)
+            .IsRequired()
+            .HasMaxLength(100);
+
+        // ✅ NEW: Processing Lock
+        builder.Property(x => x.ProcessingLock);
+        builder.Property(x => x.ProcessingLockedAt);
+
+        // ✅ Indexes for performance
         builder.HasIndex(x => new { x.IsProcessed, x.ProcessedOnUtc })
             .HasDatabaseName("IX_OutboxMessages_Processed");
 
@@ -38,5 +46,14 @@ public sealed class OutboxConfiguration : IEntityTypeConfiguration<OutboxMessage
 
         builder.HasIndex(x => x.Domain)
             .HasDatabaseName("IX_OutboxMessages_Domain");
+
+        // ✅ NEW: Unique Index on IdempotencyKey
+        builder.HasIndex(x => x.IdempotencyKey)
+            .IsUnique()
+            .HasDatabaseName("IX_OutboxMessages_IdempotencyKey");
+
+        // ✅ NEW: Composite Index for Lock Queries
+        builder.HasIndex(x => new { x.IsProcessed, x.ProcessingLock, x.ProcessingLockedAt })
+            .HasDatabaseName("IX_OutboxMessages_Processing");
     }
 }

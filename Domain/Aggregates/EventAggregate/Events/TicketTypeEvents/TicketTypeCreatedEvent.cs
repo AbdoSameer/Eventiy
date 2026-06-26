@@ -20,7 +20,9 @@ namespace Domain.Aggregates.EventAggregate.Events.TicketTypeEvents
             string name,
             decimal price,
             int capacity,
-            string currency)
+            string currency,
+            IDateTimeProvider dateTimeProvider,
+            EventMetadata metadata) : base(dateTimeProvider, metadata)
         {
             TicketTypeId = ticketTypeId;
             EventId = eventId;

@@ -2,6 +2,7 @@
 using Domain.Aggregates.EventAggregate.Enums;
 using Domain.Common;
 using Domain.Primitives;
+using Domain.Errors;
 
 namespace Domain.Aggregates.EventAggregate
 {

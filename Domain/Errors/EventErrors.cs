@@ -1,7 +1,7 @@
 ﻿using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Common;
 
-namespace Domain.Aggregates.EventAggregate;
+namespace Domain.Errors;
 
 public static class EventErrors
 {

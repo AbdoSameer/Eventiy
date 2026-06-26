@@ -1,9 +1,9 @@
 ﻿using Application.Abstractions.Messaging;
 using Application.Abstractions.Persistence;
 using Domain.Abstractions.Persistence;
-using Domain.Aggregates.BookingAggregate;
 using Domain.Aggregates.BookingAggregate.ValueObject;
 using Domain.Common;
+using Domain.Errors;
 
 namespace Application.Features.Bookings.Command.ConfirmBooking
 {
@@ -12,12 +12,15 @@ namespace Application.Features.Bookings.Command.ConfirmBooking
     {
         private readonly IBookingRepository _bookingRepository;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IDateTimeProvider _dateTimeProvider;
 
         public ConfirmBookingCommandHandler(IBookingRepository bookingRepository,
-                                            IUnitOfWork unitOfWork)
+                                            IUnitOfWork unitOfWork,
+                                            IDateTimeProvider dateTimeProvider)
         {
             _bookingRepository = bookingRepository;
             _unitOfWork = unitOfWork;
+            _dateTimeProvider = dateTimeProvider;
         }
 
         public async Task<Result<bool>> Handle(ConfirmBookingCommand request, CancellationToken cancellationToken)
@@ -35,7 +38,9 @@ namespace Application.Features.Bookings.Command.ConfirmBooking
                 return Result<bool>.Failure(BookingErrors.BookingNotFound(bookingIdResult.Value));
             }
 
-            var ConfirmResult = booking.Confirm();
+            var metadata = new EventMetadata(Guid.NewGuid().ToString(), null, null);
+
+            var ConfirmResult = booking.Confirm(_dateTimeProvider, metadata);
             if (ConfirmResult.IsFailure)
             {
                 return Result<bool>.Failure(ConfirmResult.Errors.ToArray());

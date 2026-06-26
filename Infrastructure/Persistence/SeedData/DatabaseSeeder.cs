@@ -29,7 +29,7 @@ namespace Infrastructure.Seed
                     return;
                 }
 
-                Console.WriteLine("🌱 Starting database seeding...");
+                Console.WriteLine("331 Starting database seeding...");
                 await SeedEventsAndBookingsAsync(context);
                 Console.WriteLine("✅ Database seeded successfully!");
             }
@@ -94,6 +94,8 @@ namespace Infrastructure.Seed
         private static List<Event> CreateFifaEvents()
         {
             var events = new List<Event>();
+            var provider = new SystemDateTimeProvider();
+            var metadata = new EventMetadata(Guid.NewGuid().ToString(), null, null);
 
             // Helper function to safely get value from Result
             static T GetValue<T>(Result<T> result, string context)
@@ -119,24 +121,26 @@ namespace Infrastructure.Seed
                         capacity: 75000,
                         date: new DateTime(2027, 7, 19, 18, 0, 0),
                         location: address1,
-                        description: "The grand finale of the FIFA World Cup 2027."
+                        description: "The grand finale of the FIFA World Cup 2027.",
+                        dateTimeProvider: provider,
+                        metadata: metadata
                     ),
                     "FIFA World Cup Final 2027"
                 );
 
                 var price1 = GetValue(Money.Create(1500, "USD"), "VIP ticket price");
-                event1.AddTicketType("VIP Hospitality", price1, 500);
+                event1.AddTicketType("VIP Hospitality", price1, 500, provider, metadata);
 
                 var price2 = GetValue(Money.Create(800, "USD"), "Premium ticket price");
-                event1.AddTicketType("Premium Category 1", price2, 2000);
+                event1.AddTicketType("Premium Category 1", price2, 2000, provider, metadata);
 
                 var price3 = GetValue(Money.Create(450, "USD"), "Standard ticket price");
-                event1.AddTicketType("Standard Category 2", price3, 5000);
+                event1.AddTicketType("Standard Category 2", price3, 5000, provider, metadata);
 
                 var price4 = GetValue(Money.Create(250, "USD"), "General Admission ticket price");
-                event1.AddTicketType("General Admission", price4, 25000);
+                event1.AddTicketType("General Admission", price4, 25000, provider, metadata);
 
-                event1.Publish();
+                event1.Publish(provider, metadata);
                 events.Add(event1);
 
                 // 2. FIFA World Cup Semi-Final 2027 - Match 1
@@ -151,21 +155,23 @@ namespace Infrastructure.Seed
                         capacity: 68000,
                         date: new DateTime(2027, 7, 14, 17, 0, 0),
                         location: address2,
-                        description: "First semi-final of the FIFA World Cup 2027."
+                        description: "First semi-final of the FIFA World Cup 2027.",
+                        dateTimeProvider: provider,
+                        metadata: metadata
                     ),
                     "Semi-Final 1"
                 );
 
                 var price5 = GetValue(Money.Create(1200, "USD"), "VIP ticket price");
-                event2.AddTicketType("VIP", price5, 400);
+                event2.AddTicketType("VIP", price5, 400, provider, metadata);
 
                 var price6 = GetValue(Money.Create(600, "USD"), "Premium ticket price");
-                event2.AddTicketType("Premium", price6, 3000);
+                event2.AddTicketType("Premium", price6, 3000, provider, metadata);
 
                 var price7 = GetValue(Money.Create(300, "USD"), "Standard ticket price");
-                event2.AddTicketType("Standard", price7, 15000);
+                event2.AddTicketType("Standard", price7, 15000, provider, metadata);
 
-                event2.Publish();
+                event2.Publish(provider, metadata);
                 events.Add(event2);
 
                 // 3. FIFA World Cup Semi-Final 2027 - Match 2
@@ -180,21 +186,23 @@ namespace Infrastructure.Seed
                         capacity: 68000,
                         date: new DateTime(2027, 7, 15, 17, 0, 0),
                         location: address3,
-                        description: "Second semi-final of the FIFA World Cup 2027."
+                        description: "Second semi-final of the FIFA World Cup 2027.",
+                        dateTimeProvider: provider,
+                        metadata: metadata
                     ),
                     "Semi-Final 2"
                 );
 
                 var price8 = GetValue(Money.Create(1200, "USD"), "VIP ticket price");
-                event3.AddTicketType("VIP", price8, 400);
+                event3.AddTicketType("VIP", price8, 400, provider, metadata);
 
                 var price9 = GetValue(Money.Create(600, "USD"), "Premium ticket price");
-                event3.AddTicketType("Premium", price9, 3000);
+                event3.AddTicketType("Premium", price9, 3000, provider, metadata);
 
                 var price10 = GetValue(Money.Create(300, "USD"), "Standard ticket price");
-                event3.AddTicketType("Standard", price10, 15000);
+                event3.AddTicketType("Standard", price10, 15000, provider, metadata);
 
-                event3.Publish();
+                event3.Publish(provider, metadata);
                 events.Add(event3);
 
                 // 4. FIFA World Cup Quarter-Final 2027 - Match 1
@@ -209,21 +217,23 @@ namespace Infrastructure.Seed
                         capacity: 55000,
                         date: new DateTime(2027, 7, 9, 16, 0, 0),
                         location: address4,
-                        description: "First quarter-final match of the FIFA World Cup 2027."
+                        description: "First quarter-final match of the FIFA World Cup 2027.",
+                        dateTimeProvider: provider,
+                        metadata: metadata
                     ),
                     "Quarter-Final"
                 );
 
                 var price11 = GetValue(Money.Create(900, "USD"), "VIP ticket price");
-                event4.AddTicketType("VIP", price11, 300);
+                event4.AddTicketType("VIP", price11, 300, provider, metadata);
 
                 var price12 = GetValue(Money.Create(400, "USD"), "Premium ticket price");
-                event4.AddTicketType("Premium", price12, 2000);
+                event4.AddTicketType("Premium", price12, 2000, provider, metadata);
 
                 var price13 = GetValue(Money.Create(200, "USD"), "Standard ticket price");
-                event4.AddTicketType("Standard", price13, 10000);
+                event4.AddTicketType("Standard", price13, 10000, provider, metadata);
 
-                event4.Publish();
+                event4.Publish(provider, metadata);
                 events.Add(event4);
 
                 // 5. FIFA World Cup Group Stage - Brazil vs Argentina
@@ -238,24 +248,26 @@ namespace Infrastructure.Seed
                         capacity: 70000,
                         date: new DateTime(2027, 6, 20, 21, 0, 0),
                         location: address5,
-                        description: "An epic South American derby in the group stage."
+                        description: "An epic South American derby in the group stage.",
+                        dateTimeProvider: provider,
+                        metadata: metadata
                     ),
                     "Brazil vs Argentina"
                 );
 
                 var price14 = GetValue(Money.Create(1000, "USD"), "VIP ticket price");
-                event5.AddTicketType("VIP", price14, 350);
+                event5.AddTicketType("VIP", price14, 350, provider, metadata);
 
                 var price15 = GetValue(Money.Create(500, "USD"), "Premium ticket price");
-                event5.AddTicketType("Premium", price15, 2500);
+                event5.AddTicketType("Premium", price15, 2500, provider, metadata);
 
                 var price16 = GetValue(Money.Create(250, "USD"), "Standard ticket price");
-                event5.AddTicketType("Standard", price16, 20000);
+                event5.AddTicketType("Standard", price16, 20000, provider, metadata);
 
                 var price17 = GetValue(Money.Create(150, "USD"), "General Admission ticket price");
-                event5.AddTicketType("General Admission", price17, 30000);
+                event5.AddTicketType("General Admission", price17, 30000, provider, metadata);
 
-                event5.Publish();
+                event5.Publish(provider, metadata);
                 events.Add(event5);
 
                 // 6. FIFA World Cup Group Stage - Spain vs Germany
@@ -270,21 +282,23 @@ namespace Infrastructure.Seed
                         capacity: 65000,
                         date: new DateTime(2027, 6, 22, 18, 0, 0),
                         location: address6,
-                        description: "European powerhouses Spain and Germany face off."
+                        description: "European powerhouses Spain and Germany face off.",
+                        dateTimeProvider: provider,
+                        metadata: metadata
                     ),
                     "Spain vs Germany"
                 );
 
                 var price18 = GetValue(Money.Create(900, "USD"), "VIP ticket price");
-                event6.AddTicketType("VIP", price18, 300);
+                event6.AddTicketType("VIP", price18, 300, provider, metadata);
 
                 var price19 = GetValue(Money.Create(450, "USD"), "Premium ticket price");
-                event6.AddTicketType("Premium", price19, 2000);
+                event6.AddTicketType("Premium", price19, 2000, provider, metadata);
 
                 var price20 = GetValue(Money.Create(220, "USD"), "Standard ticket price");
-                event6.AddTicketType("Standard", price20, 15000);
+                event6.AddTicketType("Standard", price20, 15000, provider, metadata);
 
-                event6.Publish();
+                event6.Publish(provider, metadata);
                 events.Add(event6);
 
                 // 7. FIFA World Cup Opening Match 2027
@@ -299,24 +313,26 @@ namespace Infrastructure.Seed
                         capacity: 72000,
                         date: new DateTime(2027, 6, 14, 20, 0, 0),
                         location: address7,
-                        description: "The grand opening match of the FIFA World Cup 2027."
+                        description: "The grand opening match of the FIFA World Cup 2027.",
+                        dateTimeProvider: provider,
+                        metadata: metadata
                     ),
                     "Opening Match"
                 );
 
                 var price21 = GetValue(Money.Create(2000, "USD"), "VIP ticket price");
-                event7.AddTicketType("VIP Opening Ceremony", price21, 500);
+                event7.AddTicketType("VIP Opening Ceremony", price21, 500, provider, metadata);
 
                 var price22 = GetValue(Money.Create(700, "USD"), "Premium ticket price");
-                event7.AddTicketType("Premium", price22, 3000);
+                event7.AddTicketType("Premium", price22, 3000, provider, metadata);
 
                 var price23 = GetValue(Money.Create(350, "USD"), "Standard ticket price");
-                event7.AddTicketType("Standard", price23, 20000);
+                event7.AddTicketType("Standard", price23, 20000, provider, metadata);
 
                 var price24 = GetValue(Money.Create(200, "USD"), "General Admission ticket price");
-                event7.AddTicketType("General Admission", price24, 35000);
+                event7.AddTicketType("General Admission", price24, 35000, provider, metadata);
 
-                event7.Publish();
+                event7.Publish(provider, metadata);
                 events.Add(event7);
 
                 // 8. Upcoming FIFA Club World Cup 2027 Final (Draft - not published)
@@ -331,19 +347,21 @@ namespace Infrastructure.Seed
                         capacity: 60000,
                         date: new DateTime(2027, 12, 20, 19, 0, 0),
                         location: address8,
-                        description: "The FIFA Club World Cup Final."
+                        description: "The FIFA Club World Cup Final.",
+                        dateTimeProvider: provider,
+                        metadata: metadata
                     ),
                     "Club World Cup"
                 );
 
                 var price25 = GetValue(Money.Create(800, "USD"), "VIP ticket price");
-                event8.AddTicketType("VIP", price25, 250);
+                event8.AddTicketType("VIP", price25, 250, provider, metadata);
 
                 var price26 = GetValue(Money.Create(400, "USD"), "Premium ticket price");
-                event8.AddTicketType("Premium", price26, 2000);
+                event8.AddTicketType("Premium", price26, 2000, provider, metadata);
 
                 var price27 = GetValue(Money.Create(200, "USD"), "Standard ticket price");
-                event8.AddTicketType("Standard", price27, 15000);
+                event8.AddTicketType("Standard", price27, 15000, provider, metadata);
 
                 // This event remains as Draft (not published)
                 events.Add(event8);
@@ -361,6 +379,8 @@ namespace Infrastructure.Seed
         {
             var bookings = new List<Booking>();
             var random = new Random();
+            var provider = new SystemDateTimeProvider();
+            var metadata = new EventMetadata(Guid.NewGuid().ToString(), null, null);
 
             // Sample user IDs (these would normally come from your Identity system)
             var userIds = new List<UserId>
@@ -407,7 +427,9 @@ namespace Infrastructure.Seed
                         ticketTypeId: ticketType.Id,
                         eventTitle: eventItem.EventName.Value,
                         quantity: quantity,
-                        money: ticketType.Price
+                        money: ticketType.Price,
+                        dateTimeProvider: provider,
+                        metadata: metadata
                     );
 
                     if (bookingResult.IsFailure)
@@ -421,13 +443,13 @@ namespace Infrastructure.Seed
                     // Randomly confirm some bookings (70% confirmed)
                     if (random.NextDouble() > 0.3)
                     {
-                        booking.Confirm();
+                        booking.Confirm(provider, metadata);
                     }
 
                     // Randomly cancel some confirmed bookings (10% cancelled)
                     if (booking.Status == BookingStatusEnum.Confirmed && random.NextDouble() < 0.1)
                     {
-                        booking.Cancel("Changed my mind");
+                        booking.Cancel(provider, metadata, "Changed my mind");
                     }
 
                     bookings.Add(booking);

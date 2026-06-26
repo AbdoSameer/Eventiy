@@ -6,7 +6,6 @@ namespace Domain.Aggregates.BookingAggregate.Events
 {
     public class BookingCancelledEvent : DomainEvent, IDomainEvent
     {
-        // ? Added the missing BookingId property
         public BookingId BookingId { get; }
         public UserId UserId { get; }
         public EventId EventId { get; }
@@ -19,7 +18,9 @@ namespace Domain.Aggregates.BookingAggregate.Events
             BookingId bookingId,
             UserId userId,
             EventId eventId,
-            string? reason = null)
+            IDateTimeProvider dateTimeProvider,
+            EventMetadata metadata,
+            string? reason = null) : base(dateTimeProvider, metadata)
         {
             BookingId = bookingId;  
             UserId = userId;

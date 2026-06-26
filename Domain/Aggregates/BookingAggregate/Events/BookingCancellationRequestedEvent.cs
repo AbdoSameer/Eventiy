@@ -4,7 +4,7 @@ using Domain.Common;
 
 namespace Domain.Aggregates.BookingAggregate.Events
 {
-    public class BookingCancellationRequestedEvent : DomainEvent, IDomainEvent
+    public class BookingCancellationRequestedEvent : DomainEvent
     {
         public override string Name => nameof(BookingCancellationRequestedEvent);
         public override string Domain => "Booking";
@@ -18,7 +18,9 @@ namespace Domain.Aggregates.BookingAggregate.Events
             BookingId bookingId,
             UserId userId,
             EventId eventId,
-            string? reason = null)
+            IDateTimeProvider dateTimeProvider ,
+            EventMetadata metadata,
+            string? reason = null) : base(dateTimeProvider, metadata)
         {
             BookingId = bookingId;
             UserId = userId;
