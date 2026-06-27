@@ -18,14 +18,14 @@ namespace Domain.Aggregates.BookingAggregate.Events
             BookingId bookingId,
             UserId userId,
             EventId eventId,
-            IDateTimeProvider dateTimeProvider,
-            EventMetadata metadata): base(dateTimeProvider, metadata)
+            DateTime occurredOnUtc,
+            EventMetadata metadata): base(occurredOnUtc, metadata)
 
         {
             BookingId = bookingId;
             UserId = userId;
             EventId = eventId;
-            ConfirmedAt = dateTimeProvider.UtcNow;
+            ConfirmedAt = occurredOnUtc;
         }
     }
 }

@@ -9,7 +9,7 @@ namespace Domain.Aggregates.EventAggregate.Events.TicketTypeEvents
         public decimal NewPrice { get; }
         public string Currency { get; }
         public DateTime UpdatedAt { get; }
-        public  override string Name => nameof(TicketTypePriceUpdatedEvent);
+        public override string Name => nameof(TicketTypePriceUpdatedEvent);
         public override string Domain => "Event";
 
         public TicketTypePriceUpdatedEvent(
@@ -18,13 +18,13 @@ namespace Domain.Aggregates.EventAggregate.Events.TicketTypeEvents
             decimal oldPrice,
             decimal newPrice,
             string currency,
-            IDateTimeProvider dateTimeProvider,
-            EventMetadata metadata) : base(ticketTypeId, eventId, dateTimeProvider, metadata)
+            DateTime occurredOnUtc,
+            EventMetadata metadata) : base(ticketTypeId, eventId, occurredOnUtc, metadata)
         {
             OldPrice = oldPrice;
             NewPrice = newPrice;
             Currency = currency;
-            UpdatedAt = dateTimeProvider.UtcNow;
+            UpdatedAt = occurredOnUtc;
         }
     }
 }

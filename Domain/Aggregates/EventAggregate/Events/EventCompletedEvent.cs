@@ -10,10 +10,10 @@ namespace Domain.Aggregates.EventAggregate.Events
         public override string Name => nameof(EventCompletedEvent);
         public override string Domain => "Event";
 
-        public EventCompletedEvent(EventId eventId, IDateTimeProvider dateTimeProvider, EventMetadata metadata) : base(dateTimeProvider, metadata)
+        public EventCompletedEvent(EventId eventId, DateTime occurredOnUtc, EventMetadata metadata) : base(occurredOnUtc, metadata)
         {
             EventId = eventId;
-            CompletedAt = dateTimeProvider.UtcNow;
+            CompletedAt = occurredOnUtc;
         }
     }
 }

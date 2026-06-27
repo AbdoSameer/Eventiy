@@ -108,7 +108,7 @@ namespace Domain.Aggregates.EventAggregate
                 newEvent.EventName.Value,
                 newEvent.Date,
                 newEvent.Capacity,
-                dateTimeProvider,
+                dateTimeProvider.UtcNow,
                 metadata));
 
             return Result<Event>.Success(newEvent);
@@ -138,7 +138,7 @@ namespace Domain.Aggregates.EventAggregate
             PublishedAt = dateTimeProvider.UtcNow;
 
             // Raise domain event
-            RaiseDomainEvent(Domain.Common.DomainEventFactory.CreateEventPublished(Id, _ticketTypes.Count, dateTimeProvider, metadata));
+            RaiseDomainEvent(Domain.Common.DomainEventFactory.CreateEventPublished(Id, _ticketTypes.Count, dateTimeProvider.UtcNow, metadata));
 
             return Result.Success();
         }
@@ -161,7 +161,7 @@ namespace Domain.Aggregates.EventAggregate
             CancellationReason = reason;
 
             // Raise domain event
-            RaiseDomainEvent(Domain.Common.DomainEventFactory.CreateEventCancelled(Id, reason, dateTimeProvider, metadata));
+            RaiseDomainEvent(Domain.Common.DomainEventFactory.CreateEventCancelled(Id, reason, dateTimeProvider.UtcNow, metadata));
 
             return Result.Success();
         }
@@ -186,7 +186,7 @@ namespace Domain.Aggregates.EventAggregate
             CompletedAt = dateTimeProvider.UtcNow;
 
             // Raise domain event
-            RaiseDomainEvent(Domain.Common.DomainEventFactory.CreateEventCompleted(Id, dateTimeProvider, metadata));
+            RaiseDomainEvent(Domain.Common.DomainEventFactory.CreateEventCompleted(Id, dateTimeProvider.UtcNow, metadata));
 
             return Result.Success();
         }
@@ -225,7 +225,7 @@ namespace Domain.Aggregates.EventAggregate
                 name,
                 price.Amount,
                 capacity,
-                dateTimeProvider,
+                dateTimeProvider.UtcNow,
                 metadata));
 
             return Result.Success();
@@ -252,7 +252,7 @@ namespace Domain.Aggregates.EventAggregate
                 oldPrice,
                 newPrice.Amount,
                 newPrice.Currency,
-                dateTimeProvider,
+                dateTimeProvider.UtcNow,
                 metadata));
 
             return Result.Success();
@@ -279,7 +279,7 @@ namespace Domain.Aggregates.EventAggregate
                 Id,
                 oldCapacity,
                 newCapacity,
-                dateTimeProvider,
+                dateTimeProvider.UtcNow,
                 metadata));
 
             return Result.Success();
@@ -304,14 +304,17 @@ namespace Domain.Aggregates.EventAggregate
                 ticketTypeId,
                 Id,
                 ticketType.TicketTypeName,
-                dateTimeProvider,
+                dateTimeProvider.UtcNow,
                 metadata
             ));
 
             return Result.Success();
         }
 
-        public Result ReserveSeats(TicketTypeId ticketTypeId, int quantity, IDateTimeProvider dateTimeProvider, EventMetadata metadata)
+        public Result ReserveSeats(TicketTypeId ticketTypeId,
+                                   int quantity,
+                                   IDateTimeProvider dateTimeProvider,
+                                   EventMetadata metadata)
         {
             var ticketType = _ticketTypes.FirstOrDefault(t => t.Id == ticketTypeId);
             if (ticketType == null)
@@ -323,13 +326,13 @@ namespace Domain.Aggregates.EventAggregate
             if (reserveResult.IsFailure)
                 return reserveResult;
 
-            RaiseDomainEvent(Domain.Common.DomainEventFactory.CreateTicketTypeSeatsReserved(
+            RaiseDomainEvent(DomainEventFactory.CreateTicketTypeSeatsReserved(
                 ticketTypeId,
                 Id,
                 quantity,
                 ticketType.SoldCount,
                 ticketType.AvailableCount,
-                dateTimeProvider,
+                dateTimeProvider.UtcNow,
                 metadata));
 
             return Result.Success();
@@ -351,7 +354,7 @@ namespace Domain.Aggregates.EventAggregate
                 quantity,
                 ticketType.SoldCount,
                 ticketType.AvailableCount,
-                dateTimeProvider,
+                dateTimeProvider.UtcNow,
                 metadata));
 
             return Result.Success();
@@ -373,7 +376,7 @@ namespace Domain.Aggregates.EventAggregate
             Capacity = newCapacityValue;
 
             // Raise domain event
-            RaiseDomainEvent(Domain.Common.DomainEventFactory.CreateEventCapacityUpdated(Id, oldCapacity, newCapacityValue, dateTimeProvider, metadata));
+            RaiseDomainEvent(Domain.Common.DomainEventFactory.CreateEventCapacityUpdated(Id, oldCapacity, newCapacityValue, dateTimeProvider.UtcNow, metadata));
 
             return Result.Success();
         }

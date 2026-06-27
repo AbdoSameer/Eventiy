@@ -18,13 +18,13 @@ namespace Domain.Aggregates.EventAggregate.Events
             EventId eventId,
             int oldCapacity,
             int newCapacity,
-            IDateTimeProvider dateTimeProvider,
-            EventMetadata metadata) : base(dateTimeProvider, metadata)
+            DateTime occurredOnUtc,
+            EventMetadata metadata) : base(occurredOnUtc, metadata)
         {
             EventId = eventId;
             OldCapacity = oldCapacity;
             NewCapacity = newCapacity;
-            UpdatedAt = dateTimeProvider.UtcNow;
+            UpdatedAt = occurredOnUtc;
         }
     }
 }

@@ -17,6 +17,7 @@ namespace Domain.Aggregates.EventAggregate
         public Money Price { get; private set; } = null!;
         public int Capacity { get; private set; }
         public int SoldCount { get; private set; }
+        public byte[] RowVersion { get; private set; } = Array.Empty<byte>();
         public int AvailableCount => Capacity - SoldCount;
         public bool IsActive => AvailableCount > 0;
         public bool IsAtFullCapacity => AvailableCount == 0;

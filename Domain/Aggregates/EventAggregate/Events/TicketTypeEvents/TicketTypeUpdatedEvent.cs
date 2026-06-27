@@ -11,8 +11,8 @@ namespace Domain.Aggregates.EventAggregate.Events.TicketTypeEvents
         protected TicketTypeUpdatedEvent(
             TicketTypeId ticketTypeId,
             EventId eventId,
-            IDateTimeProvider dateTimeProvider,
-            EventMetadata metadata) : base(dateTimeProvider, metadata)
+            DateTime occurredOnUtc,
+            EventMetadata metadata) : base(occurredOnUtc, metadata)
         {
             TicketTypeId = ticketTypeId;
             EventId = eventId;

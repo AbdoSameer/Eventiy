@@ -105,11 +105,11 @@ namespace Infrastructure.Persistence.Configuration
                    .HasForeignKey(x => x.EventId)
                    .OnDelete(DeleteBehavior.Cascade)
                    .HasConstraintName("FK_TicketTypes_Events_EventId");
-
-            // Concurrency
-            builder.Property<byte[]>("RowVersion")
-                   .IsRowVersion()
-                   .HasColumnName("RowVersion");
+       
+            // ===== Concurrency ===========
+            builder.Property(x => x.RowVersion)
+                .IsRowVersion()
+                .HasColumnName("RowVersion");
         }
     }
 }

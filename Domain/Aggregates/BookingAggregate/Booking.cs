@@ -93,13 +93,13 @@ namespace Domain.Aggregates.BookingAggregate
                 dateTimeProvider);
 
             // Raise domain event
-            booking.RaiseDomainEvent(Domain.Common.DomainEventFactory.CreateBookingCreated(
+            booking.RaiseDomainEvent(DomainEventFactory.CreateBookingCreated(
                 booking.Id,
                 booking.UserId,
                 booking.EventId,
                 booking.Quantity,
                 booking.TotalAmount,
-                dateTimeProvider,
+                dateTimeProvider.UtcNow,
                 metadata));
 
             return Result<Booking>.Success(booking);
@@ -125,7 +125,7 @@ namespace Domain.Aggregates.BookingAggregate
             Status = BookingStatusEnum.Confirmed;
             ConfirmationDate = dateTimeProvider.UtcNow;
 
-            RaiseDomainEvent(Domain.Common.DomainEventFactory.CreateBookingConfirmed(Id, UserId, EventId, dateTimeProvider, metadata));
+            RaiseDomainEvent(DomainEventFactory.CreateBookingConfirmed(Id, UserId, EventId, dateTimeProvider.UtcNow, metadata));
 
             return Result.Success();
         }
@@ -153,7 +153,7 @@ namespace Domain.Aggregates.BookingAggregate
             CancellationDate = dateTimeProvider.UtcNow;
             CancellationReason = reason;
 
-            RaiseDomainEvent(Domain.Common.DomainEventFactory.CreateBookingCancelled(Id, UserId, EventId, reason, dateTimeProvider, metadata));
+            RaiseDomainEvent(DomainEventFactory.CreateBookingCancelled(Id, UserId, EventId, reason, dateTimeProvider.UtcNow, metadata));
 
             return Result.Success();
         }
@@ -176,7 +176,7 @@ namespace Domain.Aggregates.BookingAggregate
             // For confirmed bookings, request cancellation (admin approval needed)
             if (Status == BookingStatusEnum.Confirmed)
             {
-                RaiseDomainEvent(Domain.Common.DomainEventFactory.CreateBookingCancellationRequested(Id, UserId, EventId, reason, dateTimeProvider, metadata));
+                RaiseDomainEvent(DomainEventFactory.CreateBookingCancellationRequested(Id, UserId, EventId, reason, dateTimeProvider.UtcNow, metadata));
                 return Result.Success();
             }
 
@@ -203,7 +203,7 @@ namespace Domain.Aggregates.BookingAggregate
             Status = BookingStatusEnum.Refunded;
             RefundDate = dateTimeProvider.UtcNow;
 
-            RaiseDomainEvent(Domain.Common.DomainEventFactory.CreateBookingRefunded(Id, UserId, EventId, TotalAmount, dateTimeProvider, metadata));
+            RaiseDomainEvent(DomainEventFactory.CreateBookingRefunded(Id, UserId, EventId, TotalAmount, dateTimeProvider.UtcNow, metadata));
 
             return Result.Success();
         }
@@ -218,7 +218,7 @@ namespace Domain.Aggregates.BookingAggregate
 
             Status = BookingStatusEnum.Expired;
 
-            RaiseDomainEvent(Domain.Common.DomainEventFactory.CreateBookingExpired(Id, UserId, EventId, dateTimeProvider, metadata));
+            RaiseDomainEvent(DomainEventFactory.CreateBookingExpired(Id, UserId, EventId, dateTimeProvider.UtcNow, metadata));
 
             return Result.Success();
         }
@@ -239,7 +239,7 @@ namespace Domain.Aggregates.BookingAggregate
             Quantity = newQuantity;
             TotalAmount = Money.Amount * newQuantity;
 
-            RaiseDomainEvent(Domain.Common.DomainEventFactory.CreateBookingQuantityUpdated(Id, oldTotal, TotalAmount, dateTimeProvider, metadata));
+            RaiseDomainEvent(DomainEventFactory.CreateBookingQuantityUpdated(Id, oldTotal, TotalAmount, dateTimeProvider.UtcNow, metadata));
 
             return Result.Success();
         }

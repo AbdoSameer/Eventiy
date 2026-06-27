@@ -16,12 +16,12 @@ namespace Domain.Aggregates.EventAggregate.Events.TicketTypeEvents
             EventId eventId,
             int oldCapacity,
             int newCapacity,
-            IDateTimeProvider dateTimeProvider,
-            EventMetadata metadata) : base(ticketTypeId, eventId, dateTimeProvider, metadata)
+            DateTime occurredOnUtc,
+            EventMetadata metadata) : base(ticketTypeId, eventId, occurredOnUtc, metadata)
         {
             OldCapacity = oldCapacity;
             NewCapacity = newCapacity;
-            UpdatedAt = dateTimeProvider.UtcNow;
+            UpdatedAt = occurredOnUtc;
         }
     }
 }

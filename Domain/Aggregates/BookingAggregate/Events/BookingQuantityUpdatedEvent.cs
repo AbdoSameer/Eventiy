@@ -17,14 +17,14 @@ namespace Domain.Aggregates.BookingAggregate.Events
             BookingId bookingId,
             decimal oldTotalAmount,
             decimal newTotalAmount,
-            IDateTimeProvider dateTimeProvider,
-            EventMetadata metadata) : base(dateTimeProvider, metadata)
+            DateTime occurredOnUtc,
+            EventMetadata metadata) : base(occurredOnUtc, metadata)
 
         {
             BookingId = bookingId;
             OldTotalAmount = oldTotalAmount;
             NewTotalAmount = newTotalAmount;
-            UpdatedAt = dateTimeProvider.UtcNow;
+            UpdatedAt = occurredOnUtc;
         }
     }
 }

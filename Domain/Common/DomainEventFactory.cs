@@ -3,8 +3,6 @@ using Domain.Aggregates.BookingAggregate.ValueObject;
 using Domain.Aggregates.EventAggregate.Events;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Aggregates.EventAggregate.Events.TicketTypeEvents;
-using Domain.Aggregates.EventAggregate.ValueObject;
-using Domain.Common;
 
 namespace Domain.Common
 {
@@ -17,20 +15,20 @@ namespace Domain.Common
             EventId eventId,
             int quantity,
             decimal totalAmount,
-            IDateTimeProvider dateTimeProvider,
+            DateTime occurredOnUtc,
             EventMetadata metadata)
         {
-            return new BookingCreatedEvent(bookingId, userId, eventId, quantity, totalAmount, dateTimeProvider, metadata);
+            return new BookingCreatedEvent(bookingId, userId, eventId, quantity, totalAmount, occurredOnUtc, metadata);
         }
 
         public static BookingConfirmedEvent CreateBookingConfirmed(
             BookingId bookingId,
             UserId userId,
             EventId eventId,
-            IDateTimeProvider dateTimeProvider,
+            DateTime occurredOnUtc,
             EventMetadata metadata)
         {
-            return new BookingConfirmedEvent(bookingId, userId, eventId, dateTimeProvider, metadata);
+            return new BookingConfirmedEvent(bookingId, userId, eventId, occurredOnUtc, metadata);
         }
 
         public static BookingCancelledEvent CreateBookingCancelled(
@@ -38,10 +36,10 @@ namespace Domain.Common
             UserId userId,
             EventId eventId,
             string? reason,
-            IDateTimeProvider dateTimeProvider,
+            DateTime occurredOnUtc,
             EventMetadata metadata)
         {
-            return new BookingCancelledEvent(bookingId, userId, eventId, dateTimeProvider, metadata, reason);
+            return new BookingCancelledEvent(bookingId, userId, eventId, occurredOnUtc, metadata, reason);
         }
 
         public static BookingCancellationRequestedEvent CreateBookingCancellationRequested(
@@ -49,20 +47,20 @@ namespace Domain.Common
             UserId userId,
             EventId eventId,
             string? reason,
-            IDateTimeProvider dateTimeProvider,
+            DateTime occurredOnUtc,
             EventMetadata metadata)
         {
-            return new BookingCancellationRequestedEvent(bookingId, userId, eventId, dateTimeProvider, metadata, reason);
+            return new BookingCancellationRequestedEvent(bookingId, userId, eventId, occurredOnUtc, metadata, reason);
         }
 
         public static BookingExpiredEvent CreateBookingExpired(
             BookingId bookingId,
             UserId userId,
             EventId eventId,
-            IDateTimeProvider dateTimeProvider,
+            DateTime occurredOnUtc,
             EventMetadata metadata)
         {
-            return new BookingExpiredEvent(bookingId, userId, eventId, dateTimeProvider, metadata);
+            return new BookingExpiredEvent(bookingId, userId, eventId, occurredOnUtc, metadata);
         }
 
         public static BookingRefundedEvent CreateBookingRefunded(
@@ -70,20 +68,20 @@ namespace Domain.Common
             UserId userId,
             EventId eventId,
             decimal refundAmount,
-            IDateTimeProvider dateTimeProvider,
+            DateTime occurredOnUtc,
             EventMetadata metadata)
         {
-            return new BookingRefundedEvent(bookingId, userId, eventId, refundAmount, dateTimeProvider, metadata);
+            return new BookingRefundedEvent(bookingId, userId, eventId, refundAmount, occurredOnUtc, metadata);
         }
 
         public static BookingQuantityUpdatedEvent CreateBookingQuantityUpdated(
             BookingId bookingId,
             decimal oldTotalAmount,
             decimal newTotalAmount,
-            IDateTimeProvider dateTimeProvider,
+            DateTime occurredOnUtc,
             EventMetadata metadata)
         {
-            return new BookingQuantityUpdatedEvent(bookingId, oldTotalAmount, newTotalAmount, dateTimeProvider, metadata);
+            return new BookingQuantityUpdatedEvent(bookingId, oldTotalAmount, newTotalAmount, occurredOnUtc, metadata);
         }
 
         // Event aggregate events
@@ -92,46 +90,46 @@ namespace Domain.Common
             string name,
             DateTime date,
             int capacity,
-            IDateTimeProvider dateTimeProvider,
+            DateTime occurredOnUtc,
             EventMetadata metadata)
         {
-            return new EventCreatedEvent(eventId, name, date, capacity, dateTimeProvider, metadata);
+            return new EventCreatedEvent(eventId, name, date, capacity, occurredOnUtc, metadata);
         }
 
         public static EventPublishedEvent CreateEventPublished(
             EventId eventId,
             int totalTicketTypes,
-            IDateTimeProvider dateTimeProvider,
+            DateTime occurredOnUtc,
             EventMetadata metadata)
         {
-            return new EventPublishedEvent(eventId, totalTicketTypes, dateTimeProvider, metadata);
+            return new EventPublishedEvent(eventId, totalTicketTypes, occurredOnUtc, metadata);
         }
 
         public static EventCancelledEvent CreateEventCancelled(
             EventId eventId,
             string? reason,
-            IDateTimeProvider dateTimeProvider,
+            DateTime occurredOnUtc,
             EventMetadata metadata)
         {
-            return new EventCancelledEvent(eventId, dateTimeProvider, metadata, reason);
+            return new EventCancelledEvent(eventId, occurredOnUtc, metadata, reason);
         }
 
         public static EventCompletedEvent CreateEventCompleted(
             EventId eventId,
-            IDateTimeProvider dateTimeProvider,
+            DateTime occurredOnUtc,
             EventMetadata metadata)
         {
-            return new EventCompletedEvent(eventId, dateTimeProvider, metadata);
+            return new EventCompletedEvent(eventId, occurredOnUtc, metadata);
         }
 
         public static EventCapacityUpdatedEvent CreateEventCapacityUpdated(
             EventId eventId,
             int oldCapacity,
             int newCapacity,
-            IDateTimeProvider dateTimeProvider,
+            DateTime occurredOnUtc,
             EventMetadata metadata)
         {
-            return new EventCapacityUpdatedEvent(eventId, oldCapacity, newCapacity, dateTimeProvider, metadata);
+            return new EventCapacityUpdatedEvent(eventId, oldCapacity, newCapacity, occurredOnUtc, metadata);
         }
 
         // Ticket type events
@@ -141,10 +139,10 @@ namespace Domain.Common
             string ticketName,
             decimal price,
             int capacity,
-            IDateTimeProvider dateTimeProvider,
+            DateTime occurredOnUtc,
             EventMetadata metadata)
         {
-            return new TicketTypeAddedEvent(eventId, ticketTypeId, ticketName, price, capacity, dateTimeProvider, metadata);
+            return new TicketTypeAddedEvent(eventId, ticketTypeId, ticketName, price, capacity, occurredOnUtc, metadata);
         }
 
         public static TicketTypePriceUpdatedEvent CreateTicketTypePriceUpdated(
@@ -153,10 +151,10 @@ namespace Domain.Common
             decimal oldPrice,
             decimal newPrice,
             string currency,
-            IDateTimeProvider dateTimeProvider,
+            DateTime occurredOnUtc,
             EventMetadata metadata)
         {
-            return new TicketTypePriceUpdatedEvent(ticketTypeId, eventId, oldPrice, newPrice, currency, dateTimeProvider, metadata);
+            return new TicketTypePriceUpdatedEvent(ticketTypeId, eventId, oldPrice, newPrice, currency, occurredOnUtc, metadata);
         }
 
         public static TicketTypeCapacityUpdatedEvent CreateTicketTypeCapacityUpdated(
@@ -164,20 +162,20 @@ namespace Domain.Common
             EventId eventId,
             int oldCapacity,
             int newCapacity,
-            IDateTimeProvider dateTimeProvider,
+            DateTime occurredOnUtc,
             EventMetadata metadata)
         {
-            return new TicketTypeCapacityUpdatedEvent(ticketTypeId, eventId, oldCapacity, newCapacity, dateTimeProvider, metadata);
+            return new TicketTypeCapacityUpdatedEvent(ticketTypeId, eventId, oldCapacity, newCapacity, occurredOnUtc, metadata);
         }
 
         public static TicketTypeRemovedEvent CreateTicketTypeRemoved(
             TicketTypeId ticketTypeId,
             EventId eventId,
             string name,
-            IDateTimeProvider dateTimeProvider,
+            DateTime occurredOnUtc,
             EventMetadata metadata)
         {
-            return new TicketTypeRemovedEvent(ticketTypeId, eventId, name, dateTimeProvider, metadata);
+            return new TicketTypeRemovedEvent(ticketTypeId, eventId, name, occurredOnUtc, metadata);
         }
 
         public static TicketTypeSeatsReservedEvent CreateTicketTypeSeatsReserved(
@@ -186,10 +184,10 @@ namespace Domain.Common
             int quantityReserved,
             int totalSold,
             int availableRemaining,
-            IDateTimeProvider dateTimeProvider,
+            DateTime occurredOnUtc,
             EventMetadata metadata)
         {
-            return new TicketTypeSeatsReservedEvent(ticketTypeId, eventId, quantityReserved, totalSold, availableRemaining, dateTimeProvider, metadata);
+            return new TicketTypeSeatsReservedEvent(ticketTypeId, eventId, quantityReserved, totalSold, availableRemaining, occurredOnUtc, metadata);
         }
 
         public static TicketTypeSeatsReleasedEvent CreateTicketTypeSeatsReleased(
@@ -198,10 +196,10 @@ namespace Domain.Common
             int quantityReleased,
             int totalSold,
             int availableRemaining,
-            IDateTimeProvider dateTimeProvider,
+            DateTime occurredOnUtc,
             EventMetadata metadata)
         {
-            return new TicketTypeSeatsReleasedEvent(ticketTypeId, eventId, quantityReleased, totalSold, availableRemaining, dateTimeProvider, metadata);
+            return new TicketTypeSeatsReleasedEvent(ticketTypeId, eventId, quantityReleased, totalSold, availableRemaining, occurredOnUtc, metadata);
         }
     }
 }

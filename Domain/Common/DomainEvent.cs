@@ -25,9 +25,9 @@
         public abstract string Name { get; }
         public abstract string Domain { get; }
 
-        protected DomainEvent(IDateTimeProvider dateTimeProvider, EventMetadata metadata)
+        protected DomainEvent(DateTime occurredOnUtc, EventMetadata metadata)
         {
-            OccurredOnUtc = dateTimeProvider.UtcNow;
+            OccurredOnUtc = occurredOnUtc;
             Metadata = metadata;
         }
     }

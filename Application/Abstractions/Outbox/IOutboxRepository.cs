@@ -3,7 +3,7 @@
 namespace Application.Abstractions.Outbox;
 
 /// <summary>
-/// ✅ Repository Interface - Application Layer only knows this
+/// Repository Interface - Application Layer only knows this
 /// </summary>
 public interface IOutboxRepository
 {
@@ -23,7 +23,7 @@ public interface IOutboxRepository
 }
 
 /// <summary>
-/// ✅ DTO for Application Layer - No Infrastructure dependencies
+/// DTO for Application Layer - No Infrastructure dependencies
 /// </summary>
 public sealed record OutboxMessageDto(
     Guid Id,

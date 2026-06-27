@@ -1,10 +1,11 @@
+using Domain.Common;
 using Domain.Primitives;
 
-namespace Domain.Common
+namespace Application.Abstractions.Persistence
 {
     public interface IEventValidator<in TEvent>
         where TEvent : IDomainEvent
     {
-        Result Validate(TEvent @event);
+        Task<Result> ValidateAsync(TEvent @event);
     }
 }

@@ -20,8 +20,8 @@ namespace Domain.Aggregates.EventAggregate.Events.TicketTypeEvents
             int quantityReleased,
             int totalSold,
             int availableRemaining,
-            IDateTimeProvider dateTimeProvider,
-            EventMetadata metadata) : base(dateTimeProvider, metadata)
+            DateTime occurredOnUtc,
+            EventMetadata metadata) : base(occurredOnUtc, metadata)
         {
             TicketTypeId = ticketTypeId;
             EventId = eventId;

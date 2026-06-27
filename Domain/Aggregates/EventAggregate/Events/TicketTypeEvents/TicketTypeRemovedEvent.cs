@@ -16,13 +16,13 @@ namespace Domain.Aggregates.EventAggregate.Events.TicketTypeEvents
             TicketTypeId ticketTypeId,
             EventId eventId,
             string name,
-            IDateTimeProvider dateTimeProvider,
-            EventMetadata metadata) : base(dateTimeProvider, metadata)
+            DateTime occurredOnUtc,
+            EventMetadata metadata) : base(occurredOnUtc, metadata)
         {
             TicketTypeId = ticketTypeId;
             EventId = eventId;
             TicketTypeName = name;
-            RemovedAt = dateTimeProvider.UtcNow;
+            RemovedAt = occurredOnUtc;
         }
     }
 }

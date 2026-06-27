@@ -1,6 +1,7 @@
 using Domain.Common;
 using Domain.Primitives;
 using Domain.Aggregates.BookingAggregate.Events;
+using Application.Abstractions.Persistence;
 
 namespace Application.EventHandlers
 {
@@ -13,9 +14,9 @@ namespace Application.EventHandlers
             _validator = validator;
         }
 
-        public Result Handle(BookingCreatedEvent @event)
+        public async Task<Result> HandleAsync(BookingCreatedEvent @event)
         {
-            var validation = _validator.Validate(@event);
+            var validation = await _validator.ValidateAsync(@event);
             if (validation.IsFailure)
                 return validation;
 

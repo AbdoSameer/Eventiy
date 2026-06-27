@@ -140,5 +140,10 @@ namespace Domain.Errors
             => Error.Failure(
                 "Booking.CreationFailed",
                 "Failed to create the booking due to an unexpected error.");
+
+        public static Error ConcurrencyConflict()
+            => Error.Conflict(
+                "Booking.CreationFailed",
+                "Failed to create the booking due to a concurrency conflict. Please try again.");
     }
 }
