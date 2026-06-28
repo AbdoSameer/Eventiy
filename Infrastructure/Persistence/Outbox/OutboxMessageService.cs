@@ -6,7 +6,6 @@ using System.Security.Cryptography;
 using System.Text;
 
 namespace Infrastructure.Persistence.Outbox;
-// Infrastructure/Persistence/Outbox/OutboxMessageService.cs
 public sealed class OutboxMessageService : IOutboxMessageService
 {
     private readonly OutboxRepository _outboxRepository;
@@ -65,12 +64,11 @@ public sealed class OutboxMessageService : IOutboxMessageService
             var correlationKey = $"{domainEvent.Name}_{de.Metadata.CorrelationId}";
             return correlationKey.Length <= 100
                 ? correlationKey
-                : correlationKey[..100]; // DB column MaxLength guard
+                : correlationKey[..100];
         }
 
         var raw = $"{domainEvent.Name}_{domainEvent.OccurredOnUtc:O}_{payload}";
         var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(raw));
         return Convert.ToHexString(hashBytes)[..32]; 
-        // 32 hex chars = 16 bytes، أقل من MaxLength(100)
     }
 }

@@ -2,8 +2,7 @@
 using Application.Features.Events.Commands.CreateEvent;
 using Application.Features.Events.Queries.GetEventDetails;
 using Application.Features.Events.Queries.GetEvents;
-using Azure.Core;
-using Eventy.WebApi.ControllerErorrs;
+using Eventy.WebApi.Extensions; 
 using Eventy.WebApi.RequestsDesign;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -15,67 +14,47 @@ namespace Eventy.WebApi.Controllers
     public class EventController : ControllerBase
     {
         private readonly ISender _sender;
+        public EventController(ISender sender) => _sender = sender;
 
-        public EventController(ISender sender)
+        [HttpGet("{id}", Name = nameof(GetEvent))]
+        public async Task<IActionResult> GetEvent(Guid id, CancellationToken ct)
         {
-            _sender = sender;
-        }
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetEvent(Guid id, CancellationToken cancellationToken)
-        {
-            var events = await _sender
-                .Send(new GetEventDetailsQuery(id), cancellationToken);
-            if (events.IsFailure)
-                return NotFound(events.Errors);
-
-            return Ok(events.Value);
+            var result = await _sender.Send(new GetEventDetailsQuery(id), ct);
+            return result.ToActionResult();
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetEvents(CancellationToken cancellationToken)
+        public async Task<IActionResult> GetEvents(CancellationToken ct)
         {
-
-            var events = await _sender.Send(new GetEventsQuery(), cancellationToken);
-
-            if (events.IsFailure)
-                return NotFound(events.Errors);
-
-            return Ok(events.Value);
+            var result = await _sender.Send(new GetEventsQuery(), ct);
+            return result.ToActionResult();
         }
+
         [HttpPost]
         public async Task<IActionResult> CreateEvent(
-            [FromBody] CreateEventCommand command,
-            CancellationToken cancellationToken)
+            [FromBody] CreateEventCommand command, CancellationToken ct)
         {
+            var result = await _sender.Send(command, ct);
 
-            var events = await _sender.Send(command, cancellationToken);
-
-            if (events.IsFailure)
-                return BadRequest(events.Errors);
-
-            return Created($"api/events/{events.Value}", events.Value);
+            return result.IsSuccess
+                ? CreatedAtRoute(nameof(GetEvent), new { id = result.Value }, result.Value)
+                : result.ToActionResult();
         }
 
-        [HttpPost]
-        [Route("{eventId}/ticket-types")]
-        public async Task<IActionResult> CreateTicketType(Guid eventId,
+        [HttpPost("{eventId}/ticket-types")]
+        public async Task<IActionResult> CreateTicketType(
+            Guid eventId,
             [FromBody] AddTicketTypeRequest request,
-            CancellationToken cancellationToken)
+            CancellationToken ct)
         {
             var command = new AddTicketTypeCommand(
-                eventId,
-                request.Name,
-                request.Amount,
-                request.Currency,
-                request.Capacity
-            );
-            
-            var ticketType = await _sender.Send(command, cancellationToken);
+                eventId, request.Name, request.Amount, request.Currency, request.Capacity);
 
-            if (ticketType.IsFailure)
-                return BadRequest(ticketType.Errors);
+            var result = await _sender.Send(command, ct);
 
-            return Created($"api/events/{eventId}/ticket-types", null);
+            return result.IsSuccess
+                ? CreatedAtRoute(nameof(GetEvent), new { eventId }, null)
+                : result.ToActionResult();
         }
     }
 }

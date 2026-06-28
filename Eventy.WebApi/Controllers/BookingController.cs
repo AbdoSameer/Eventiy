@@ -3,6 +3,7 @@ using Application.Features.Bookings.Command.ConfirmBooking;
 using Application.Features.Bookings.Command.CreateBooking;
 using Application.Features.Bookings.Query.GetBookingByEvent;
 using Application.Features.Bookings.Query.GetBookingDetails;
+using Eventy.WebApi.Extensions;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,57 +14,45 @@ namespace Eventy.WebApi.Controllers
     public class BookingController : ControllerBase
     {
         private readonly ISender _sender;
+        public BookingController(ISender sender) => _sender = sender;
 
-        public BookingController(ISender sender)
+        [HttpGet("{id}", Name = nameof(GetBookingDetails))]
+        public async Task<IActionResult> GetBookingDetails(Guid id, CancellationToken ct)
         {
-            _sender = sender;
+            var result = await _sender.Send(new GetBookingDetailsQuery(id), ct);
+            return result.ToActionResult();
         }
 
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetBookingDetails(Guid id, CancellationToken cancellationToken)
+        [HttpGet("event/{eventId}")]
+        public async Task<IActionResult> GetBookingsByEventId(Guid eventId, CancellationToken ct)
         {
-            var bookings = await _sender.Send(new GetBookingDetailsQuery(id), cancellationToken);
-            if (bookings.IsFailure)
-                return NotFound(bookings.Errors);
-
-            return Ok(bookings.Value);
-        }
-
-        [HttpGet("bookings/event/{eventId}")]
-        public async Task<IActionResult> GetBookingsByEventId(Guid eventId, CancellationToken cancellationToken)
-        {
-            var bookings = await _sender.Send(new GetBookingByEventQuery(eventId), cancellationToken);
-            if (bookings.IsFailure)
-                return NotFound(bookings.Errors);
-
-            return Ok(bookings.Value);
+            var result = await _sender.Send(new GetBookingByEventQuery(eventId), ct);
+            return result.ToActionResult();
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateBooking([FromBody] CreateBookingCommand command, CancellationToken cancellationToken)
+        public async Task<IActionResult> CreateBooking(
+            [FromBody] CreateBookingCommand command, CancellationToken ct)
         {
-            var booking = await _sender.Send(command, cancellationToken);
-            if (booking.IsFailure)
-                return BadRequest(booking.Errors);
+            var result = await _sender.Send(command, ct);
 
-            return Ok(booking.Value);
-        }
-        [HttpPost("booking/{bookingId}/confirm")]
-        public async Task<IActionResult> ConfirmBooking(Guid bookingId, CancellationToken cancellationToken)
-        {
-            var result = await _sender.Send(new ConfirmBookingCommand(bookingId), cancellationToken);
-            if (result.IsFailure)
-                return BadRequest(result.Errors);
-            return Ok(result.Value);
+            return result.IsSuccess
+                ? CreatedAtRoute(nameof(GetBookingDetails), new { id = result.Value }, result.Value)
+                : result.ToActionResult();
         }
 
-        [HttpPost("booking/{bookingId}cancel")]
-        public async Task<IActionResult> CancelBooking(Guid bookingId, CancellationToken cancellationToken)
+        [HttpPost("{bookingId}/confirm")]
+        public async Task<IActionResult> ConfirmBooking(Guid bookingId, CancellationToken ct)
         {
-            var result = await _sender.Send(new CancelBookingCommand(bookingId), cancellationToken);
-            if (result.IsFailure)
-                return BadRequest(result.Errors);
-            return Ok(result.Value);
+            var result = await _sender.Send(new ConfirmBookingCommand(bookingId), ct);
+            return result.ToActionResult();
+        }
+
+        [HttpPost("{bookingId}/cancel")]
+        public async Task<IActionResult> CancelBooking(Guid bookingId, CancellationToken ct)
+        {
+            var result = await _sender.Send(new CancelBookingCommand(bookingId), ct);
+            return result.ToActionResult();
         }
     }
 }

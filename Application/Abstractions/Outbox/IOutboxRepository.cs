@@ -1,4 +1,6 @@
-﻿namespace Application.Abstractions.Outbox;
+﻿using Domain.Common;
+
+namespace Application.Abstractions.Outbox;
 
 public interface IOutboxRepository
 {
@@ -7,11 +9,13 @@ public interface IOutboxRepository
 
     Task<IReadOnlyList<OutboxMessageDto>> GetAndLockUnprocessedMessagesAsync(
         Guid lockId,
-        int batchSize,
+        IDateTimeProvider dateTimeProvider,
+        int batchSize = 50,
         CancellationToken cancellationToken = default);
 
     Task MarkRangeAsProcessedAsync(
         IEnumerable<Guid> ids,
+        DateTime processedOnUtc,
         CancellationToken cancellationToken = default);
 
     Task MarkRangeAsFailedAsync(
@@ -23,9 +27,9 @@ public interface IOutboxRepository
         CancellationToken cancellationToken = default);
 
     Task<int> GetUnprocessedCountAsync(
+        DateTime currentTime,
         CancellationToken cancellationToken = default);
 
-    Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
 
 public sealed record OutboxMessageDto(

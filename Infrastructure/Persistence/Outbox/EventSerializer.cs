@@ -13,13 +13,8 @@ public sealed class EventSerializer : IEventSerializer
         WriteIndented = false
     };
 
-    // Dictionary: EventName → EventType
     private static readonly Dictionary<string, Type> _eventTypes;
-
-    // Dictionary: EventName → Domain Name
     private static readonly Dictionary<string, string> _eventDomains;
-
-    // Dictionary: EventType → EventName
     private static readonly Dictionary<Type, string> _eventNamesByType;
 
     static EventSerializer()
@@ -61,35 +56,71 @@ public sealed class EventSerializer : IEventSerializer
         return "Unknown";
     }
 
-    // Serialization
-
     public string Serialize<T>(T @event) where T : IDomainEvent
     {
         return JsonSerializer.Serialize(@event, _options);
     }
 
-    // Deserialization
-
-    public IDomainEvent Deserialize(string eventName, string serializedEvent)
+    public Result<IDomainEvent> Deserialize(string eventName, string serializedEvent)
     {
         if (!_eventTypes.TryGetValue(eventName, out var eventType))
         {
-            throw new InvalidOperationException($"Unknown event type: {eventName}");
+            return Result<IDomainEvent>.Failure(
+                Error.NotFound(
+                    "Serializer.EventTypeNotFound",
+                    $"Event type '{eventName}' is not registered. " +
+                    $"Available: {string.Join(", ", _eventTypes.Keys.Take(10))}..."));
         }
 
-        return (IDomainEvent)JsonSerializer.Deserialize(serializedEvent, eventType, _options)!;
+        IDomainEvent? deserializedEvent;
+        try
+        {
+            deserializedEvent = JsonSerializer.Deserialize(serializedEvent, eventType, _options) as IDomainEvent;
+        }
+        catch (JsonException ex)
+        {
+            return Result<IDomainEvent>.Failure(
+                Error.Failure(
+                    "Serializer.JsonDeserializationFailed",
+                    $"Malformed JSON for event '{eventName}'. {ex.Message}"));
+        }
+        catch (NotSupportedException ex)
+        {
+            return Result<IDomainEvent>.Failure(
+                Error.Failure(
+                    "Serializer.TypeNotSupported",
+                    $"Type '{eventType.Name}' not supported. {ex.Message}"));
+        }
+
+        if (deserializedEvent is null)
+        {
+            return Result<IDomainEvent>.Failure(
+                Error.Failure(
+                    "Serializer.DeserializationReturnedNull",
+                    $"Payload for '{eventName}' deserialized to null. Payload may be empty."));
+        }
+
+        return Result<IDomainEvent>.Success(deserializedEvent);
     }
 
-    public T Deserialize<T>(string serializedEvent) where T : IDomainEvent
+    public Result<T> Deserialize<T>(string serializedEvent) where T : IDomainEvent
     {
-        return JsonSerializer.Deserialize<T>(serializedEvent, _options)!;
+        var eventName = typeof(T).Name;
+        var result = Deserialize(eventName, serializedEvent);
+
+        if (result.IsFailure)
+            return Result<T>.Failure(result.Errors.ToArray());
+
+        if (result.Value is not T typedEvent)
+        {
+            return Result<T>.Failure(
+                Error.Failure(
+                    "Serializer.TypeMismatch",
+                    $"Expected '{typeof(T).Name}', got '{result.Value.GetType().Name}'."));
+        }
+
+        return Result<T>.Success(typedEvent);
     }
-
-    // Event Info (Implements Interface)
-
-    /// <summary>
-    /// ✅ الحصول على Domain Name من Event Name
-    /// </summary>
     public string GetEventDomain(string eventName)
     {
         return _eventDomains.TryGetValue(eventName, out var domain)

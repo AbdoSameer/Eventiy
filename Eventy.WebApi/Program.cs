@@ -15,7 +15,7 @@ namespace Eventy.WebApi
             builder.Services.AddOpenApi();
 
             builder.Services.AddApplication(); 
-            builder.Services.AddInfrastructure(builder.Configuration);
+            builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
 
             builder.Services.AddHostedService<DatabaseSeederService>();
 

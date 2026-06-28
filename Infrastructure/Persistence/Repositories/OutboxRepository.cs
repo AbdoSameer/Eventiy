@@ -1,4 +1,5 @@
 ﻿using Application.Abstractions.Outbox;
+using Domain.Common;
 using Infrastructure.Persistence.Outbox;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -48,25 +49,29 @@ public sealed class OutboxRepository : IOutboxRepository
 
     public async Task<IReadOnlyList<OutboxMessageDto>> GetAndLockUnprocessedMessagesAsync(
         Guid lockId,
+        IDateTimeProvider dateTimeProvider,
         int batchSize = 50,
         CancellationToken cancellationToken = default)
     {
+        var now = dateTimeProvider.UtcNow;
+
         var sql = @"
             UPDATE TOP (@BatchSize) OutboxMessages WITH (UPDLOCK, READPAST, ROWLOCK)
             SET 
                 ProcessingLock     = @LockId,
-                ProcessingLockedAt = GETUTCDATE()
+                ProcessingLockedAt = @Now
             OUTPUT INSERTED.*
             WHERE 
                 ProcessedOnUtc IS NULL
-                AND (NextRetryOnUtc IS NULL OR NextRetryOnUtc <= GETUTCDATE())
+                AND (NextRetryOnUtc IS NULL OR NextRetryOnUtc <= @Now)
                 AND (ProcessingLock IS NULL OR 
-                     ProcessingLockedAt <= DATEADD(MINUTE, -5, GETUTCDATE()))";
+                     ProcessingLockedAt <= DATEADD(MINUTE, -5, @Now))";
 
         var parameters = new[]
         {
-            new SqlParameter("@LockId",     lockId),
-            new SqlParameter("@BatchSize",  batchSize)
+            new SqlParameter("@LockId", lockId),
+            new SqlParameter("@BatchSize", batchSize),
+            new SqlParameter("@Now", now)
         };
 
         var messages = await _context.OutboxMessages
@@ -89,6 +94,7 @@ public sealed class OutboxRepository : IOutboxRepository
 
     public async Task MarkRangeAsProcessedAsync(
         IEnumerable<Guid> ids,
+        DateTime processedOnUtc,
         CancellationToken cancellationToken = default)
     {
         if (ids == null || !ids.Any()) return;
@@ -96,7 +102,7 @@ public sealed class OutboxRepository : IOutboxRepository
         await _context.OutboxMessages
             .Where(m => ids.Contains(m.Id))
             .ExecuteUpdateAsync(s => s
-                .SetProperty(m => m.ProcessedOnUtc, DateTime.UtcNow)
+                .SetProperty(m => m.ProcessedOnUtc, processedOnUtc)
                 .SetProperty(m => m.ProcessingLock, (Guid?)null)
                 .SetProperty(m => m.ProcessingLockedAt, (DateTime?)null),
             cancellationToken);
@@ -122,18 +128,9 @@ public sealed class OutboxRepository : IOutboxRepository
         }
     }
 
-    public async Task<int> GetUnprocessedCountAsync(CancellationToken cancellationToken = default)
-    {
-        var now = DateTime.UtcNow;
-
-        return await _context.OutboxMessages
-            .Where(m =>
-                m.ProcessedOnUtc == null &&
-                (m.NextRetryOnUtc == null || m.NextRetryOnUtc <= now))
-            .CountAsync(cancellationToken);
-    }
-
-    public async Task ReleaseLockAsync(Guid lockId, CancellationToken cancellationToken = default)
+    public async Task ReleaseLockAsync(
+        Guid lockId,
+        CancellationToken cancellationToken = default)
     {
         await _context.Database.ExecuteSqlRawAsync(
             @"UPDATE OutboxMessages
@@ -143,8 +140,15 @@ public sealed class OutboxRepository : IOutboxRepository
             cancellationToken);
     }
 
-    public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    public async Task<int> GetUnprocessedCountAsync(
+        DateTime currentTime,
+        CancellationToken cancellationToken = default)
     {
-        return await _context.SaveChangesAsync(cancellationToken);
+        return await _context.OutboxMessages
+            .Where(m =>
+                m.ProcessedOnUtc == null &&
+                (m.NextRetryOnUtc == null || m.NextRetryOnUtc <= currentTime))
+            .CountAsync(cancellationToken);
     }
+
 }
