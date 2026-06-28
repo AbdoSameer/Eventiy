@@ -5,7 +5,8 @@ namespace Domain.Errors
 {
     public static class TicketTypeErrors
     {
-        // ===== Validation Errors ======
+        // Validation Errors (400 Bad Request)
+
         public static Error NameCannotBeEmpty()
             => Error.Validation(
                 "TicketType.NameCannotBeEmpty",
@@ -26,10 +27,20 @@ namespace Domain.Errors
                 "TicketType.PriceCannotBeNull",
                 "Ticket price cannot be null.");
 
+        public static Error PriceCannotBeNegative()
+            => Error.Validation(
+                "TicketType.PriceCannotBeNegative",
+                "Ticket price cannot be negative.");
+
         public static Error CapacityMustBeGreaterThanZero()
             => Error.Validation(
                 "TicketType.CapacityMustBeGreaterThanZero",
                 "Ticket capacity must be greater than zero.");
+
+        public static Error CapacityTooSmall(int minCapacity)
+            => Error.Validation(
+                "TicketType.CapacityTooSmall",
+                $"Ticket capacity must be at least {minCapacity}.");
 
         public static Error InvalidCurrency()
             => Error.Validation(
@@ -46,16 +57,52 @@ namespace Domain.Errors
                 "TicketType.QuantityMustBeGreaterThanZero",
                 "Quantity must be greater than zero.");
 
-        // ===== Conflict/State Errors ======
+        public static Error InvalidQuantity(int quantity)
+            => Error.Validation(
+                "TicketType.InvalidQuantity",
+                $"Quantity '{quantity}' is invalid. Must be greater than zero.");
+
+        // Conflict/State Errors (409 Conflict)
+
         public static Error CannotReduceCapacityBelowSoldTickets(int soldTickets)
             => Error.Conflict(
                 "TicketType.CannotReduceCapacityBelowSold",
                 $"Cannot reduce ticket capacity below the number of sold tickets ({soldTickets}).");
 
+        public static Error CannotReduceCapacityBelowOccupied(int occupied, int newCapacity)
+            => Error.Conflict(
+                "TicketType.CannotReduceCapacityBelowOccupied",
+                $"Cannot reduce ticket capacity to {newCapacity} because {occupied} seats are already occupied (sold + reserved).");
+
+        public static Error CannotReduceCapacityBelowReserved(int reservedCount, int newCapacity)
+            => Error.Conflict(
+                "TicketType.CannotReduceCapacityBelowReserved",
+                $"Cannot reduce ticket capacity to {newCapacity} because {reservedCount} seats are reserved.");
+
         public static Error CannotRemoveTicketTypeWithBookings(int bookingCount)
             => Error.Conflict(
                 "TicketType.CannotRemoveWithBookings",
                 $"Cannot remove ticket type with existing bookings ({bookingCount}).");
+
+        public static Error CannotRemoveTicketTypeWithReservations(int reservationCount)
+            => Error.Conflict(
+                "TicketType.CannotRemoveWithReservations",
+                $"Cannot remove ticket type with existing reservations ({reservationCount}).");
+
+        public static Error CannotRemoveWithSoldTickets(int soldCount)
+            => Error.Conflict(
+                "TicketType.CannotRemoveWithSoldTickets",
+                $"Cannot remove ticket type with sold tickets ({soldCount}).");
+
+        public static Error CannotRemoveWithReservedTickets(int reservedCount)
+            => Error.Conflict(
+                "TicketType.CannotRemoveWithReservedTickets",
+                $"Cannot remove ticket type with reserved tickets ({reservedCount}).");
+
+        public static Error TicketTypeNotRemoved()
+            => Error.Conflict(
+                "TicketType.NotRemoved",
+                "Ticket type is not removed.");
 
         public static Error CapacityExceedsEventRemainingCapacity(int remainingCapacity)
             => Error.Conflict(
@@ -67,10 +114,30 @@ namespace Domain.Errors
                 "TicketType.InsufficientAvailableSeats",
                 $"Insufficient available seats. Requested: {requested}, Available: {available}");
 
+        public static Error CapacityExceeded(int capacity, int soldCount, int requested)
+            => Error.Conflict(
+                "TicketType.CapacityExceeded",
+                $"Cannot sell {requested} tickets. Capacity: {capacity}, Already sold: {soldCount}.");
+
         public static Error CannotReleaseMoreThanSold(int requested, int sold)
             => Error.Conflict(
                 "TicketType.CannotReleaseMoreThanSold",
                 $"Cannot release more seats than sold. Requested: {requested}, Sold: {sold}");
+
+        public static Error CannotReleaseMoreThanReserved(int requested, int reserved)
+            => Error.Conflict(
+                "TicketType.CannotReleaseMoreThanReserved",
+                $"Cannot release more seats than reserved. Requested: {requested}, Reserved: {reserved}");
+
+        public static Error CannotConfirmMoreThanReserved(int requested, int reserved)
+            => Error.Conflict(
+                "TicketType.CannotConfirmMoreThanReserved",
+                $"Cannot confirm more seats than reserved. Requested: {requested}, Reserved: {reserved}");
+
+        public static Error CannotRefundMoreThanSold(int requested, int sold)
+            => Error.Conflict(
+                "TicketType.CannotRefundMoreThanSold",
+                $"Cannot refund more seats than sold. Requested: {requested}, Sold: {sold}");
 
         public static Error MaxTicketTypesPerEventExceeded(int maxAllowed)
             => Error.Conflict(
@@ -87,7 +154,23 @@ namespace Domain.Errors
                 "TicketType.CannotModifyAfterEventPublished",
                 "Cannot modify ticket types after the event has been published.");
 
-        // ===== Not Found Errors ======
+        public static Error NotEnoughReservedSeats(int available, int requested)
+            => Error.Conflict(
+                "TicketType.NotEnoughReservedSeats",
+                $"Not enough reserved seats. Available: {available}, Requested: {requested}");
+
+        public static Error CannotReleaseNonReservedSeats()
+            => Error.Conflict(
+                "TicketType.CannotReleaseNonReservedSeats",
+                "Cannot release seats that are not reserved.");
+
+        public static Error TicketTypeRemoved()
+            => Error.Conflict(
+                "TicketType.Removed",
+                "This ticket type has been removed and cannot be modified.");
+
+        // Not Found Errors (404 Not Found)
+
         public static Error TicketTypeNotFound(TicketTypeId ticketTypeId)
             => Error.NotFound(
                 "TicketType.NotFound",
@@ -98,11 +181,24 @@ namespace Domain.Errors
                 "TicketType.NotFoundInEvent",
                 $"Ticket type with ID {ticketTypeId} was not found in event {eventId.Value}.");
 
-        // ===== Authorization Errors ======
+        public static Error TicketTypeNotFoundById(Guid ticketTypeId)
+            => Error.NotFound(
+                "TicketType.NotFoundById",
+                $"Ticket type with ID {ticketTypeId} was not found.");
 
-        //    public static Error UserNotAuthorizedToModify(Guid userId)
-        //        => Error.Unauthorized(
-        //            "TicketType.UnauthorizedModification",
-        //            $"User {userId} is not authorized to modify this ticket type.");
+        // ============================================================
+        // ✅ Authorization Errors (403 Forbidden / 401 Unauthorized)
+        // ============================================================
+
+        //public static Error UserNotAuthorizedToModify(Guid userId)
+        //    => Error.Unauthorized(
+        //        "TicketType.UnauthorizedModification",
+        //        $"User {userId} is not authorized to modify this ticket type.");
+
+        //public static Error UserNotAuthorizedToDelete(Guid userId)
+        //    => Error.Unauthorized(
+        //        "TicketType.UnauthorizedDeletion",
+        //        $"User {userId} is not authorized to delete this ticket type.");
+  
     }
 }

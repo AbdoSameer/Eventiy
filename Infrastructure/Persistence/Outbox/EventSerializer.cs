@@ -97,9 +97,6 @@ public sealed class EventSerializer : IEventSerializer
             : "Unknown";
     }
 
-    /// <summary>
-    /// ✅ الحصول على Event Type من Event Name
-    /// </summary>
     public Type GetEventType(string eventName)
     {
         return _eventTypes.TryGetValue(eventName, out var type)
@@ -107,9 +104,6 @@ public sealed class EventSerializer : IEventSerializer
             : null!;
     }
 
-    /// <summary>
-    /// ✅ الحصول على Event Name من Type (Implements Interface)
-    /// </summary>
     public string GetEventName(Type eventType)
     {
         return _eventNamesByType.TryGetValue(eventType, out var name)
@@ -117,33 +111,21 @@ public sealed class EventSerializer : IEventSerializer
             : eventType.Name;
     }
 
-    /// <summary>
-    /// ✅ التحقق من وجود Event
-    /// </summary>
     public bool IsEventRegistered(string eventName)
     {
         return _eventTypes.ContainsKey(eventName);
     }
 
-    /// <summary>
-    /// ✅ الحصول على جميع الـ Events المسجلة
-    /// </summary>
     public IReadOnlyDictionary<string, Type> GetRegisteredEvents()
     {
         return _eventTypes.AsReadOnly();
     }
 
-    /// <summary>
-    /// ✅ الحصول على جميع الـ Domains المسجلة
-    /// </summary>
     public IReadOnlyDictionary<string, string> GetRegisteredDomains()
     {
         return _eventDomains.AsReadOnly();
     }
 
-    /// <summary>
-    /// ✅ استخراج جميع الـ Events الخاصة بـ Domain معين
-    /// </summary>
     public IEnumerable<string> GetEventsByDomain(string domain)
     {
         return _eventDomains
@@ -151,9 +133,6 @@ public sealed class EventSerializer : IEventSerializer
             .Select(x => x.Key);
     }
 
-    /// <summary>
-    /// ✅ الحصول على Event Name + Domain معاً من Type
-    /// </summary>
     public (string EventName, string Domain) GetEventInfo(Type eventType)
     {
         var eventName = GetEventName(eventType);

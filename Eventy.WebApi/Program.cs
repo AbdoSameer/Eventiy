@@ -1,3 +1,4 @@
+using Application;
 using Infrastructure;
 using Infrastructure.Seed;
 using Scalar.AspNetCore;

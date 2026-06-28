@@ -1,8 +1,8 @@
 ﻿using Application.Abstractions.Outbox;
-using Infrastructure.Persistence.Repositories;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using MediatR;
 
 namespace Infrastructure.BackgroundJobs;
 
@@ -44,12 +44,12 @@ public sealed class OutboxProcessor : BackgroundService
         _logger.LogInformation("Outbox Processor stopped");
     }
 
-    // Infrastructure/BackgroundJobs/OutboxProcessor.cs
     private async Task ProcessPendingMessages(CancellationToken cancellationToken)
     {
         using var scope = _serviceProvider.CreateScope();
-        var outboxRepository = scope.ServiceProvider.GetRequiredService<OutboxRepository>();
+        var outboxRepository = scope.ServiceProvider.GetRequiredService<IOutboxRepository>();
         var serializer = scope.ServiceProvider.GetRequiredService<IEventSerializer>();
+        var publisher = scope.ServiceProvider.GetRequiredService<IPublisher>();
 
         var messages = await outboxRepository.GetAndLockUnprocessedMessagesAsync(
             _lockId, BatchSize, cancellationToken);
@@ -57,38 +57,60 @@ public sealed class OutboxProcessor : BackgroundService
         if (messages.Count == 0) return;
 
         var processedIds = new List<Guid>();
-        var failedMessages = new List<(Guid Id, string Error)>();
+        var failedMessages = new List<OutboxFailedMessageUpdateDto>();
 
         foreach (var message in messages)
         {
             try
             {
                 var domainEvent = serializer.Deserialize(message.EventName, message.Payload);
-                var domain = serializer.GetEventDomain(message.EventName);
 
-                await PublishToMessageBrokerAsync(domain, domainEvent, cancellationToken);
+                await publisher.Publish(domainEvent, cancellationToken);
 
-                // ✅ تجميع بدلاً من SaveChanges لكل message
                 processedIds.Add(message.Id);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "❌ Failed to process message {MessageId}", message.Id);
-                failedMessages.Add((message.Id, ex.Message));
+
+                var newRetryCount = message.RetryCount + 1;
+                var nextRetryOnUtc = GetNextRetryOnUtc(newRetryCount);
+
+                failedMessages.Add(new OutboxFailedMessageUpdateDto(
+                    Id: message.Id,
+                    Error: ex.Message,
+                    NewRetryCount: newRetryCount,
+                    NextRetryOnUtc: nextRetryOnUtc
+                ));
             }
         }
 
-        // ✅ Batch update — SaveChanges واحد للكل
-        outboxRepository.MarkRangeAsProcessed(processedIds);
-        outboxRepository.MarkRangeAsFailed(failedMessages);
+        if (processedIds.Any())
+        {
+            await outboxRepository.MarkRangeAsProcessedAsync(processedIds, cancellationToken);
+        }
+
+        if (failedMessages.Any())
+        {
+            await outboxRepository.MarkRangeAsFailedAsync(failedMessages, cancellationToken);
+        }
+
         await outboxRepository.SaveChangesAsync(cancellationToken);
     }
 
-    private async Task PublishToMessageBrokerAsync(string domain, object domainEvent, CancellationToken cancellationToken)
+    private static DateTime? GetNextRetryOnUtc(int retryCount)
     {
-        // 🟢 Publish to RabbitMQ / Azure Service Bus / Kafka
-        // Include IdempotencyKey in the message
-        await Task.CompletedTask;
+        if (retryCount >= 3)
+            return null;
+
+        var delay = retryCount switch
+        {
+            1 => TimeSpan.FromSeconds(5),
+            2 => TimeSpan.FromMinutes(1),
+            _ => TimeSpan.FromMinutes(5)
+        };
+
+        return DateTime.UtcNow.Add(delay);
     }
 
     private async Task ReleaseAllLocksAsync()
@@ -96,7 +118,7 @@ public sealed class OutboxProcessor : BackgroundService
         try
         {
             using var scope = _serviceProvider.CreateScope();
-            var outboxRepository = scope.ServiceProvider.GetRequiredService<OutboxRepository>();
+            var outboxRepository = scope.ServiceProvider.GetRequiredService<IOutboxRepository>();
             await outboxRepository.ReleaseLockAsync(_lockId);
             _logger.LogInformation("Released all locks for LockId: {LockId}", _lockId);
         }

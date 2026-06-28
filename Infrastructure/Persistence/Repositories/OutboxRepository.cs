@@ -1,61 +1,50 @@
-﻿// Infrastructure/Persistence/Repositories/OutboxRepository.cs
-using Application.Abstractions.Outbox;
+﻿using Application.Abstractions.Outbox;
 using Infrastructure.Persistence.Outbox;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence.Repositories;
 
-/// <summary>
-/// ✅ Implementation of IOutboxRepository
-/// ✅ Converts between OutboxMessageDto (Application) and OutboxMessage (Infrastructure)
-/// </summary>
 public sealed class OutboxRepository : IOutboxRepository
 {
     private readonly ApplicationDbContext _context;
 
     public OutboxRepository(ApplicationDbContext context)
-    {
-        _context = context;
-    }
+        => _context = context;
 
-    // ==================== ADD (ChangeTracker Only) ====================
-
-    public void Add(OutboxMessageDto messageDto)
+    public void Add(OutboxMessageDto dto)
     {
-        // ✅ Convert DTO to Infrastructure Entity
         var message = new OutboxMessage(
-            messageDto.Id,
-            messageDto.EventName,
-            messageDto.Domain,
-            messageDto.Payload,
-            messageDto.OccurredOnUtc,
-            messageDto.ProcessedOnUtc,
-            messageDto.NextRetryOnUtc,
-            messageDto.Error,
-            messageDto.RetryCount);
+            id: dto.Id,
+            eventName: dto.EventName,
+            domain: dto.Domain,
+            payload: dto.Payload,
+            occurredOnUtc: dto.OccurredOnUtc,
+            idempotencyKey: dto.IdempotencyKey,
+            processedOnUtc: dto.ProcessedOnUtc,
+            nextRetryOnUtc: dto.NextRetryOnUtc,
+            error: dto.Error,
+            retryCount: dto.RetryCount);
 
         _context.OutboxMessages.Add(message);
     }
 
-    public void AddRange(IEnumerable<OutboxMessageDto> messageDtos)
+    public void AddRange(IEnumerable<OutboxMessageDto> dtos)
     {
-        // ✅ Convert DTOs to Infrastructure Entities
-        var messages = messageDtos.Select(dto => new OutboxMessage(
-            dto.Id,
-            dto.EventName,
-            dto.Domain,
-            dto.Payload,
-            dto.OccurredOnUtc,
-            dto.ProcessedOnUtc,
-            dto.NextRetryOnUtc,
-            dto.Error,
-            dto.RetryCount));
+        var entities = dtos.Select(dto => new OutboxMessage(
+            id: dto.Id,
+            eventName: dto.EventName,
+            domain: dto.Domain,
+            payload: dto.Payload,
+            occurredOnUtc: dto.OccurredOnUtc,
+            idempotencyKey: dto.IdempotencyKey,
+            processedOnUtc: dto.ProcessedOnUtc,
+            nextRetryOnUtc: dto.NextRetryOnUtc,
+            error: dto.Error,
+            retryCount: dto.RetryCount));
 
-        _context.OutboxMessages.AddRange(messages);
+        _context.OutboxMessages.AddRange(entities);
     }
-
-    // ==================== LOCK & GET ====================
 
     public async Task<IReadOnlyList<OutboxMessageDto>> GetAndLockUnprocessedMessagesAsync(
         Guid lockId,
@@ -63,129 +52,99 @@ public sealed class OutboxRepository : IOutboxRepository
         CancellationToken cancellationToken = default)
     {
         var sql = @"
-            UPDATE TOP (@BatchSize) OutboxMessages
+            UPDATE TOP (@BatchSize) OutboxMessages WITH (UPDLOCK, READPAST, ROWLOCK)
             SET 
-                ProcessingLock = @LockId,
+                ProcessingLock     = @LockId,
                 ProcessingLockedAt = GETUTCDATE()
             OUTPUT INSERTED.*
             WHERE 
-                IsProcessed = 0 
+                ProcessedOnUtc IS NULL
                 AND (NextRetryOnUtc IS NULL OR NextRetryOnUtc <= GETUTCDATE())
                 AND (ProcessingLock IS NULL OR 
-                     ProcessingLockedAt <= DATEADD(MINUTE, -5, GETUTCDATE()))
-            ORDER BY OccurredOnUtc";
+                     ProcessingLockedAt <= DATEADD(MINUTE, -5, GETUTCDATE()))";
 
         var parameters = new[]
         {
-            new SqlParameter("@LockId", lockId),
-            new SqlParameter("@BatchSize", batchSize)
+            new SqlParameter("@LockId",     lockId),
+            new SqlParameter("@BatchSize",  batchSize)
         };
 
-        // ✅ Get Infrastructure Entities
         var messages = await _context.OutboxMessages
             .FromSqlRaw(sql, parameters)
+            .AsNoTracking()
             .ToListAsync(cancellationToken);
 
-        // ✅ Convert to DTOs
         return messages.Select(m => new OutboxMessageDto(
-            m.Id,
-            m.EventName,
-            m.Domain,
-            m.Payload,
-            m.OccurredOnUtc,
-            m.ProcessedOnUtc,
-            m.NextRetryOnUtc,
-            m.Error,
-            m.RetryCount,
-            m.IsProcessed,
-            m.IsReadyForProcessing)).ToList();
+            Id: m.Id,
+            EventName: m.EventName,
+            Domain: m.Domain,
+            Payload: m.Payload,
+            OccurredOnUtc: m.OccurredOnUtc,
+            IdempotencyKey: m.IdempotencyKey,
+            ProcessedOnUtc: m.ProcessedOnUtc,
+            NextRetryOnUtc: m.NextRetryOnUtc,
+            Error: m.Error,
+            RetryCount: m.RetryCount)).ToList();
     }
 
-    // ==================== UPDATE (Individual) ====================
-
-    public async Task MarkAsProcessedAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task MarkRangeAsProcessedAsync(
+        IEnumerable<Guid> ids,
+        CancellationToken cancellationToken = default)
     {
-        var message = await _context.OutboxMessages
-            .FindAsync(new object[] { id }, cancellationToken);
+        if (ids == null || !ids.Any()) return;
 
-        if (message is null) return;
-
-        message.MarkAsProcessed();
-        await _context.SaveChangesAsync(cancellationToken);
+        await _context.OutboxMessages
+            .Where(m => ids.Contains(m.Id))
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(m => m.ProcessedOnUtc, DateTime.UtcNow)
+                .SetProperty(m => m.ProcessingLock, (Guid?)null)
+                .SetProperty(m => m.ProcessingLockedAt, (DateTime?)null),
+            cancellationToken);
     }
 
-    public async Task MarkAsFailedAsync(Guid id, string error, CancellationToken cancellationToken = default)
+    public async Task MarkRangeAsFailedAsync(
+        IEnumerable<OutboxFailedMessageUpdateDto> failedMessages,
+        CancellationToken cancellationToken = default)
     {
-        var message = await _context.OutboxMessages
-            .FindAsync(new object[] { id }, cancellationToken);
+        if (failedMessages == null || !failedMessages.Any()) return;
 
-        if (message is null) return;
-
-        message.MarkAsFailed(error);
-        await _context.SaveChangesAsync(cancellationToken);
-    }
-
-    // ==================== BATCH UPDATE ====================
-
-    public void MarkRangeAsProcessed(IEnumerable<Guid> messageIds)
-    {
-        var ids = messageIds.ToList();
-        if (!ids.Any()) return;
-
-        foreach (var id in ids)
+        foreach (var failInfo in failedMessages)
         {
-            var message = _context.OutboxMessages.Local
-                .FirstOrDefault(m => m.Id == id);
-
-            if (message != null)
-            {
-                message.MarkAsProcessed();
-            }
+            await _context.OutboxMessages
+                .Where(m => m.Id == failInfo.Id)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(m => m.Error, failInfo.Error)
+                    .SetProperty(m => m.RetryCount, failInfo.NewRetryCount)
+                    .SetProperty(m => m.NextRetryOnUtc, failInfo.NextRetryOnUtc)
+                    .SetProperty(m => m.ProcessingLock, (Guid?)null)
+                    .SetProperty(m => m.ProcessingLockedAt, (DateTime?)null),
+                cancellationToken);
         }
     }
-
-    public void MarkRangeAsFailed(IEnumerable<(Guid Id, string Error)> failedMessages)
-    {
-        var failedList = failedMessages.ToList();
-        if (!failedList.Any()) return;
-
-        foreach (var (id, error) in failedList)
-        {
-            var message = _context.OutboxMessages.Local
-                .FirstOrDefault(m => m.Id == id);
-
-            if (message != null)
-            {
-                message.MarkAsFailed(error);
-            }
-        }
-    }
-
-    public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
-    {
-        await _context.SaveChangesAsync(cancellationToken);
-    }
-
-    // ==================== QUERY ====================
 
     public async Task<int> GetUnprocessedCountAsync(CancellationToken cancellationToken = default)
     {
+        var now = DateTime.UtcNow;
+
         return await _context.OutboxMessages
-            .Where(m => !m.IsProcessed && m.IsReadyForProcessing)
+            .Where(m =>
+                m.ProcessedOnUtc == null &&
+                (m.NextRetryOnUtc == null || m.NextRetryOnUtc <= now))
             .CountAsync(cancellationToken);
     }
 
-    // ==================== LOCK RELEASE ====================
-
     public async Task ReleaseLockAsync(Guid lockId, CancellationToken cancellationToken = default)
     {
-        var sql = @"
-            UPDATE OutboxMessages
-            SET 
-                ProcessingLock = NULL,
-                ProcessingLockedAt = NULL
-            WHERE ProcessingLock = @LockId";
+        await _context.Database.ExecuteSqlRawAsync(
+            @"UPDATE OutboxMessages
+              SET ProcessingLock = NULL, ProcessingLockedAt = NULL
+              WHERE ProcessingLock = @LockId",
+            new SqlParameter("@LockId", lockId),
+            cancellationToken);
+    }
 
-        await _context.Database.ExecuteSqlRawAsync(sql, new SqlParameter("@LockId", lockId));
+    public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        return await _context.SaveChangesAsync(cancellationToken);
     }
 }

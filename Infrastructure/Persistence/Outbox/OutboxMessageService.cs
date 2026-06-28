@@ -2,9 +2,11 @@
 using Domain.Common;
 using Infrastructure.Persistence.Repositories;
 using Microsoft.Extensions.Logging;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace Infrastructure.Persistence.Outbox;
-
+// Infrastructure/Persistence/Outbox/OutboxMessageService.cs
 public sealed class OutboxMessageService : IOutboxMessageService
 {
     private readonly OutboxRepository _outboxRepository;
@@ -14,7 +16,7 @@ public sealed class OutboxMessageService : IOutboxMessageService
     public OutboxMessageService(
         OutboxRepository outboxRepository,
         IEventSerializer serializer,
-        ILogger<OutboxMessageService> logger = null)
+        ILogger<OutboxMessageService> logger)
     {
         _outboxRepository = outboxRepository;
         _serializer = serializer;
@@ -24,38 +26,51 @@ public sealed class OutboxMessageService : IOutboxMessageService
     public void AddFromDomainEvents(IEnumerable<IDomainEvent> domainEvents)
     {
         var events = domainEvents.ToList();
-        if (!events.Any())
+        if (events.Count == 0)
         {
-            _logger?.LogDebug("📭 No domain events to stage in Outbox");
+            _logger.LogDebug("No domain events to stage in Outbox.");
             return;
         }
 
-        // ✅ Build DTOs (not Infrastructure Entities)
-        var messages = events
-            .Select(de =>
-            {
-                var payload = _serializer.Serialize(de);
-                return new OutboxMessageDto(
-                    Id: Guid.NewGuid(),
-                    EventName: de.Name,
-                    Domain: de.Domain,
-                    Payload: payload,
-                    OccurredOnUtc: de.OccurredOnUtc,
-                    ProcessedOnUtc: null,
-                    NextRetryOnUtc: null,
-                    Error: null,
-                    RetryCount: 0,
-                    IsProcessed: false,
-                    IsReadyForProcessing: true);
-            })
-            .ToList();
+        var messages = events.Select(de =>
+        {
+            var payload = _serializer.Serialize(de);
+            var idempotencyKey = ComputeIdempotencyKey(de, payload); 
+            return new OutboxMessageDto(
+                Id: Guid.NewGuid(),
+                EventName: de.Name,
+                Domain: de.Domain,
+                Payload: payload,
+                OccurredOnUtc: de.OccurredOnUtc,
+                IdempotencyKey: idempotencyKey, 
+                ProcessedOnUtc: null,
+                NextRetryOnUtc: null,
+                Error: null,
+                RetryCount: 0);
+        }).ToList();
 
-        // ✅ Use Interface method
         _outboxRepository.AddRange(messages);
 
-        _logger?.LogDebug(
-            "📝 Staged {Count} outbox messages for atomic commit: {Events}",
+        _logger.LogDebug(
+            "Staged {Count} outbox messages: {Events}",
             messages.Count,
             string.Join(", ", events.Select(e => e.Name)));
+    }
+
+    private static string ComputeIdempotencyKey(IDomainEvent domainEvent, string payload)
+    {
+        if (domainEvent is DomainEvent de &&
+            !string.IsNullOrWhiteSpace(de.Metadata?.CorrelationId))
+        {
+            var correlationKey = $"{domainEvent.Name}_{de.Metadata.CorrelationId}";
+            return correlationKey.Length <= 100
+                ? correlationKey
+                : correlationKey[..100]; // DB column MaxLength guard
+        }
+
+        var raw = $"{domainEvent.Name}_{domainEvent.OccurredOnUtc:O}_{payload}";
+        var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(raw));
+        return Convert.ToHexString(hashBytes)[..32]; 
+        // 32 hex chars = 16 bytes، أقل من MaxLength(100)
     }
 }

@@ -2,8 +2,6 @@
 using Domain.Primitives;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Aggregates.EventAggregate.Enums;
-using Domain.Aggregates.EventAggregate.Events;
-using Domain.Aggregates.EventAggregate.Events.TicketTypeEvents;
 using Domain.Errors;
 
 namespace Domain.Aggregates.EventAggregate
@@ -25,7 +23,10 @@ namespace Domain.Aggregates.EventAggregate
         public DateTime? CancelledAt { get; private set; }
         public DateTime? CompletedAt { get; private set; }
         public string? CancellationReason { get; private set; }
+        public DateTime CreatedAt { get; private set; }
+        public DateTime? LastModifiedAt { get; private set; }
 
+        public byte[] RowVersion { get; private set; } = Array.Empty<byte>();
 
         private readonly List<TicketType> _ticketTypes = new();
         public IReadOnlyCollection<TicketType> TicketTypes => _ticketTypes.AsReadOnly();
@@ -40,7 +41,8 @@ namespace Domain.Aggregates.EventAggregate
             DateTime date,
             Address location,
             string description,
-            int capacity) : base(id)
+            int capacity,
+            DateTime createdAt) : base(id)
         {
             EventName = name;
             Date = date;
@@ -48,6 +50,8 @@ namespace Domain.Aggregates.EventAggregate
             Description = description;
             Capacity = capacity;
             Status = EventStatus.Draft;
+            CreatedAt = createdAt;
+            RowVersion = Array.Empty<byte>();
         }
 
         public static Result<Event> Create(
@@ -59,29 +63,22 @@ namespace Domain.Aggregates.EventAggregate
             IDateTimeProvider dateTimeProvider,
             EventMetadata metadata)
         {
-
-            // Validate capacity
             if (capacity < MIN_CAPACITY)
                 return Result<Event>.Failure(EventErrors.InvalidTotalSeats(capacity));
 
-            // Validate date
             if (date < dateTimeProvider.UtcNow)
                 return Result<Event>.Failure(EventErrors.InvalidEventDate(date));
 
-            // Validate location
             if (location == null || string.IsNullOrWhiteSpace(location.City))
                 return Result<Event>.Failure(EventErrors.LocationCannotBeEmpty());
 
-            // Validate description
             if (description.Length > MAX_DESCRIPTION_LENGTH)
                 return Result<Event>.Failure(EventErrors.DescriptionTooLong(MAX_DESCRIPTION_LENGTH));
 
-            // Create name value object
             var nameResult = EventName.Create(name);
             if (nameResult.IsFailure)
                 return Result<Event>.Failure(nameResult.Errors.ToArray());
 
-            // Create location value object
             var locationResult = Address.Create(
                 location.Country,
                 location.City,
@@ -89,7 +86,6 @@ namespace Domain.Aggregates.EventAggregate
             if (locationResult.IsFailure)
                 return Result<Event>.Failure(locationResult.Errors.ToArray());
 
-            // Create event ID
             var eventIdResult = EventId.Create(Guid.NewGuid());
             if (eventIdResult.IsFailure)
                 return Result<Event>.Failure(eventIdResult.Errors.ToArray());
@@ -100,10 +96,10 @@ namespace Domain.Aggregates.EventAggregate
                 date,
                 locationResult.Value,
                 description,
-                capacity);
+                capacity,
+                dateTimeProvider.UtcNow); 
 
-            // Raise domain event
-            newEvent.RaiseDomainEvent(Domain.Common.DomainEventFactory.CreateEventCreated(
+            newEvent.RaiseDomainEvent(DomainEventFactory.CreateEventCreated(
                 newEvent.Id,
                 newEvent.EventName.Value,
                 newEvent.Date,
@@ -116,7 +112,6 @@ namespace Domain.Aggregates.EventAggregate
 
         public Result Publish(IDateTimeProvider dateTimeProvider, EventMetadata metadata)
         {
-            // Validate current state
             if (Status == EventStatus.Cancelled)
                 return Result.Failure(EventErrors.CannotPublishCancelledEvent());
 
@@ -126,26 +121,27 @@ namespace Domain.Aggregates.EventAggregate
             if (Status == EventStatus.Published)
                 return Result.Failure(EventErrors.AlreadyPublished());
 
-            // Validate business rules
             if (_ticketTypes.Count == 0)
                 return Result.Failure(EventErrors.CannotPublishWithoutTicketTypes());
 
             if (Date < dateTimeProvider.UtcNow)
                 return Result.Failure(EventErrors.InvalidEventDate(Date));
 
-            // Update state
             Status = EventStatus.Published;
             PublishedAt = dateTimeProvider.UtcNow;
+            LastModifiedAt = dateTimeProvider.UtcNow; 
 
-            // Raise domain event
-            RaiseDomainEvent(Domain.Common.DomainEventFactory.CreateEventPublished(Id, _ticketTypes.Count, dateTimeProvider.UtcNow, metadata));
+            RaiseDomainEvent(DomainEventFactory.CreateEventPublished(
+                Id,
+                _ticketTypes.Count,
+                dateTimeProvider.UtcNow,
+                metadata));
 
             return Result.Success();
         }
 
         public Result Cancel(IDateTimeProvider dateTimeProvider, EventMetadata metadata, string? reason = null)
         {
-            // Validate current state
             if (Status == EventStatus.Cancelled)
                 return Result.Failure(EventErrors.AlreadyCancelled());
 
@@ -155,20 +151,22 @@ namespace Domain.Aggregates.EventAggregate
             if (Status == EventStatus.Published)
                 return Result.Failure(EventErrors.CannotCancelPublishedEvent());
 
-            // Update state
             Status = EventStatus.Cancelled;
             CancelledAt = dateTimeProvider.UtcNow;
             CancellationReason = reason;
+            LastModifiedAt = dateTimeProvider.UtcNow; 
 
-            // Raise domain event
-            RaiseDomainEvent(Domain.Common.DomainEventFactory.CreateEventCancelled(Id, reason, dateTimeProvider.UtcNow, metadata));
+            RaiseDomainEvent(DomainEventFactory.CreateEventCancelled(
+                Id,
+                reason,
+                dateTimeProvider.UtcNow,
+                metadata));
 
             return Result.Success();
         }
 
         public Result Complete(IDateTimeProvider dateTimeProvider, EventMetadata metadata)
         {
-            // Validate current state
             if (Status == EventStatus.Completed)
                 return Result.Failure(EventErrors.AlreadyCompleted());
 
@@ -181,45 +179,64 @@ namespace Domain.Aggregates.EventAggregate
             if (Date > dateTimeProvider.UtcNow)
                 return Result.Failure(EventErrors.CannotCompleteFutureEvent(Date));
 
-            // Update state
             Status = EventStatus.Completed;
             CompletedAt = dateTimeProvider.UtcNow;
+            LastModifiedAt = dateTimeProvider.UtcNow;
 
-            // Raise domain event
-            RaiseDomainEvent(Domain.Common.DomainEventFactory.CreateEventCompleted(Id, dateTimeProvider.UtcNow, metadata));
+            RaiseDomainEvent(DomainEventFactory.CreateEventCompleted(
+                Id,
+                dateTimeProvider.UtcNow,
+                metadata));
 
             return Result.Success();
         }
 
-        public Result Reopen()
+        public Result Reopen(IDateTimeProvider dateTimeProvider)
         {
             if (Status != EventStatus.Completed)
                 return Result.Failure(EventErrors.CanOnlyReopenCompletedEvent());
 
-            if (Date < DateTime.UtcNow)
+            if (Date < dateTimeProvider.UtcNow) 
                 return Result.Failure(EventErrors.CannotReopenPastEvent(Date));
 
             Status = EventStatus.Published;
             CompletedAt = null;
+            LastModifiedAt = dateTimeProvider.UtcNow;
 
             return Result.Success();
         }
-        // ... existing code ...
 
-        public Result AddTicketType(string name, Money price, int capacity, IDateTimeProvider dateTimeProvider, EventMetadata metadata)
+
+        public Result AddTicketType(
+            string name,
+            Money price,
+            int capacity,
+            IDateTimeProvider dateTimeProvider,
+            EventMetadata metadata)
         {
             if (Status != EventStatus.Draft)
                 return Result.Failure(EventErrors.CannotModifyTicketTypesAfterDraft());
 
+            if (_ticketTypes.Count >= MAX_TICKET_TYPES)
+                return Result.Failure(EventErrors.MaxTicketTypesReached(MAX_TICKET_TYPES));
+
             var remainingCapacity = Capacity - _ticketTypes.Sum(t => t.Capacity);
 
-            var ticketResult = TicketType.Create(Id, name, price, capacity, remainingCapacity);
+            var ticketResult = TicketType.Create(
+                Id,
+                name,
+                price,
+                capacity,
+                dateTimeProvider,
+                remainingCapacity);
+
             if (ticketResult.IsFailure)
                 return Result.Failure(ticketResult.Errors.ToArray());
 
             _ticketTypes.Add(ticketResult.Value);
+            LastModifiedAt = dateTimeProvider.UtcNow; 
 
-            RaiseDomainEvent(Domain.Common.DomainEventFactory.CreateTicketTypeAdded(
+            RaiseDomainEvent(DomainEventFactory.CreateTicketTypeAdded(
                 Id,
                 ticketResult.Value.Id,
                 name,
@@ -231,7 +248,11 @@ namespace Domain.Aggregates.EventAggregate
             return Result.Success();
         }
 
-        public Result UpdateTicketTypePrice(TicketTypeId ticketTypeId, Money newPrice, IDateTimeProvider dateTimeProvider, EventMetadata metadata)
+        public Result UpdateTicketTypePrice(
+            TicketTypeId ticketTypeId,
+            Money newPrice,
+            IDateTimeProvider dateTimeProvider,
+            EventMetadata metadata)
         {
             if (Status != EventStatus.Draft)
                 return Result.Failure(EventErrors.CannotModifyTicketTypesAfterDraft());
@@ -242,11 +263,13 @@ namespace Domain.Aggregates.EventAggregate
 
             var oldPrice = ticketType.Price.Amount;
 
-            var updateResult = ticketType.UpdatePrice(newPrice);
+            var updateResult = ticketType.UpdatePrice(newPrice, dateTimeProvider);
             if (updateResult.IsFailure)
                 return updateResult;
 
-            RaiseDomainEvent(Domain.Common.DomainEventFactory.CreateTicketTypePriceUpdated(
+            LastModifiedAt = dateTimeProvider.UtcNow; 
+
+            RaiseDomainEvent(DomainEventFactory.CreateTicketTypePriceUpdated(
                 ticketTypeId,
                 Id,
                 oldPrice,
@@ -258,7 +281,11 @@ namespace Domain.Aggregates.EventAggregate
             return Result.Success();
         }
 
-        public Result UpdateTicketTypeCapacity(TicketTypeId ticketTypeId, int newCapacity, IDateTimeProvider dateTimeProvider, EventMetadata metadata)
+        public Result UpdateTicketTypeCapacity(
+            TicketTypeId ticketTypeId,
+            int newCapacity,
+            IDateTimeProvider dateTimeProvider,
+            EventMetadata metadata)
         {
             if (Status != EventStatus.Draft)
                 return Result.Failure(EventErrors.CannotModifyTicketTypesAfterDraft());
@@ -269,12 +296,13 @@ namespace Domain.Aggregates.EventAggregate
 
             var oldCapacity = ticketType.Capacity;
             var remainingCapacity = Capacity - _ticketTypes.Sum(t => t.Capacity) + oldCapacity;
-
-            var updateResult = ticketType.UpdateCapacity(newCapacity, remainingCapacity);
+            var updateResult = ticketType.UpdateCapacity(newCapacity, dateTimeProvider, remainingCapacity);
             if (updateResult.IsFailure)
                 return updateResult;
 
-            RaiseDomainEvent(Domain.Common.DomainEventFactory.CreateTicketTypeCapacityUpdated(
+            LastModifiedAt = dateTimeProvider.UtcNow; 
+
+            RaiseDomainEvent(DomainEventFactory.CreateTicketTypeCapacityUpdated(
                 ticketTypeId,
                 Id,
                 oldCapacity,
@@ -285,7 +313,10 @@ namespace Domain.Aggregates.EventAggregate
             return Result.Success();
         }
 
-        public Result RemoveTicketType(TicketTypeId ticketTypeId, IDateTimeProvider dateTimeProvider, EventMetadata metadata)
+        public Result RemoveTicketType(
+            TicketTypeId ticketTypeId,
+            IDateTimeProvider dateTimeProvider,
+            EventMetadata metadata)
         {
             if (Status != EventStatus.Draft)
                 return Result.Failure(EventErrors.CannotModifyTicketTypesAfterDraft());
@@ -299,30 +330,30 @@ namespace Domain.Aggregates.EventAggregate
                 return removeResult;
 
             _ticketTypes.Remove(ticketType);
+            LastModifiedAt = dateTimeProvider.UtcNow; 
 
-            RaiseDomainEvent(Domain.Common.DomainEventFactory.CreateTicketTypeRemoved(
+            RaiseDomainEvent(DomainEventFactory.CreateTicketTypeRemoved(
                 ticketTypeId,
                 Id,
                 ticketType.TicketTypeName,
                 dateTimeProvider.UtcNow,
-                metadata
-            ));
+                metadata));
 
             return Result.Success();
         }
 
-        public Result ReserveSeats(TicketTypeId ticketTypeId,
-                                   int quantity,
-                                   IDateTimeProvider dateTimeProvider,
-                                   EventMetadata metadata)
+
+        public Result ReserveSeats(
+            TicketTypeId ticketTypeId,
+            int quantity,
+            IDateTimeProvider dateTimeProvider,
+            EventMetadata metadata)
         {
             var ticketType = _ticketTypes.FirstOrDefault(t => t.Id == ticketTypeId);
             if (ticketType == null)
                 return Result.Failure(TicketTypeErrors.TicketTypeNotFound(ticketTypeId));
 
-            var oldSoldCount = ticketType.SoldCount;
-
-            var reserveResult = ticketType.ReserveSeats(quantity);
+            var reserveResult = ticketType.ReserveSeats(quantity, dateTimeProvider);
             if (reserveResult.IsFailure)
                 return reserveResult;
 
@@ -338,17 +369,21 @@ namespace Domain.Aggregates.EventAggregate
             return Result.Success();
         }
 
-        public Result ReleaseSeats(TicketTypeId ticketTypeId, int quantity, IDateTimeProvider dateTimeProvider, EventMetadata metadata)
+        public Result ReleaseSeats(
+            TicketTypeId ticketTypeId,
+            int quantity,
+            IDateTimeProvider dateTimeProvider,
+            EventMetadata metadata)
         {
             var ticketType = _ticketTypes.FirstOrDefault(t => t.Id == ticketTypeId);
             if (ticketType == null)
                 return Result.Failure(TicketTypeErrors.TicketTypeNotFound(ticketTypeId));
 
-            var releaseResult = ticketType.ReleaseSeats(quantity);
+            var releaseResult = ticketType.ReleaseSeats(quantity, dateTimeProvider);
             if (releaseResult.IsFailure)
                 return releaseResult;
 
-            RaiseDomainEvent(Domain.Common.DomainEventFactory.CreateTicketTypeSeatsReleased(
+            RaiseDomainEvent(DomainEventFactory.CreateTicketTypeSeatsReleased(
                 ticketTypeId,
                 Id,
                 quantity,
@@ -359,7 +394,12 @@ namespace Domain.Aggregates.EventAggregate
 
             return Result.Success();
         }
-        public Result UpdateCapacity(int newCapacityValue, IDateTimeProvider dateTimeProvider, EventMetadata metadata)
+
+
+        public Result UpdateCapacity(
+            int newCapacityValue,
+            IDateTimeProvider dateTimeProvider,
+            EventMetadata metadata)
         {
             if (Status != EventStatus.Draft)
                 return Result.Failure(EventErrors.CannotModifyCapacityAfterDraft());
@@ -374,9 +414,14 @@ namespace Domain.Aggregates.EventAggregate
 
             var oldCapacity = Capacity;
             Capacity = newCapacityValue;
+            LastModifiedAt = dateTimeProvider.UtcNow; 
 
-            // Raise domain event
-            RaiseDomainEvent(Domain.Common.DomainEventFactory.CreateEventCapacityUpdated(Id, oldCapacity, newCapacityValue, dateTimeProvider.UtcNow, metadata));
+            RaiseDomainEvent(DomainEventFactory.CreateEventCapacityUpdated(
+                Id,
+                oldCapacity,
+                newCapacityValue,
+                dateTimeProvider.UtcNow,
+                metadata));
 
             return Result.Success();
         }
@@ -390,10 +435,12 @@ namespace Domain.Aggregates.EventAggregate
                 return Result.Failure(EventErrors.InvalidEventDate(newDate));
 
             Date = newDate;
+            LastModifiedAt = dateTimeProvider.UtcNow;
+
             return Result.Success();
         }
 
-        public Result UpdateDescription(string newDescription)
+        public Result UpdateDescription(string newDescription, IDateTimeProvider dateTimeProvider)
         {
             if (Status != EventStatus.Draft)
                 return Result.Failure(EventErrors.CannotModifyDescriptionAfterDraft());
@@ -402,10 +449,12 @@ namespace Domain.Aggregates.EventAggregate
                 return Result.Failure(EventErrors.DescriptionTooLong(MAX_DESCRIPTION_LENGTH));
 
             Description = newDescription;
+            LastModifiedAt = dateTimeProvider.UtcNow; 
+
             return Result.Success();
         }
 
-        public Result UpdateName(string newName)
+        public Result UpdateName(string newName, IDateTimeProvider dateTimeProvider)
         {
             if (Status != EventStatus.Draft)
                 return Result.Failure(EventErrors.CannotModifyNameAfterDraft());
@@ -421,10 +470,12 @@ namespace Domain.Aggregates.EventAggregate
                 return Result.Failure(nameResult.Errors.ToArray());
 
             EventName = nameResult.Value;
+            LastModifiedAt = dateTimeProvider.UtcNow; 
+
             return Result.Success();
         }
 
-        public Result UpdateLocation(Address newLocation)
+        public Result UpdateLocation(Address newLocation, IDateTimeProvider dateTimeProvider)
         {
             if (Status != EventStatus.Draft)
                 return Result.Failure(EventErrors.CannotModifyLocationAfterDraft());
@@ -440,28 +491,58 @@ namespace Domain.Aggregates.EventAggregate
                 return Result.Failure(locationResult.Errors.ToArray());
 
             Location = locationResult.Value;
+            LastModifiedAt = dateTimeProvider.UtcNow; 
+
             return Result.Success();
         }
 
-        public bool CanBeModified()
-        {
-            return Status == EventStatus.Draft;
-        }
-
-        public bool IsActive()
-        {
-            return Status == EventStatus.Published || Status == EventStatus.Draft;
-        }
 
         public bool HasAvailableSeats()
         {
-            var totalSold = _ticketTypes.Sum(t => t.Capacity);
-            return totalSold < Capacity;
+            return _ticketTypes.Any(t => t.SoldCount < t.Capacity);
         }
 
         public int GetRemainingCapacity()
         {
-            return Capacity - _ticketTypes.Sum(t => t.Capacity);
+            return _ticketTypes.Sum(t => t.Capacity - t.SoldCount);
+        }
+
+        public int GetReservedCount()
+        {
+            return _ticketTypes.Sum(t => t.ReservedCount);
+        }
+
+        public int GetAvailableSeats()
+        {
+            return _ticketTypes.Sum(t => t.Capacity - t.SoldCount - t.ReservedCount);
+        }
+
+        public bool HasAvailableSeatsReal()
+        {
+            return GetAvailableSeats() > 0;
+        }
+
+        public int GetTotalSoldCount()
+        {
+            return _ticketTypes.Sum(t => t.SoldCount);
+        }
+
+        public int GetTotalTicketCapacity()
+        {
+            return _ticketTypes.Sum(t => t.Capacity);
+        }
+
+        public bool IsFullyBooked()
+        {
+            return GetAvailableSeats() <= 0;
+        }
+
+        public double GetOccupancyRate()
+        {
+            var totalCapacity = GetTotalTicketCapacity();
+            if (totalCapacity == 0) return 0;
+
+            return (double)GetTotalSoldCount() / totalCapacity * 100;
         }
     }
 }

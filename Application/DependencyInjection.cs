@@ -1,9 +1,10 @@
-﻿using EventManagementSystem.Application.Abstractions.Behaviors;
+﻿using Application.Abstractions.Behaviors;
 using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using System.Reflection;
 
+namespace Application;
 public static class DependencyInjection
 {
     public static IServiceCollection AddApplication(

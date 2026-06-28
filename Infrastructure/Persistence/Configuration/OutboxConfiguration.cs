@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
+namespace Infrastructure.Persistence.Configuration;
 public sealed class OutboxConfiguration : IEntityTypeConfiguration<OutboxMessage>
 {
     public void Configure(EntityTypeBuilder<OutboxMessage> builder)
@@ -9,6 +10,7 @@ public sealed class OutboxConfiguration : IEntityTypeConfiguration<OutboxMessage
         builder.ToTable("OutboxMessages");
 
         builder.HasKey(x => x.Id);
+
 
         builder.Property(x => x.EventName)
             .IsRequired()
@@ -22,38 +24,41 @@ public sealed class OutboxConfiguration : IEntityTypeConfiguration<OutboxMessage
             .IsRequired()
             .HasColumnType("nvarchar(max)");
 
-        builder.Property(x => x.Error)
-            .HasMaxLength(2000);
-
         builder.Property(x => x.OccurredOnUtc)
             .IsRequired();
 
-        // ✅ NEW: Idempotency Key
+        builder.Property(x => x.Error)
+            .HasMaxLength(2000);
+
+        builder.Property(x => x.RetryCount)
+            .IsRequired()
+            .HasDefaultValue(0);
+
+        builder.Property(x => x.ProcessedOnUtc);
+        builder.Property(x => x.NextRetryOnUtc);
+
         builder.Property(x => x.IdempotencyKey)
             .IsRequired()
             .HasMaxLength(100);
 
-        // ✅ NEW: Processing Lock
         builder.Property(x => x.ProcessingLock);
         builder.Property(x => x.ProcessingLockedAt);
 
-        // ✅ Indexes for performance
-        builder.HasIndex(x => new { x.IsProcessed, x.ProcessedOnUtc })
-            .HasDatabaseName("IX_OutboxMessages_Processed");
 
-        builder.HasIndex(x => new { x.IsProcessed, x.NextRetryOnUtc })
+        builder.HasIndex(x => new { x.ProcessedOnUtc, x.NextRetryOnUtc })
             .HasDatabaseName("IX_OutboxMessages_ReadyForProcessing");
+
+        builder.HasIndex(x => x.ProcessedOnUtc)
+            .HasDatabaseName("IX_OutboxMessages_ProcessedOnUtc");
 
         builder.HasIndex(x => x.Domain)
             .HasDatabaseName("IX_OutboxMessages_Domain");
 
-        // ✅ NEW: Unique Index on IdempotencyKey
         builder.HasIndex(x => x.IdempotencyKey)
             .IsUnique()
             .HasDatabaseName("IX_OutboxMessages_IdempotencyKey");
 
-        // ✅ NEW: Composite Index for Lock Queries
-        builder.HasIndex(x => new { x.IsProcessed, x.ProcessingLock, x.ProcessingLockedAt })
+        builder.HasIndex(x => new { x.ProcessingLock, x.ProcessingLockedAt })
             .HasDatabaseName("IX_OutboxMessages_Processing");
     }
 }

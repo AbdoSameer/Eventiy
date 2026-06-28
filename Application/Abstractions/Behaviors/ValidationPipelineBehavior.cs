@@ -3,7 +3,7 @@ using Domain.Common;
 using FluentValidation;
 using MediatR;
 
-namespace EventManagementSystem.Application.Abstractions.Behaviors;
+namespace Application.Abstractions.Behaviors;
 
 public sealed class ValidationPipelineBehavior<TRequest, TResponse>
     : IPipelineBehavior<TRequest, TResponse>

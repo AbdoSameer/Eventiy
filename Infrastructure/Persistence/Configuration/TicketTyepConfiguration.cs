@@ -12,6 +12,7 @@ namespace Infrastructure.Persistence.Configuration
             // Table name
             builder.ToTable("TicketTypes");
 
+            // Primary Key
             builder.HasKey(x => x.Id);
 
             builder.Property(x => x.Id)
@@ -62,6 +63,12 @@ namespace Infrastructure.Persistence.Configuration
                    .IsRequired()
                    .HasDefaultValue(0);
 
+            // ✅ RESERVED COUNT - Added (was missing!)
+            builder.Property(x => x.ReservedCount)
+                   .HasColumnName("ReservedCount")
+                   .IsRequired()
+                   .HasDefaultValue(0);
+
             // CreatedAt
             builder.Property(x => x.CreatedAt)
                    .HasColumnName("CreatedAt")
@@ -73,19 +80,39 @@ namespace Infrastructure.Persistence.Configuration
                    .HasColumnName("LastModifiedAt")
                    .IsRequired(false);
 
-            // Computed properties (not stored)
+            // ===== Computed Properties - Must be IGNORED (not stored in DB) =====
+
+            // Original ignored properties
             builder.Ignore(x => x.AvailableCount);
             builder.Ignore(x => x.IsActive);
             builder.Ignore(x => x.IsAtFullCapacity);
 
-            // ===== Indexes ================
+            builder.Ignore(x => x.RealAvailableCount);
+            builder.Ignore(x => x.HasRealAvailability);
+            builder.Ignore(x => x.IsReallyFull);
+            builder.Ignore(x => x.OccupancyRate);
+            builder.Ignore(x => x.ReservationRate);
+            builder.Ignore(x => x.UnavailableCount);
+
+            builder.Ignore(x => x.HasAvailableSeats);       
+            builder.Ignore(x => x.HasRealAvailableSeats);   
+            builder.Ignore(x => x.CanAccommodate);          
+            builder.Ignore(x => x.CanReallyAccommodate);    
+            builder.Ignore(x => x.IsEmpty);                 
+            builder.Ignore(x => x.HasNoReservations);       
+            builder.Ignore(x => x.IsFullyBooked);           
+            builder.Ignore(x => x.IsReallyFullyBooked);     
+
+            // ===== Indexes =====
+
+            // Existing indexes
             builder.HasIndex(x => x.EventId)
                    .HasDatabaseName("IX_TicketTypes_EventId");
 
             builder.HasIndex(x => x.TicketTypeName)
                    .HasDatabaseName("IX_TicketTypes_Name");
 
-            // Unique constraint for EventId + Name combination
+            // Unique constraint: EventId + Name
             builder.HasIndex(x => new { x.EventId, x.TicketTypeName })
                    .IsUnique()
                    .HasDatabaseName("UX_TicketTypes_EventId_Name");
@@ -99,17 +126,27 @@ namespace Infrastructure.Persistence.Configuration
             builder.HasIndex(x => new { x.EventId, x.Capacity, x.SoldCount })
                    .HasDatabaseName("IX_TicketTypes_EventId_Capacity_SoldCount");
 
-            // Many-to-One relationship with Event
+            // ✅ NEW: Index for reservation queries (flash-sale scenarios)
+            builder.HasIndex(x => new { x.EventId, x.ReservedCount })
+                   .HasDatabaseName("IX_TicketTypes_EventId_ReservedCount");
+
+            // ✅ NEW: Composite index for availability checks (most important for seat reservation)
+            builder.HasIndex(x => new { x.EventId, x.Capacity, x.SoldCount, x.ReservedCount })
+                   .HasDatabaseName("IX_TicketTypes_EventId_Capacity_SoldCount_ReservedCount");
+
+            // ===== Relationships =====
+
+            // Many-to-One with Event
             builder.HasOne<Event>()
                    .WithMany(e => e.TicketTypes)
                    .HasForeignKey(x => x.EventId)
                    .OnDelete(DeleteBehavior.Cascade)
                    .HasConstraintName("FK_TicketTypes_Events_EventId");
-       
-            // ===== Concurrency ===========
+
+            // ===== Concurrency =====
             builder.Property(x => x.RowVersion)
-                .IsRowVersion()
-                .HasColumnName("RowVersion");
+                   .IsRowVersion()
+                   .HasColumnName("RowVersion");
         }
     }
 }

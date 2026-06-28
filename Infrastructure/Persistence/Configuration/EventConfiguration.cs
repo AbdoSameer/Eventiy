@@ -1,5 +1,4 @@
 ﻿using Domain.Aggregates.EventAggregate;
-using Domain.Aggregates.EventAggregate.Enums;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -10,10 +9,8 @@ namespace Infrastructure.Persistence.Configuration
     {
         public void Configure(EntityTypeBuilder<Event> builder)
         {
-            // Table name
             builder.ToTable("Events");
 
-            // Primary Key
             builder.HasKey(x => x.Id);
 
             builder.Property(x => x.Id)
@@ -23,7 +20,6 @@ namespace Infrastructure.Persistence.Configuration
                    .HasColumnName("Id")
                    .IsRequired();
 
-            // Name (EventName Value Object)
             builder.OwnsOne(x => x.EventName, nameBuilder =>
             {
                 nameBuilder.Property(n => n.Value)
@@ -32,17 +28,14 @@ namespace Infrastructure.Persistence.Configuration
                            .HasMaxLength(100);
             });
 
-            // Capacity
             builder.Property(x => x.Capacity)
                    .HasColumnName("Capacity")
                    .IsRequired();
 
-            // Date
             builder.Property(x => x.Date)
                    .HasColumnName("Date")
                    .IsRequired();
 
-            // Location (Address Value Object)
             builder.OwnsOne(x => x.Location, locationBuilder =>
             {
                 locationBuilder.Property(l => l.Country)
@@ -66,20 +59,16 @@ namespace Infrastructure.Persistence.Configuration
                                .HasMaxLength(20);
             });
 
-            // Status - Fixed the default value issue
             builder.Property(x => x.Status)
                    .HasColumnName("Status")
                    .IsRequired()
                    .HasConversion<int>();
-            // Removed .HasDefaultValue to avoid design-time errors
 
-            // Description
             builder.Property(x => x.Description)
                    .HasColumnName("Description")
                    .IsRequired(false)
                    .HasMaxLength(500);
 
-            // Tracking fields
             builder.Property(x => x.PublishedAt)
                    .HasColumnName("PublishedAt")
                    .IsRequired(false);
@@ -97,13 +86,24 @@ namespace Infrastructure.Persistence.Configuration
                    .IsRequired(false)
                    .HasMaxLength(500);
 
-            // One-to-Many relationship with TicketTypes
+            builder.Property(x => x.CreatedAt)
+                   .HasColumnName("CreatedAt")
+                   .IsRequired()
+                   .HasDefaultValueSql("GETUTCDATE()");
+
+            builder.Property(x => x.LastModifiedAt)
+                   .HasColumnName("LastModifiedAt")
+                   .IsRequired(false);
+
+            builder.Property(x => x.RowVersion)
+                   .IsRowVersion()
+                   .HasColumnName("RowVersion");
+
             builder.HasMany(e => e.TicketTypes)
                    .WithOne()
                    .HasForeignKey("EventId")
                    .OnDelete(DeleteBehavior.Cascade);
 
-            // ===== Indexes =============
             builder.HasIndex(x => x.Date)
                    .HasDatabaseName("IX_Events_Date");
 
@@ -113,17 +113,14 @@ namespace Infrastructure.Persistence.Configuration
             builder.HasIndex(x => new { x.Date, x.Status })
                    .HasDatabaseName("IX_Events_Date_Status");
 
-            // Index for Name
+            builder.HasIndex(x => x.CreatedAt)
+                   .HasDatabaseName("IX_Events_CreatedAt");
+
             builder.OwnsOne(x => x.EventName, nameBuilder =>
             {
                 nameBuilder.HasIndex(n => n.Value)
                            .HasDatabaseName("IX_Events_Name");
             });
-
-            // ===== Concurrency ===========
-            builder.Property<byte[]>("RowVersion")
-                   .IsRowVersion()
-                   .HasColumnName("RowVersion");
         }
     }
 }

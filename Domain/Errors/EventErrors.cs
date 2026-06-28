@@ -179,6 +179,11 @@ public static class EventErrors
             "Event.DuplicateTicketTypeName",
             $"A ticket type with name '{name}' already exists.");
 
+    public static Error MaxTicketTypesReached(int mAX_TICKET_TYPES)
+        => Error.Conflict(
+            "Event.MaxTicketTypesReached",
+            $"Maximum number of ticket types ({mAX_TICKET_TYPES}) reached for this event.");
+
     // ===== Not Found Errors ===============================
     public static Error EventNotFound(EventId eventId)
         => Error.NotFound(
@@ -200,6 +205,10 @@ public static class EventErrors
             "Event.InvalidId",
             $"The provided event ID '{eventId}' is invalid.");
 
+    public static Error EventModifiedConcurrently()
+        => Error.Conflict(
+            "Event.ModifiedConcurrently",
+            "Event was modified by another user. Please refresh and try again.");
 
     
     // ===== Authorization Errors ==========
@@ -209,8 +218,6 @@ public static class EventErrors
     //        $"User {userId} is not authorized to modify event {eventId.Value}.");
 
     // ===== Concurrency Errors ==============
-    public static Error EventModifiedConcurrently()
-        => Error.Conflict(
-            "Event.ModifiedConcurrently",
-            "Event was modified by another user. Please refresh and try again.");
+
+
 }
