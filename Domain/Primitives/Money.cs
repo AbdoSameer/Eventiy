@@ -173,11 +173,8 @@ namespace Domain.Primitives
         public bool IsNegative() => Amount < 0;
 
         // ===== CONVERSION =====
-        // ✅ التحويل الآمن الوحيد المسموح به
         public static implicit operator decimal(Money money) => money.Amount;
 
-        public static explicit operator Money(decimal amount)
-            => new Money(amount, "USD");
 
         public Result<string> ToCurrencyFormat()
         {
