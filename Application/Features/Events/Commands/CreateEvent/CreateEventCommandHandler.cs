@@ -4,7 +4,6 @@ using Domain.Abstractions.Persistence;
 using Domain.Aggregates.EventAggregate;
 using Domain.Common;
 using Domain.Primitives;
-using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 
 
 namespace Application.Features.Events.Commands.CreateEvent

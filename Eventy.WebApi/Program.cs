@@ -1,4 +1,5 @@
 using Application;
+using Eventy.WebApi.Middlewares;
 using Infrastructure;
 using Infrastructure.Seed;
 using Scalar.AspNetCore;
@@ -13,10 +14,8 @@ namespace Eventy.WebApi
 
             builder.Services.AddControllers();
             builder.Services.AddOpenApi();
-
-            builder.Services.AddApplication(); 
+            builder.Services.AddApplication();
             builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
-
             builder.Services.AddHostedService<DatabaseSeederService>();
 
 
@@ -31,7 +30,7 @@ namespace Eventy.WebApi
                     options.Theme = ScalarTheme.DeepSpace;
                 });
             }
-
+            app.UseMiddleware<GlobalExceptionHandlingMiddleware>(); 
             app.UseHttpsRedirection();
             app.UseAuthorization();
             app.MapControllers();

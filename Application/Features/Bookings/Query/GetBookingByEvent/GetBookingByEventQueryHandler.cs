@@ -1,55 +1,49 @@
 ﻿using Application.Abstractions.Messaging;
 using Application.Abstractions.Persistence;
 using Domain.Aggregates.BookingAggregate;
-using Domain.Aggregates.EventAggregate;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Common;
-using Microsoft.EntityFrameworkCore;
 
-namespace Application.Features.Bookings.Query.GetBookingByEvent
+namespace Application.Features.Bookings.Query.GetBookingByEvent;
+
+public class GetBookingByEventQueryHandler
+    : IQueryHandler<GetBookingByEventQuery, List<GetBookingByEventQueryResponse>>
 {
-    public class GetBookingByEventQueryHandler
-        : IQueryHandler<GetBookingByEventQuery, List<GetBookingByEventQueryResponse>>
+    private readonly IApplicationReadDbContext _context;
+
+    public GetBookingByEventQueryHandler(IApplicationReadDbContext context)
     {
-        private readonly IApplicationReadDbContext _context;
+        _context = context;
+    }
 
-        public GetBookingByEventQueryHandler(IApplicationReadDbContext context)
-        {
-            _context = context;
-        }
+    public async Task<Result<List<GetBookingByEventQueryResponse>>> Handle(
+        GetBookingByEventQuery request,
+        CancellationToken cancellationToken)
+    {
+        var eventIdResult = EventId.Create(request.EventId);
+        if (eventIdResult.IsFailure)
+            return Result<List<GetBookingByEventQueryResponse>>
+                .Failure(eventIdResult.Errors.ToArray());
 
-        public async Task<Result<List<GetBookingByEventQueryResponse>>> Handle(GetBookingByEventQuery request, CancellationToken cancellationToken)
-        {
-            var EventIdResult = EventId.Create(request.EventId);
-            if (EventIdResult.IsFailure)
-            {
-                return Result<List<GetBookingByEventQueryResponse>>
-                    .Failure(EventIdResult.Errors.ToArray());
-            }
+        var query = _context.Query<Booking>()
+            .Where(b => b.EventId == eventIdResult.Value)
+            .Select(b => new GetBookingByEventQueryResponse(
+                b.Id.Value,
+                b.EventId.Value,
+                b.UserId.Value,
+                b.BookingDate,
+                b.Quantity,
+                b.TotalAmount
+            ));
 
+        var bookings = await _context.ToListAsync(query, cancellationToken);
 
-            var bookings = await _context.Query<Booking>()
-                .Where(b => b.EventId == EventIdResult.Value)
-                .Select(b => new GetBookingByEventQueryResponse
-                (
-                    b.Id.Value,
-                    b.EventId.Value,
-                    b.UserId.Value,
-                    b.BookingDate,
-                    b.Quantity,
-                    b.TotalAmount
-                )).ToListAsync(cancellationToken);
+        if (bookings.Count == 0)
+            return Result<List<GetBookingByEventQueryResponse>>.Failure(
+                Error.NotFound(
+                    "Booking.NotFound",
+                    $"No bookings found for event with ID {request.EventId}"));
 
-            if (!bookings.Any())
-            {
-                return Result<List<GetBookingByEventQueryResponse>>.Failure(
-                    Error.NotFound(
-                        "Booking.NotFound",
-                        $"No bookings found for event with ID {request.EventId}"));
-            }
-
-            return Result<List<GetBookingByEventQueryResponse>>.Success(bookings);
-        }
+        return Result<List<GetBookingByEventQueryResponse>>.Success(bookings);
     }
 }
-

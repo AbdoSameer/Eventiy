@@ -1,10 +1,20 @@
-﻿
-namespace Application.Abstractions.Persistence
+﻿namespace Application.Abstractions.Persistence;
+
+public interface IApplicationReadDbContext
 {
-    public interface IApplicationReadDbContext
-    {
-        IQueryable<TEntity> Query<TEntity>()
-            where TEntity : class;
-    }
+    IQueryable<TEntity> Query<TEntity>()
+        where TEntity : class;
+
+    Task<List<TEntity>> ToListAsync<TEntity>(
+        IQueryable<TEntity> query,
+        CancellationToken cancellationToken = default);
+
+    Task<TEntity?> FirstOrDefaultAsync<TEntity>(
+        IQueryable<TEntity> query,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> AnyAsync<TEntity>(
+        IQueryable<TEntity> query,
+        System.Linq.Expressions.Expression<Func<TEntity, bool>> predicate,
+        CancellationToken cancellationToken = default);
 }
-    

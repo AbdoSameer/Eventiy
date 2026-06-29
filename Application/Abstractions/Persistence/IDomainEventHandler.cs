@@ -1,11 +1,8 @@
 using Domain.Common;
-using Domain.Primitives;
 
-namespace Application.Abstractions.Persistence
+namespace Domain.Common;
+
+public interface IDomainEventHandler<TEvent> where TEvent : IDomainEvent
 {
-    public interface IDomainEventHandler<in TEvent>
-        where TEvent : IDomainEvent
-    {
-        Task<Result> HandleAsync(TEvent @event);
-    }
+    Task<Result> HandleAsync(TEvent @event, CancellationToken cancellationToken = default);
 }

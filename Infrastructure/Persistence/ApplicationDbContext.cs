@@ -63,7 +63,7 @@ namespace Infrastructure.Persistence
         {
             try
             {
-                await DatabaseSeeder.SeedAsync(this);
+                await DatabaseSeeder.SeedAsync(this, _logger);
             }
             catch (Exception ex)
             {

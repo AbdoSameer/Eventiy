@@ -24,17 +24,7 @@ namespace Domain.Aggregates.EventAggregate
 
         // Computed Properties
 
-        public int AvailableCount => Capacity - SoldCount;
-
-        public int RealAvailableCount => Capacity - SoldCount - ReservedCount;
-
-        public bool IsActive => AvailableCount > 0;
-
-        public bool HasRealAvailability => RealAvailableCount > 0;
-
-        public bool IsAtFullCapacity => AvailableCount == 0;
-
-        public bool IsReallyFull => RealAvailableCount <= 0;
+        public int AvailableCount => Capacity - SoldCount - ReservedCount;
 
         public double OccupancyRate => Capacity > 0
             ? (double)SoldCount / Capacity * 100
@@ -206,13 +196,12 @@ namespace Domain.Aggregates.EventAggregate
             if (quantity <= 0)
                 return Result.Failure(TicketTypeErrors.QuantityMustBeGreaterThanZero());
 
-            if (quantity > RealAvailableCount)
+            if (quantity > AvailableCount)
                 return Result.Failure(TicketTypeErrors.InsufficientAvailableSeats(
-                    quantity, RealAvailableCount));
+                    quantity, AvailableCount));
 
             ReservedCount += quantity;
             LastModifiedAt = dateTimeProvider.UtcNow;
-
             return Result.Success();
         }
 
@@ -256,13 +245,12 @@ namespace Domain.Aggregates.EventAggregate
             if (quantity <= 0)
                 return Result.Failure(TicketTypeErrors.QuantityMustBeGreaterThanZero());
 
-            if (quantity > AvailableCount)
+            if (quantity > AvailableCount) 
                 return Result.Failure(TicketTypeErrors.InsufficientAvailableSeats(
                     quantity, AvailableCount));
 
             SoldCount += quantity;
-            LastModifiedAt = dateTimeProvider.UtcNow; 
-
+            LastModifiedAt = dateTimeProvider.UtcNow;
             return Result.Success();
         }
 
@@ -301,19 +289,9 @@ namespace Domain.Aggregates.EventAggregate
             return AvailableCount > 0;
         }
 
-        public bool HasRealAvailableSeats()
-        {
-            return RealAvailableCount > 0;
-        }
-
         public bool CanAccommodate(int quantity)
         {
             return quantity > 0 && quantity <= AvailableCount;
-        }
-
-        public bool CanReallyAccommodate(int quantity)
-        {
-            return quantity > 0 && quantity <= RealAvailableCount;
         }
 
         public decimal CalculateTotalPrice(int quantity)
@@ -346,7 +324,8 @@ namespace Domain.Aggregates.EventAggregate
 
         public bool IsFullyBooked()
         {
-            return SoldCount >= Capacity;
+            return AvailableCount <= 0;
+
         }
 
         public bool IsReallyFullyBooked()

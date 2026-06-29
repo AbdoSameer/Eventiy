@@ -5,7 +5,6 @@ using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Common;
 using Domain.Errors;
 using Domain.Primitives;
-using Microsoft.EntityFrameworkCore;
 
 namespace Application.Features.Events.Commands.AddTicketType
 {

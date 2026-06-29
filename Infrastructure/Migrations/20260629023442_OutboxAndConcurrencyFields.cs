@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class CreatedatabasewithpiplineBehaivior : Migration
+    public partial class OutboxAndConcurrencyFields : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -55,11 +55,35 @@ namespace Infrastructure.Migrations
                     CancelledAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CompletedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CancellationReason = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
-                    RowVersion = table.Column<byte[]>(type: "rowversion", rowVersion: true, nullable: true)
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETUTCDATE()"),
+                    LastModifiedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    RowVersion = table.Column<byte[]>(type: "rowversion", rowVersion: true, nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Events", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "OutboxMessages",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    EventName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    Domain = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    Payload = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    OccurredOnUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    ProcessedOnUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    Error = table.Column<string>(type: "nvarchar(2000)", maxLength: 2000, nullable: true),
+                    RetryCount = table.Column<int>(type: "int", nullable: false, defaultValue: 0),
+                    NextRetryOnUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    IdempotencyKey = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    ProcessingLock = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    ProcessingLockedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_OutboxMessages", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -73,9 +97,10 @@ namespace Infrastructure.Migrations
                     Currency = table.Column<string>(type: "nvarchar(3)", maxLength: 3, nullable: false),
                     Capacity = table.Column<int>(type: "int", nullable: false),
                     SoldCount = table.Column<int>(type: "int", nullable: false, defaultValue: 0),
+                    ReservedCount = table.Column<int>(type: "int", nullable: false, defaultValue: 0),
+                    RowVersion = table.Column<byte[]>(type: "rowversion", rowVersion: true, nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETUTCDATE()"),
-                    LastModifiedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    RowVersion = table.Column<byte[]>(type: "rowversion", rowVersion: true, nullable: true)
+                    LastModifiedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -129,6 +154,11 @@ namespace Infrastructure.Migrations
                 columns: new[] { "UserId", "Status" });
 
             migrationBuilder.CreateIndex(
+                name: "IX_Events_CreatedAt",
+                table: "Events",
+                column: "CreatedAt");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Events_Date",
                 table: "Events",
                 column: "Date");
@@ -149,6 +179,32 @@ namespace Infrastructure.Migrations
                 column: "Status");
 
             migrationBuilder.CreateIndex(
+                name: "IX_OutboxMessages_Domain",
+                table: "OutboxMessages",
+                column: "Domain");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OutboxMessages_IdempotencyKey",
+                table: "OutboxMessages",
+                column: "IdempotencyKey",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OutboxMessages_ProcessedOnUtc",
+                table: "OutboxMessages",
+                column: "ProcessedOnUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OutboxMessages_Processing",
+                table: "OutboxMessages",
+                columns: new[] { "ProcessingLock", "ProcessingLockedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OutboxMessages_ReadyForProcessing",
+                table: "OutboxMessages",
+                columns: new[] { "ProcessedOnUtc", "NextRetryOnUtc" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_TicketTypes_Capacity",
                 table: "TicketTypes",
                 column: "Capacity");
@@ -162,6 +218,16 @@ namespace Infrastructure.Migrations
                 name: "IX_TicketTypes_EventId_Capacity_SoldCount",
                 table: "TicketTypes",
                 columns: new[] { "EventId", "Capacity", "SoldCount" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TicketTypes_EventId_Capacity_SoldCount_ReservedCount",
+                table: "TicketTypes",
+                columns: new[] { "EventId", "Capacity", "SoldCount", "ReservedCount" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TicketTypes_EventId_ReservedCount",
+                table: "TicketTypes",
+                columns: new[] { "EventId", "ReservedCount" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_TicketTypes_Name",
@@ -185,6 +251,9 @@ namespace Infrastructure.Migrations
         {
             migrationBuilder.DropTable(
                 name: "Bookings");
+
+            migrationBuilder.DropTable(
+                name: "OutboxMessages");
 
             migrationBuilder.DropTable(
                 name: "TicketTypes");

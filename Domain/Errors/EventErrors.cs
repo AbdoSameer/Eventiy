@@ -210,7 +210,12 @@ public static class EventErrors
             "Event.ModifiedConcurrently",
             "Event was modified by another user. Please refresh and try again.");
 
-    
+    public static Error NotFound(Guid id)
+        => Error.NotFound(
+            "Event.NotFound",
+            $"Event with ID {id} was not found.");
+
+
     // ===== Authorization Errors ==========
     //public static Error UserNotAuthorized(Guid userId, EventId eventId)
     //    => Error.Unauthorized(

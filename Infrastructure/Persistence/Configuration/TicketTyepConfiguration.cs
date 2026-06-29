@@ -84,24 +84,11 @@ namespace Infrastructure.Persistence.Configuration
 
             // Original ignored properties
             builder.Ignore(x => x.AvailableCount);
-            builder.Ignore(x => x.IsActive);
-            builder.Ignore(x => x.IsAtFullCapacity);
 
-            builder.Ignore(x => x.RealAvailableCount);
-            builder.Ignore(x => x.HasRealAvailability);
-            builder.Ignore(x => x.IsReallyFull);
             builder.Ignore(x => x.OccupancyRate);
             builder.Ignore(x => x.ReservationRate);
             builder.Ignore(x => x.UnavailableCount);
 
-            builder.Ignore(x => x.HasAvailableSeats);       
-            builder.Ignore(x => x.HasRealAvailableSeats);   
-            builder.Ignore(x => x.CanAccommodate);          
-            builder.Ignore(x => x.CanReallyAccommodate);    
-            builder.Ignore(x => x.IsEmpty);                 
-            builder.Ignore(x => x.HasNoReservations);       
-            builder.Ignore(x => x.IsFullyBooked);           
-            builder.Ignore(x => x.IsReallyFullyBooked);     
 
             // ===== Indexes =====
 

@@ -1,10 +1,11 @@
 ﻿using Application.Abstractions.Outbox;
 using Application.Abstractions.Persistence;
 using Domain.Common;
+using Infrastructure.Persistence;
+using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using MediatR;
 
 namespace Infrastructure.BackgroundJobs;
 
@@ -58,7 +59,7 @@ public sealed class OutboxProcessor : BackgroundService
         var serializer = scope.ServiceProvider.GetRequiredService<IEventSerializer>();
         var publisher = scope.ServiceProvider.GetRequiredService<IPublisher>();
         var dateTimeProvider = scope.ServiceProvider.GetRequiredService<IDateTimeProvider>();
-        var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
         var now = dateTimeProvider.UtcNow;
 
@@ -83,8 +84,8 @@ public sealed class OutboxProcessor : BackgroundService
 
             var isRetryable = processResult.Errors.All(e =>
                 e.Code is not "Serializer.EventTypeNotFound" and
-                            not "Serializer.JsonDeserializationFailed" and
-                            not "Serializer.DeserializationReturnedNull");
+                         not "Serializer.JsonDeserializationFailed" and
+                         not "Serializer.DeserializationReturnedNull");
 
             var newRetryCount = messageDto.RetryCount + 1;
             var nextRetryOnUtc = isRetryable && newRetryCount < 3
@@ -95,29 +96,27 @@ public sealed class OutboxProcessor : BackgroundService
                 Id: messageDto.Id,
                 Error: string.Join(" | ", processResult.Errors.Select(e => $"{e.Code}: {e.Message}")),
                 NewRetryCount: newRetryCount,
-                NextRetryOnUtc: nextRetryOnUtc
-            ));
-
-            _logger.LogWarning(
-                "Failed to process message {MessageId}: {Errors}. Retryable: {IsRetryable}",
-                messageDto.Id,
-                string.Join("; ", processResult.Errors.Select(e => e.Code)),
-                isRetryable);
+                NextRetryOnUtc: nextRetryOnUtc));
         }
 
-        if (processedIds.Any())
+        // ✅ explicit transaction — الـ status updates atomically
+        await using var tx = await context.Database.BeginTransactionAsync(cancellationToken);
+        try
         {
-            await outboxRepository.MarkRangeAsProcessedAsync(processedIds, now, cancellationToken);
-        }
+            if (processedIds.Any())
+                await outboxRepository.MarkRangeAsProcessedAsync(processedIds, now, cancellationToken);
 
-        if (failedMessages.Any())
+            if (failedMessages.Any())
+                await outboxRepository.MarkRangeAsFailedAsync(failedMessages, cancellationToken);
+
+            await tx.CommitAsync(cancellationToken);
+        }
+        catch (Exception ex)
         {
-            await outboxRepository.MarkRangeAsFailedAsync(failedMessages, cancellationToken);
+            _logger.LogError(ex, "Failed to commit outbox status updates — rolling back");
+            await tx.RollbackAsync(cancellationToken);
         }
-
-        await unitOfWork.CommitAsync(cancellationToken);
     }
-
     private async Task<Result> ProcessSingleMessageAsync(
         OutboxMessageDto messageDto,
         IEventSerializer serializer,

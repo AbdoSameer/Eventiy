@@ -2,9 +2,9 @@
 
 namespace Application.Features.Events.Commands.CreateEvent
 {
-    internal class CreteEventCommandValidator : AbstractValidator<CreateEventCommand>
+    internal class CreateEventCommandValidator : AbstractValidator<CreateEventCommand>
     {
-        public CreteEventCommandValidator()
+        public CreateEventCommandValidator()
         { 
 
             RuleFor(x => x.Name)

@@ -1,28 +1,51 @@
-using Domain.Common;
-using Domain.Primitives;
-using Domain.Aggregates.BookingAggregate.Events;
 using Application.Abstractions.Persistence;
+using Domain.Aggregates.BookingAggregate.Events;
+using Domain.Common;
+using Microsoft.Extensions.Logging;
 
-namespace Application.EventHandlers
+namespace Application.EventHandlers;
+
+public class BookingCreatedEventHandler : IDomainEventHandler<BookingCreatedEvent>
 {
-    public class BookingCreatedEventHandler : IDomainEventHandler<BookingCreatedEvent>
+    private readonly IEventValidator<BookingCreatedEvent> _validator;
+    private readonly IIdempotencyStore _idempotencyStore; 
+    private readonly ILogger<BookingCreatedEventHandler> _logger;  
+
+    public BookingCreatedEventHandler(
+        IEventValidator<BookingCreatedEvent> validator,
+        IIdempotencyStore idempotencyStore,
+        ILogger<BookingCreatedEventHandler> logger)
     {
-        private readonly IEventValidator<BookingCreatedEvent> _validator;
+        _validator = validator;
+        _idempotencyStore = idempotencyStore;
+        _logger = logger;
+    }
 
-        public BookingCreatedEventHandler(IEventValidator<BookingCreatedEvent> validator)
+    public async Task<Result> HandleAsync(
+        BookingCreatedEvent @event,
+        CancellationToken cancellationToken = default)  
+    {
+        if (await _idempotencyStore.IsProcessedAsync(@event.IdempotencyKey, cancellationToken))
         {
-            _validator = validator;
+            _logger.LogInformation(
+                "Event {EventId} with key {IdempotencyKey} already processed — skipping",
+                @event.Id,
+                @event.IdempotencyKey);
+
+            return Result.Success();  
         }
 
-        public async Task<Result> HandleAsync(BookingCreatedEvent @event)
-        {
-            var validation = await _validator.ValidateAsync(@event);
-            if (validation.IsFailure)
-                return validation;
+        // Validate
+        var validation = await _validator.ValidateAsync(@event , cancellationToken);
+        if (validation.IsFailure)
+            return validation;
 
-            // TODO: implement handling logic (notification, projection update, etc.)
 
-            return Result.Success();
-        }
+        await _idempotencyStore.MarkAsProcessedAsync(
+            @event.IdempotencyKey,
+            @event.OccurredOnUtc,
+            cancellationToken);
+
+        return Result.Success();
     }
 }

@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260623125749_Create database with pipline Behaivior")]
-    partial class CreatedatabasewithpiplineBehaivior
+    [Migration("20260629023442_OutboxAndConcurrencyFields")]
+    partial class OutboxAndConcurrencyFields
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -145,6 +145,12 @@ namespace Infrastructure.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("CompletedAt");
 
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasColumnName("CreatedAt")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
                     b.Property<DateTime>("Date")
                         .HasColumnType("datetime2")
                         .HasColumnName("Date");
@@ -154,12 +160,17 @@ namespace Infrastructure.Migrations
                         .HasColumnType("nvarchar(500)")
                         .HasColumnName("Description");
 
+                    b.Property<DateTime?>("LastModifiedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("LastModifiedAt");
+
                     b.Property<DateTime?>("PublishedAt")
                         .HasColumnType("datetime2")
                         .HasColumnName("PublishedAt");
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
+                        .IsRequired()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion")
                         .HasColumnName("RowVersion");
@@ -169,6 +180,9 @@ namespace Infrastructure.Migrations
                         .HasColumnName("Status");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt")
+                        .HasDatabaseName("IX_Events_CreatedAt");
 
                     b.HasIndex("Date")
                         .HasDatabaseName("IX_Events_Date");
@@ -206,8 +220,15 @@ namespace Infrastructure.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("LastModifiedAt");
 
+                    b.Property<int>("ReservedCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0)
+                        .HasColumnName("ReservedCount");
+
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
+                        .IsRequired()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion")
                         .HasColumnName("RowVersion");
@@ -238,6 +259,9 @@ namespace Infrastructure.Migrations
                     b.HasIndex("TicketTypeName")
                         .HasDatabaseName("IX_TicketTypes_Name");
 
+                    b.HasIndex("EventId", "ReservedCount")
+                        .HasDatabaseName("IX_TicketTypes_EventId_ReservedCount");
+
                     b.HasIndex("EventId", "TicketTypeName")
                         .IsUnique()
                         .HasDatabaseName("UX_TicketTypes_EventId_Name");
@@ -245,7 +269,80 @@ namespace Infrastructure.Migrations
                     b.HasIndex("EventId", "Capacity", "SoldCount")
                         .HasDatabaseName("IX_TicketTypes_EventId_Capacity_SoldCount");
 
+                    b.HasIndex("EventId", "Capacity", "SoldCount", "ReservedCount")
+                        .HasDatabaseName("IX_TicketTypes_EventId_Capacity_SoldCount_ReservedCount");
+
                     b.ToTable("TicketTypes", (string)null);
+                });
+
+            modelBuilder.Entity("Infrastructure.Persistence.Outbox.OutboxMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Domain")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Error")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("EventName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("NextRetryOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("OccurredOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ProcessedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ProcessingLock")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ProcessingLockedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("RetryCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Domain")
+                        .HasDatabaseName("IX_OutboxMessages_Domain");
+
+                    b.HasIndex("IdempotencyKey")
+                        .IsUnique()
+                        .HasDatabaseName("IX_OutboxMessages_IdempotencyKey");
+
+                    b.HasIndex("ProcessedOnUtc")
+                        .HasDatabaseName("IX_OutboxMessages_ProcessedOnUtc");
+
+                    b.HasIndex("ProcessedOnUtc", "NextRetryOnUtc")
+                        .HasDatabaseName("IX_OutboxMessages_ReadyForProcessing");
+
+                    b.HasIndex("ProcessingLock", "ProcessingLockedAt")
+                        .HasDatabaseName("IX_OutboxMessages_Processing");
+
+                    b.ToTable("OutboxMessages", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Aggregates.BookingAggregate.Booking", b =>
@@ -302,7 +399,7 @@ namespace Infrastructure.Migrations
                                 .HasForeignKey("EventId");
                         });
 
-                    b.OwnsOne("Domain.Common.Address", "Location", b1 =>
+                    b.OwnsOne("Domain.Primitives.Address", "Location", b1 =>
                         {
                             b1.Property<Guid>("EventId")
                                 .HasColumnType("uniqueidentifier");

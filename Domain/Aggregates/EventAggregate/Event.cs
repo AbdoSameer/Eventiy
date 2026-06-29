@@ -497,10 +497,6 @@ namespace Domain.Aggregates.EventAggregate
         }
 
 
-        public bool HasAvailableSeats()
-        {
-            return _ticketTypes.Any(t => t.SoldCount < t.Capacity);
-        }
 
         public int GetRemainingCapacity()
         {
@@ -517,7 +513,7 @@ namespace Domain.Aggregates.EventAggregate
             return _ticketTypes.Sum(t => t.Capacity - t.SoldCount - t.ReservedCount);
         }
 
-        public bool HasAvailableSeatsReal()
+        public bool HasAvailableSeats()
         {
             return GetAvailableSeats() > 0;
         }

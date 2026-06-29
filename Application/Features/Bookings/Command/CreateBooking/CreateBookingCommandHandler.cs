@@ -6,7 +6,6 @@ using Domain.Aggregates.BookingAggregate.ValueObject;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Common;
 using Domain.Errors;
-using Microsoft.EntityFrameworkCore;
 
 namespace Application.Features.Bookings.Command.CreateBooking
 {
@@ -82,19 +81,7 @@ namespace Application.Features.Bookings.Command.CreateBooking
             // ===== 6. Persist within the same Unit of Work Transaction ====
             await _bookingRepository.AddBookingAsync(booking.Value, cancellationToken);
 
-            try
-            {
-                var rowsAffected = await _unitOfWork.CommitAsync(cancellationToken);
-                if (rowsAffected <= 0)
-                {
-                    return Result<BookingId>.Failure(BookingErrors.BookingCreationFailed());
-                }
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                return Result<BookingId>.Failure(BookingErrors.ConcurrencyConflict());
-            }
-
+           
             return Result<BookingId>.Success(booking.Value.Id);
         }
     }
