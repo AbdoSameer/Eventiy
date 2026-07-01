@@ -1,5 +1,6 @@
 using Domain.Aggregates.BookingAggregate.ValueObject;
 using Domain.Aggregates.EventAggregate.ValueObject;
+using Domain.Aggregates.UserAggregate.ValueObject;
 using Domain.Common;
 
 namespace Domain.Aggregates.BookingAggregate.Events

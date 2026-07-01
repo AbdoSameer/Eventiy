@@ -1,6 +1,6 @@
-﻿using Domain.Abstractions.Persistence;
-using Domain.Aggregates.EventAggregate;
+﻿using Domain.Aggregates.EventAggregate;
 using Domain.Aggregates.EventAggregate.ValueObject;
+using Domain.Persistence.Repositories;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence.Repositories

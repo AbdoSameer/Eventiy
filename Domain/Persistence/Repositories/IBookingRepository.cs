@@ -3,7 +3,7 @@ using Domain.Aggregates.BookingAggregate.Enums;
 using Domain.Aggregates.BookingAggregate.ValueObject;
 using Domain.Aggregates.EventAggregate.ValueObject;
 
-namespace Domain.Abstractions.Persistence;
+namespace Domain.Persistence.Repositories;
 
 public interface IBookingRepository
 {

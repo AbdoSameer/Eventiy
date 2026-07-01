@@ -3,6 +3,8 @@ using Domain.Aggregates.BookingAggregate.ValueObject;
 using Domain.Aggregates.EventAggregate.Events;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Aggregates.EventAggregate.Events.TicketTypeEvents;
+using Domain.Aggregates.UserAggregate.ValueObject;
+using Domain.Aggregates.UserAggregate.Events;
 
 namespace Domain.Common
 {
@@ -200,6 +202,16 @@ namespace Domain.Common
             EventMetadata metadata)
         {
             return new TicketTypeSeatsReleasedEvent(ticketTypeId, eventId, quantityReleased, totalSold, availableRemaining, occurredOnUtc, metadata);
+        }
+
+        // User aggregate events
+        public static UserRegisteredEvent CreateUserRegistered(
+            UserId userId,
+            Email email,
+            DateTime occurredOnUtc,
+            EventMetadata metadata)
+        {
+            return new UserRegisteredEvent(userId, email, occurredOnUtc, metadata);
         }
     }
 }

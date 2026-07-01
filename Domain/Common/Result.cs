@@ -1,4 +1,6 @@
-﻿namespace Domain.Common;
+﻿using Domain.Aggregates.UserAggregate.ValueObject;
+
+namespace Domain.Common;
 public class Result
 {
     protected Result(bool isSuccess, IReadOnlyList<Error> errors)
@@ -42,4 +44,5 @@ public class Result<TValue> : Result
     public static Result<TValue> Success(TValue value) => new(true, value, [Error.None]);
 
     public new static Result<TValue> Failure(params Error[] errors) => new(false, default, errors);
+
 }

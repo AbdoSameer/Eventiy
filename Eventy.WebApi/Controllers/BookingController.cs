@@ -5,12 +5,14 @@ using Application.Features.Bookings.Query.GetBookingByEvent;
 using Application.Features.Bookings.Query.GetBookingDetails;
 using Eventy.WebApi.Extensions;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Eventy.WebApi.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class BookingController : ControllerBase
     {
         private readonly ISender _sender;

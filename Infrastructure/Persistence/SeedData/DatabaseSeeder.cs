@@ -1,9 +1,9 @@
 ﻿using Domain.Aggregates.BookingAggregate;
 using Domain.Aggregates.BookingAggregate.Enums;
-using Domain.Aggregates.BookingAggregate.ValueObject;
 using Domain.Aggregates.EventAggregate;
 using Domain.Aggregates.EventAggregate.Enums;
 using Domain.Aggregates.EventAggregate.ValueObject;
+using Domain.Aggregates.UserAggregate.ValueObject;
 using Domain.Common;
 using Domain.Primitives;
 using Infrastructure.Persistence;

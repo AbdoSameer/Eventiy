@@ -1,6 +1,6 @@
 ﻿using Domain.Common;
 
-namespace Domain.Aggregates.BookingAggregate.ValueObject
+namespace Domain.Aggregates.UserAggregate.ValueObject
 {
     public class UserId : ValueObjectBase
     {

@@ -17,6 +17,10 @@
             CreatedBy = createdBy;
             Version = version;
         }
+        public static EventMetadata Create(string? correlationId, string? causationId, string? createdBy, int version = 1)
+        {
+            return new EventMetadata(correlationId, causationId, createdBy, version);
+        }
     }
     public abstract class DomainEvent : IDomainEvent
     {

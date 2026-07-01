@@ -1,7 +1,7 @@
 using Domain.Aggregates.EventAggregate;
 using Domain.Aggregates.EventAggregate.ValueObject;
 
-namespace Domain.Abstractions.Persistence;
+namespace Domain.Persistence.Repositories;
 
 public interface IEventRepository
 {

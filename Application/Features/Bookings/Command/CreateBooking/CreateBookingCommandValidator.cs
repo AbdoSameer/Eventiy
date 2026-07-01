@@ -9,8 +9,7 @@ namespace Application.Features.Bookings.Command.CreateBooking
         {
             RuleFor(x => x.EventId)
                 .NotEmpty().WithMessage("Event ID is required.");
-            //RuleFor(x => x.UserId)
-            //    .NotEmpty().WithMessage("User ID is required.");
+
             RuleFor(x => x.TicketTypeId)
                 .NotEmpty().WithMessage("Ticket Type ID is required.");
             RuleFor(x => x.Quantity)

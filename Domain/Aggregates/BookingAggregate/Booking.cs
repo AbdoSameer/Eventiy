@@ -5,6 +5,7 @@ using Domain.Common;
 using Domain.Errors;
 using Domain.Primitives;
 using Domain.Aggregates.BookingAggregate.Enums;
+using Domain.Aggregates.UserAggregate.ValueObject;
 
 namespace Domain.Aggregates.BookingAggregate
 {

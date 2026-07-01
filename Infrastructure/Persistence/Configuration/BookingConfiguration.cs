@@ -1,6 +1,7 @@
 ﻿using Domain.Aggregates.BookingAggregate;
 using Domain.Aggregates.BookingAggregate.ValueObject;
 using Domain.Aggregates.EventAggregate.ValueObject;
+using Domain.Aggregates.UserAggregate.ValueObject;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 

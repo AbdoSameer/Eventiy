@@ -1,11 +1,12 @@
 ﻿using Application.Abstractions.Messaging;
 using Application.Abstractions.Persistence;
-using Domain.Abstractions.Persistence;
+using Application.Abstractions.Security;
 using Domain.Aggregates.BookingAggregate;
 using Domain.Aggregates.BookingAggregate.ValueObject;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Common;
 using Domain.Errors;
+using Domain.Persistence.Repositories;
 
 namespace Application.Features.Bookings.Command.CreateBooking
 {
@@ -15,23 +16,25 @@ namespace Application.Features.Bookings.Command.CreateBooking
         private readonly IUnitOfWork _unitOfWork;
         private readonly IEventRepository _eventRepository;
         private readonly IDateTimeProvider _dateTimeProvider;
+        private readonly ICurrentUserService _currentUserService;
 
         public CreateBookingCommandHandler(IBookingRepository bookingRepository,
                                            IUnitOfWork unitOfWork ,
                                            IEventRepository eventRepository,
-                                           IDateTimeProvider dateTimeProvider)
+                                           IDateTimeProvider dateTimeProvider,
+                                           ICurrentUserService currentUserService)
         {
             _bookingRepository = bookingRepository;
             _unitOfWork = unitOfWork;
             _eventRepository = eventRepository;
             _dateTimeProvider = dateTimeProvider;
+            _currentUserService = currentUserService;
         }
         public async Task<Result<BookingId>> Handle(CreateBookingCommand request, CancellationToken cancellationToken)
         {
-            // ===== 1. Validate and Create Value Objects ===================
-            var UserIdResult = UserId.Create(Guid.NewGuid());
-            if (UserIdResult.IsFailure)
-                return Result<BookingId>.Failure(UserIdResult.Errors.ToArray());
+            var userIdResult = _currentUserService.GetCurrentUserId();
+            if (userIdResult.IsFailure)
+                return Result<BookingId>.Failure(userIdResult.Errors.ToArray());
 
             var ticketTypeIdResult = TicketTypeId.Create(request.TicketTypeId);
             if (ticketTypeIdResult.IsFailure)
@@ -41,18 +44,15 @@ namespace Application.Features.Bookings.Command.CreateBooking
             if (eventIdResult.IsFailure)
                 return Result<BookingId>.Failure(eventIdResult.Errors.ToArray());
 
-            // ===== 2. Get Event from Repository ==========================
             var eventResult = await _eventRepository.GetByIdAsync(eventIdResult.Value, cancellationToken);
             if (eventResult is null)
                 return Result<BookingId>.Failure(EventErrors.EventNotFound(eventIdResult.Value));
 
-            // ===== 3. Get TicketType Validation ========================
             var ticketType = eventResult.TicketTypes.FirstOrDefault(t => t.Id == ticketTypeIdResult.Value);
             if (ticketType is null)
                 return Result<BookingId>.Failure(EventErrors.TicketTypeNotFound(request.TicketTypeId));
 
-            // ===== 4. Execute Capacity Reservation via Aggregate Root =====
-            var metadata = new EventMetadata(Guid.NewGuid().ToString(), null, null);
+            var metadata = EventMetadata.Create(Guid.NewGuid().ToString(), null, null);
             
             var reservationResult = eventResult
                                         .ReserveSeats(ticketTypeIdResult.Value,
@@ -64,9 +64,8 @@ namespace Application.Features.Bookings.Command.CreateBooking
                 return Result<BookingId>.Failure(reservationResult.Errors.ToArray());
             }
 
-            // ===== 5. Create Booking Entity =============================
             var booking = Booking.Create(
-                UserIdResult.Value,
+                userIdResult.Value,
                 eventIdResult.Value,
                 ticketTypeIdResult.Value,
                 eventResult.EventName.Value,
@@ -78,7 +77,6 @@ namespace Application.Features.Bookings.Command.CreateBooking
             if (booking.IsFailure)
                 return Result<BookingId>.Failure(booking.Errors.ToArray());
 
-            // ===== 6. Persist within the same Unit of Work Transaction ====
             await _bookingRepository.AddBookingAsync(booking.Value, cancellationToken);
 
            

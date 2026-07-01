@@ -14,6 +14,8 @@ public static class DependencyInjection
 
         services.AddValidatorsFromAssembly(assembly, includeInternalTypes: true);
 
+        services.AddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingPipelineBehavior<,>));
+
         services.AddMediatR(config =>
         {
             config.RegisterServicesFromAssembly(assembly);
