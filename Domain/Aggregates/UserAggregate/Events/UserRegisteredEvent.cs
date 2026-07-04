@@ -20,7 +20,6 @@ namespace Domain.Aggregates.UserAggregate.Events
             UserId = userId;
             Email = email;
 
-
         }
     }
 }

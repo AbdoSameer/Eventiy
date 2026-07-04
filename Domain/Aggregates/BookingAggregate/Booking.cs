@@ -6,6 +6,7 @@ using Domain.Errors;
 using Domain.Primitives;
 using Domain.Aggregates.BookingAggregate.Enums;
 using Domain.Aggregates.UserAggregate.ValueObject;
+using Domain.Aggregates.UserAggregate;
 
 namespace Domain.Aggregates.BookingAggregate
 {
@@ -106,8 +107,11 @@ namespace Domain.Aggregates.BookingAggregate
             return Result<Booking>.Success(booking);
         }
 
-        public Result Confirm(IDateTimeProvider dateTimeProvider, EventMetadata metadata)
+        public Result Confirm(Role UserRole,IDateTimeProvider dateTimeProvider, EventMetadata metadata)
         {
+            if (UserRole != Role.Admin && UserRole != Role.Organizer)
+                return Result.Failure(BookingErrors.CannotConfirmBooking(Id.Value));
+
             if (Status == BookingStatusEnum.Confirmed)
                 return Result.Failure(BookingErrors.BookingAlreadyConfirmed(Id.Value));
 
@@ -131,9 +135,13 @@ namespace Domain.Aggregates.BookingAggregate
             return Result.Success();
         }
 
-        public Result Cancel(IDateTimeProvider dateTimeProvider, EventMetadata metadata, string? reason = null)
+        public Result Cancel(Role UserRole,IDateTimeProvider dateTimeProvider, EventMetadata metadata, string? reason = null)
         {
             // Validate current state
+
+            if (UserRole != Role.Admin && UserRole != Role.Organizer)
+                return Result.Failure(BookingErrors.CannotCancelBooking(Id.Value, Status));
+
             if (Status == BookingStatusEnum.Cancelled)
                 return Result.Failure(BookingErrors.BookingAlreadyCancelled(Id.Value));
 
@@ -159,7 +167,7 @@ namespace Domain.Aggregates.BookingAggregate
             return Result.Success();
         }
 
-        public Result RequestCancellation(IDateTimeProvider dateTimeProvider, EventMetadata metadata, string? reason = null)
+        public Result RequestCancellation(User UserRequest, IDateTimeProvider dateTimeProvider, EventMetadata metadata, string? reason = null)
         {
             if (Status == BookingStatusEnum.Cancelled)
                 return Result.Failure(BookingErrors.BookingAlreadyCancelled(Id.Value));
@@ -182,7 +190,7 @@ namespace Domain.Aggregates.BookingAggregate
             }
 
             // For pending bookings, cancel directly
-            return Cancel(dateTimeProvider, metadata, reason);
+            return Cancel(UserRequest.Role,dateTimeProvider, metadata, reason);
         }
 
         public Result Refund(IDateTimeProvider dateTimeProvider, EventMetadata metadata)

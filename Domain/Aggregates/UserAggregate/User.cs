@@ -1,5 +1,4 @@
-﻿using Domain.Aggregates.UserAggregate.Events;
-using Domain.Aggregates.UserAggregate.ValueObject;
+﻿using Domain.Aggregates.UserAggregate.ValueObject;
 using Domain.Common;
 
 namespace Domain.Aggregates.UserAggregate

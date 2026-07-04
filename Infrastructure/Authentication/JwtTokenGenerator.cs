@@ -9,24 +9,30 @@ using System.Text;
 
 namespace Infrastructure.Authentication
 {
-    internal sealed class JwtTokenGenerator(
-        IOptions<JwtSettings> jwtOptions,
-        IDateTimeProvider dateTimeProvider) : IJwtTokenGenerator
+    internal sealed class JwtTokenGenerator : IJwtTokenGenerator
     {
-        private readonly JwtSettings _settings = jwtOptions.Value;
+        private readonly JwtSettings _settings;
+        private readonly IDateTimeProvider _dateTimeProvider;
+
+        public JwtTokenGenerator(
+            IOptions<JwtSettings> jwtOptions,
+            IDateTimeProvider dateTimeProvider)
+        {
+            _settings = jwtOptions.Value;
+            _dateTimeProvider = dateTimeProvider;
+        }
 
         public (string Token, DateTime ExpiresAt) GenerateToken(User user)
         {
-            var expiresAt = dateTimeProvider.UtcNow.AddMinutes(_settings.ExpiryMinutes);
+            var expiresAt = _dateTimeProvider.UtcNow.AddMinutes(_settings.ExpiryMinutes);
 
             var claims = new[]
             {
-            // NameIdentifier هو ما يقرأه ICurrentUserService لاحقاً
-            new Claim(ClaimTypes.NameIdentifier, user.Id.Value.ToString()),
-            new Claim(ClaimTypes.Email,          user.Email.Value),
-            new Claim(ClaimTypes.Role,           user.Role.Value),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()) // JWT ID للـ Revocation
-        };
+                new Claim(ClaimTypes.NameIdentifier, user.Id.Value.ToString()),
+                new Claim(ClaimTypes.Email,          user.Email.Value),
+                new Claim(ClaimTypes.Role,           user.Role.Value),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            };
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_settings.Secret));
             var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -41,5 +47,4 @@ namespace Infrastructure.Authentication
             return (new JwtSecurityTokenHandler().WriteToken(token), expiresAt);
         }
     }
-
 }

@@ -1,5 +1,6 @@
 ﻿using Application.Abstractions.Messaging;
 using Application.Abstractions.Persistence;
+using Application.Abstractions.Security;
 using Domain.Aggregates.BookingAggregate.ValueObject;
 using Domain.Common;
 using Domain.Errors;
@@ -12,14 +13,22 @@ namespace Application.Features.Bookings.Command.CancelBooking
         private readonly IBookingRepository _bookingRepository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IDateTimeProvider _dateTimeProvider;
+        private readonly IUserRepository _userRepository;
+        private readonly ICurrentUserService _currentUserService;
+       
 
         public CancelBookingCommandHandler(IBookingRepository bookingRepository,
                                            IUnitOfWork unitOfWork,
-                                           IDateTimeProvider dateTimeProvider)
+                                           IDateTimeProvider dateTimeProvider,
+                                           IUserRepository userRepository,
+                                           ICurrentUserService currentUserService)
         {
             _bookingRepository = bookingRepository;
             _unitOfWork = unitOfWork;
             _dateTimeProvider = dateTimeProvider;
+            _currentUserService = currentUserService;
+            _userRepository = userRepository;
+
         }
 
         public async Task<Result<bool>> Handle(CancelBookingCommand request, CancellationToken cancellationToken)
@@ -38,9 +47,21 @@ namespace Application.Features.Bookings.Command.CancelBooking
 
             }
 
+            var CurrentUserIdResult = _currentUserService.GetCurrentUserId();
+            if (CurrentUserIdResult.IsFailure)
+            {
+                return Result<bool>.Failure(CurrentUserIdResult.Errors.ToArray());
+            }
+
+            var UserResult = await _userRepository.GetByIdAsync(CurrentUserIdResult.Value);
+            if (UserResult is null)
+            {
+                return Result<bool>.Failure(UserErrors.NotFound());
+            }
+
             var metadata = new EventMetadata(Guid.NewGuid().ToString(), null, null);
 
-            var CancelResult = booking.Cancel(_dateTimeProvider, metadata);
+            var CancelResult = booking.Cancel(UserResult.Role,_dateTimeProvider, metadata);
             if (CancelResult.IsFailure)
             {
                 return Result<bool>.Failure(CancelResult.Errors.ToArray());

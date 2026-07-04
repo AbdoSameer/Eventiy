@@ -79,7 +79,11 @@ namespace Application.Features.Bookings.Command.CreateBooking
 
             await _bookingRepository.AddBookingAsync(booking.Value, cancellationToken);
 
-           
+            var RowsAffected = await _unitOfWork.CommitAsync(cancellationToken);
+
+            if (RowsAffected <=0)
+                    return Result<BookingId>.Failure(BookingErrors.BookingCreationFailed());
+
             return Result<BookingId>.Success(booking.Value.Id);
         }
     }

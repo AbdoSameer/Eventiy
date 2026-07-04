@@ -145,5 +145,10 @@ namespace Domain.Errors
             => Error.Conflict(
                 "Booking.CreationFailed",
                 "Failed to create the booking due to a concurrency conflict. Please try again.");
+
+        public static Error CannotConfirmBooking(Guid value)
+            => Error.Conflict(
+                "Booking.CannotConfirmBooking",
+               $"Your acess to confirm booking {value} is not allow");
     }
 }
