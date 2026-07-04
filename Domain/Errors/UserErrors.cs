@@ -35,6 +35,16 @@ namespace Domain.Errors
         public static  Error InvalidCredentials ()
             => Error.Validation("User.InvalidCredentials", "Email or password is incorrect.");
 
+        public static Error PendingApproval()
+            => Error.Unauthorized(
+                "User.PendingApproval",
+                "Organizer registration is pending admin approval.");
+
+        public static Error NotOrganizer()
+            => Error.Validation(
+                "User.NotOrganizer",
+                "Only organizer accounts can be approved.");
+
         public static  Error NotFound ()
             => Error.NotFound("User.NotFound", "User was not found.");
     }

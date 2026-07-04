@@ -2,11 +2,12 @@
 using Domain.Aggregates.BookingAggregate.Enums;
 using Domain.Aggregates.EventAggregate;
 using Domain.Aggregates.EventAggregate.Enums;
-using Domain.Aggregates.EventAggregate.ValueObject;
+using Domain.Aggregates.UserAggregate;
 using Domain.Aggregates.UserAggregate.ValueObject;
 using Domain.Common;
 using Domain.Primitives;
 using Infrastructure.Persistence;
+using Infrastructure.Authentication;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -20,13 +21,15 @@ public static class DatabaseSeeder
     {
         try
         {
+            logger.LogInformation("Starting database seeding...");
+            await SeedAdminUserAsync(context, logger);
+
             if (await context.Events.AnyAsync())
             {
-                logger.LogInformation("Database already contains data. Skipping seed.");
+                logger.LogInformation("Database already contains event data. Skipping event and booking seed.");
                 return;
             }
 
-            logger.LogInformation("Starting database seeding...");
             await SeedEventsAndBookingsAsync(context, logger);
             logger.LogInformation("Database seeded successfully!");
         }
@@ -35,6 +38,48 @@ public static class DatabaseSeeder
             logger.LogError(ex, "Error seeding database: {Message}", ex.Message);
             throw;
         }
+    }
+
+    private static async Task SeedAdminUserAsync(
+        ApplicationDbContext context,
+        ILogger logger)
+    {
+        const string adminEmail = "abdo@eventiy.local";
+        const string adminPassword = "Abdo@12345";
+
+        var existingAdmin = await context.Users
+            .FirstOrDefaultAsync(u => u.Email.Value == adminEmail);
+
+        if (existingAdmin is not null)
+        {
+            logger.LogInformation("Admin user already exists: {Email}", adminEmail);
+            return;
+        }
+
+        var emailResult = Email.Create(adminEmail);
+        if (emailResult.IsFailure)
+            throw new InvalidOperationException(
+                $"Failed to create admin email: {string.Join(", ", emailResult.Errors.Select(e => e.Message))}");
+
+        var passwordHasher = new PasswordHasher();
+        var metadata = new EventMetadata(Guid.NewGuid().ToString(), null, null);
+        var provider = new SystemDateTimeProvider();
+
+        var adminResult = User.Create(
+            emailResult.Value,
+            passwordHasher.Hash(adminPassword),
+            Role.Admin,
+            provider,
+            metadata);
+
+        if (adminResult.IsFailure)
+            throw new InvalidOperationException(
+                $"Failed to create admin user: {string.Join(", ", adminResult.Errors.Select(e => e.Message))}");
+
+        await context.Users.AddAsync(adminResult.Value);
+        await context.SaveChangesAsync();
+
+        logger.LogInformation("Seeded admin user Abdo with email {Email}", adminEmail);
     }
 
     private static async Task SeedEventsAndBookingsAsync(
@@ -337,10 +382,10 @@ public static class DatabaseSeeder
                 var booking = bookingResult.Value;
 
                 if (random.NextDouble() > 0.3)
-                    booking.Confirm(provider, metadata);
+                    booking.Confirm(Role.Admin, provider, metadata);
 
                 if (booking.Status == BookingStatusEnum.Confirmed && random.NextDouble() < 0.1)
-                    booking.Cancel(provider, metadata, "Changed my mind");
+                    booking.Cancel(Role.Admin, provider, metadata, "Changed my mind");
 
                 bookings.Add(booking);
             }

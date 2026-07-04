@@ -26,6 +26,8 @@ namespace Infrastructure.Persistence.Repositories
 
         public async Task AddAsync(User user, CancellationToken ct = default) =>
             await _context.Users.AddAsync(user, ct);
+
+        public void Update(User user) => _context.Users.Update(user);
     }
 
 }

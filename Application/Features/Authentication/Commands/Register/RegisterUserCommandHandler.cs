@@ -36,10 +36,15 @@ namespace Application.Features.Authentication.Commands.Register
             var passwordHash = passwordHasher.Hash(command.Password);
 
             var metadata = EventMetadata.Create(Guid.NewGuid().ToString(), null, null);
+            var requiresApproval = roleResult.Value == Role.Organizer;
         
             var userResult = User.Create(
-                emailResult.Value, passwordHash, roleResult.Value,
-                dateTimeProvider, metadata);
+                emailResult.Value,
+                passwordHash,
+                roleResult.Value,
+                dateTimeProvider,
+                metadata,
+                isApproved: !requiresApproval);
 
             if (userResult.IsFailure)
                 return Result<AuthResponse>.Failure(userResult.Errors.ToArray());
@@ -53,14 +58,23 @@ namespace Application.Features.Authentication.Commands.Register
                 return Result<AuthResponse>.Failure(
                     Error.Failure("User.RegistrationFailed", "Failed to persist user."));
 
-            var (token, expiresAt) = jwtGenerator.GenerateToken(user);
+            var token = default(string?);
+            var expiresAt = default(DateTime?);
+
+            if (!requiresApproval)
+            {
+                var generated = jwtGenerator.GenerateToken(user);
+                token = generated.Token;
+                expiresAt = generated.ExpiresAt;
+            }
 
             return Result<AuthResponse>.Success(new AuthResponse(
                 user.Id.Value,
                 user.Email.Value,
                 user.Role.Value,
                 token,
-                expiresAt));
+                expiresAt,
+                requiresApproval));
         }
     }
 

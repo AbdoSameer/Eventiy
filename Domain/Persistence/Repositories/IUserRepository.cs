@@ -13,6 +13,7 @@ namespace Domain.Persistence.Repositories
         Task<User?> GetByEmailAsync(Email email, CancellationToken cancellationToken = default);
         Task<User?> GetByIdAsync(UserId id, CancellationToken cancellationToken = default);
         Task AddAsync(User user, CancellationToken cancellationToken = default);
+        void Update(User user);
     }
 
 }

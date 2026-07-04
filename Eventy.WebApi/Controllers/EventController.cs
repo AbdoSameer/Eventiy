@@ -5,6 +5,7 @@ using Application.Features.Events.Queries.GetEvents;
 using Eventy.WebApi.Extensions; 
 using Eventy.WebApi.RequestsDesign;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Eventy.WebApi.Controllers
@@ -30,6 +31,7 @@ namespace Eventy.WebApi.Controllers
             return result.ToActionResult();
         }
 
+        [Authorize(Roles = "Organizer,Admin")]
         [HttpPost]
         public async Task<IActionResult> CreateEvent(
             [FromBody] CreateEventCommand command, CancellationToken ct)
@@ -41,7 +43,8 @@ namespace Eventy.WebApi.Controllers
                 : result.ToActionResult();
         }
 
-        [HttpPost("{eventId}/ticket-types")]
+        [Authorize(Roles = "Organizer,Admin")]
+        [HttpPut("{eventId}/ticket-types")]
         public async Task<IActionResult> CreateTicketType(
             Guid eventId,
             [FromBody] AddTicketTypeRequest request,

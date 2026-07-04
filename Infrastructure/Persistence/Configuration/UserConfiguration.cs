@@ -35,6 +35,10 @@ namespace Infrastructure.Persistence.Configuration
 
             builder.Property(u => u.PasswordHash).HasMaxLength(500).IsRequired();
 
+            builder.Property(u => u.IsApproved)
+                   .HasDefaultValue(true)
+                   .IsRequired();
+
             builder.Property<byte[]>("RowVersion").IsRowVersion();
         }
     }

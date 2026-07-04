@@ -5,8 +5,9 @@ namespace Application.Features.Authentication.Responses
         Guid UserId,
         string Email,
         string Role,
-        string Token,
-        DateTime ExpiresAt
+        string? Token,
+        DateTime? ExpiresAt,
+        bool RequiresApproval = false
     );
 
 }

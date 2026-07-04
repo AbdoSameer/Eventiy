@@ -1,5 +1,6 @@
 ﻿using Application.Features.Authentication.Commands.Login;
 using Application.Features.Authentication.Commands.Register;
+using Application.Features.Authentication.Commands.ApproveOrganizer;
 using Application.Features.Authentication.Responses;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -33,6 +34,16 @@ namespace Eventy.WebApi.Controllers
             CancellationToken cancellationToken)
         {
             var result = await sender.Send(command, cancellationToken);
+            return result.ToActionResult();
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpPost("organizers/{userId:guid}/approve")]
+        public async Task<IActionResult> ApproveOrganizer(
+            Guid userId,
+            CancellationToken cancellationToken)
+        {
+            var result = await sender.Send(new ApproveOrganizerCommand(userId), cancellationToken);
             return result.ToActionResult();
         }
     }
