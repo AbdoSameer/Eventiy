@@ -1,0 +1,24 @@
+/* Tailwind CSS layer imports */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global base styles using Tailwind utilities via @apply */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply font-sans text-text-primary bg-white antialiased;
+  }
+
+  /* Consistent focus ring for accessibility on interactive elements */
+  a,
+  button,
+  input,
+  select,
+  textarea {
+    @apply outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2;
+  }
+}

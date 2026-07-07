@@ -1,0 +1,259 @@
+@if (loading()) {
+  <app-skeleton-loader type="detail" />
+} @else if (event()) {
+  @let evt = event()!;
+
+  <!-- ============================================================ -->
+  <!-- HERO SECTION                                                  -->
+  <!-- ============================================================ -->
+  <div class="relative h-[300px] md:h-[480px] overflow-hidden bg-gradient-to-br from-rose-400 to-orange-300">
+    @if (heroImageUrl()) {
+      <img
+        [src]="activeHeroUrl()"
+        [alt]="evt.title"
+        class="w-full h-full object-cover"
+        appImgFallback
+      />
+    }
+    <div class="absolute inset-0 bg-gradient-to-b from-black/20 to-black/70"></div>
+    <div class="absolute bottom-0 left-0 right-0 p-6 md:p-10 text-white">
+      <div class="max-w-7xl mx-auto">
+        <h1 class="text-3xl md:text-5xl font-extrabold mb-2">{{ evt.title }}</h1>
+        <div class="flex flex-wrap gap-4 text-sm md:text-base text-white/80">
+          <span class="flex items-center gap-1.5">📅 {{ evt.date | dateFormat }}</span>
+          <span class="flex items-center gap-1.5">📍 {{ evt.location }}</span>
+          <span class="flex items-center gap-1.5">👥 {{ evt.attendeeCount }} / {{ evt.capacity }} attending</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- PHOTO STRIP (below hero, only if multiple photos)             -->
+  <!-- ============================================================ -->
+  @if (evt.photos && evt.photos.length > 1) {
+    <div class="bg-white border-b border-gray-200">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+        <div class="flex gap-2 overflow-x-auto pb-1">
+          @for (photo of evt.photos; track photo.id) {
+            <button
+              (click)="selectHeroPhoto(photo)"
+              class="flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden transition-transform duration-200"
+              [class.ring-2]="activeHeroUrl() === photo.publicUrl"
+              [class.ring-yellow-400]="activeHeroUrl() === photo.publicUrl"
+              [class.scale-110]="activeHeroUrl() === photo.publicUrl"
+            >
+              <img
+                [src]="photo.publicUrl"
+                [alt]="photo.caption ?? 'Photo'"
+                class="w-full h-full object-cover"
+                loading="lazy"
+                appImgFallback
+              />
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- ============================================================ -->
+  <!-- MAIN CONTENT                                                  -->
+  <!-- ============================================================ -->
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-10">
+    <!-- Main column -->
+    <div class="space-y-8">
+
+      <!-- Quick facts -->
+      <div class="flex flex-wrap gap-6 text-text-secondary">
+        <span class="flex items-center gap-2">
+          📅 <time [attr.datetime]="evt.date">{{ evt.date | dateFormat }}</time>
+        </span>
+        <span class="flex items-center gap-2">📍 {{ evt.location }}</span>
+        <span class="flex items-center gap-2">👥 {{ evt.attendeeCount }} / {{ evt.capacity }} attending</span>
+      </div>
+
+      <!-- Capacity bar -->
+      <div>
+        <div class="flex items-center justify-between text-sm mb-1">
+          <span class="font-semibold text-text-primary">Capacity</span>
+          <span class="text-text-secondary">{{ capacityPercent() }}% full</span>
+        </div>
+        <div class="h-2.5 w-full bg-gray-200 rounded-full overflow-hidden">
+          <div class="h-full bg-primary rounded-full transition-all" [style.width.%]="capacityPercent()"></div>
+        </div>
+      </div>
+
+      <!-- Description -->
+      <section>
+        <h2 class="text-2xl font-bold text-text-primary mb-3">About this event</h2>
+        <p class="text-text-secondary leading-relaxed whitespace-pre-line">{{ evt.description }}</p>
+      </section>
+
+      <!-- ============================================================ -->
+      <!-- GALLERY SECTION                                               -->
+      <!-- ============================================================ -->
+      @if (evt.photos && evt.photos.length > 0) {
+        <section>
+          <h2 class="text-2xl font-bold text-text-primary mb-4">Event Photos</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            @for (photo of evt.photos; track photo.id; let i = $index) {
+              <button
+                (click)="openGalleryLightbox(i)"
+                class="group relative rounded-xl overflow-hidden cursor-pointer aspect-square bg-gray-100"
+              >
+                <img
+                  [src]="photo.publicUrl"
+                  [alt]="photo.caption ?? 'Photo'"
+                  class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  loading="lazy"
+                  appImgFallback
+                />
+                @if (photo.isCover) {
+                  <span class="absolute top-2 left-2 bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-0.5 rounded-full">★ Cover</span>
+                }
+                @if (photo.caption) {
+                  <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-3">
+                    <span class="text-white text-sm">{{ photo.caption }}</span>
+                  </div>
+                }
+              </button>
+            }
+          </div>
+        </section>
+      }
+
+      <!-- Manage photos (Organizer/Admin only) -->
+      @if (!canBook() && evt.photos !== undefined) {
+        <section class="bg-white rounded-2xl border border-border p-6">
+          <h2 class="text-xl font-bold text-text-primary mb-3">Manage Photos</h2>
+          <app-photo-uploader
+            [eventId]="evt.id"
+            [photos]="evt.photos"
+            (photosChange)="onPhotosChanged($event)"
+          />
+        </section>
+      }
+
+      <!-- Ticket types -->
+      @if (evt.ticketTypes && evt.ticketTypes.length > 0) {
+        <section>
+          <h2 class="text-2xl font-bold text-text-primary mb-3">Ticket options</h2>
+          <div class="bg-white rounded-2xl border border-border overflow-hidden">
+            <table class="w-full text-left">
+              <thead class="bg-background-alt text-text-secondary text-sm">
+                <tr>
+                  <th class="px-4 py-3 font-semibold">Type</th>
+                  <th class="px-4 py-3 font-semibold">Price</th>
+                  <th class="px-4 py-3 font-semibold">Qty available</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (t of evt.ticketTypes; track t.id) {
+                  <tr class="border-t border-border">
+                    <td class="px-4 py-3 font-medium text-text-primary">{{ t.name }}</td>
+                    <td class="px-4 py-3 text-text-primary">{{ t.price | currency:'USD' }}</td>
+                    <td class="px-4 py-3 text-text-secondary">{{ t.capacity }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </section>
+      }
+    </div>
+
+    <!-- Booking sidebar -->
+    <aside class="lg:sticky lg:top-24 h-fit">
+      @if (canBook()) {
+        <div class="bg-white rounded-2xl shadow-md p-6">
+          <p class="text-3xl font-extrabold text-primary mb-4">{{ evt.price | currency:'USD' }}</p>
+
+          @if (evt.ticketTypes && evt.ticketTypes.length > 0) {
+            <label for="ticketType" class="block text-sm font-semibold text-text-primary mb-1">Ticket type</label>
+            <select
+              id="ticketType"
+              [(ngModel)]="selectedTicketTypeId"
+              class="w-full rounded-lg border border-gray-300 px-3 py-2 mb-4 text-text-primary focus:border-primary focus:ring-primary"
+            >
+              @for (t of evt.ticketTypes; track t.id) {
+                <option [value]="t.id">{{ t.name }} — {{ t.price | currency:'USD' }}</option>
+              }
+            </select>
+          }
+
+          <label for="qty" class="block text-sm font-semibold text-text-primary mb-1">Quantity</label>
+          <div class="flex items-center gap-3 mb-4">
+            <button
+              type="button"
+              (click)="decreaseQty()"
+              class="w-9 h-9 rounded-full border border-gray-300 text-text-primary hover:bg-background-alt"
+              aria-label="Decrease quantity"
+            >−</button>
+            <span class="w-8 text-center font-semibold">{{ quantity() }}</span>
+            <button
+              type="button"
+              (click)="increaseQty()"
+              class="w-9 h-9 rounded-full border border-gray-300 text-text-primary hover:bg-background-alt"
+              aria-label="Increase quantity"
+            >+</button>
+          </div>
+
+          <div class="flex items-center justify-between border-t border-border pt-4 mb-4">
+            <span class="text-text-secondary">Total</span>
+            <span class="text-2xl font-bold text-text-primary">{{ total() | currency:'USD' }}</span>
+          </div>
+
+          <button
+            type="button"
+            (click)="book()"
+            [disabled]="booking()"
+            class="w-full rounded-full bg-primary text-white px-6 py-3 font-semibold hover:bg-primary-dark transition-colors disabled:opacity-60"
+          >
+            {{ booking() ? 'Booking...' : 'Complete Booking' }}
+          </button>
+        </div>
+      } @else {
+        <div class="bg-white rounded-2xl shadow-md p-6 text-center">
+          <p class="text-text-secondary mb-4">Organizers can view this event in the dashboard.</p>
+          <a
+            routerLink="/dashboard/organizer"
+            class="inline-block rounded-full bg-primary text-white px-6 py-3 font-semibold hover:bg-primary-dark transition-colors"
+          >
+            Go to dashboard
+          </a>
+        </div>
+      }
+    </aside>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- LIGHTBOX                                                      -->
+  <!-- ============================================================ -->
+  @if (lightboxOpen()) {
+    <app-lightbox [photos]="evt.photos ?? []" (close)="closeLightbox()" />
+  }
+
+  <!-- ============================================================ -->
+  <!-- RELATED EVENTS                                                -->
+  <!-- ============================================================ -->
+  @if (relatedEvents().length > 0) {
+    <section class="bg-background-alt py-16">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h2 class="text-2xl font-bold text-text-primary mb-6">Related events</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          @for (related of relatedEvents(); track related.id) {
+            <app-event-card [event]="related" />
+          }
+        </div>
+      </div>
+    </section>
+  }
+
+} @else if (!loading()) {
+  <div class="min-h-[60vh] flex flex-col items-center justify-center text-center">
+    <p class="text-6xl mb-4">🎫</p>
+    <h1 class="text-2xl font-bold text-text-primary">Event not found</h1>
+    <a routerLink="/events" class="mt-4 rounded-full bg-primary text-white px-6 py-3 font-semibold hover:bg-primary-dark">Browse events</a>
+  </div>
+}

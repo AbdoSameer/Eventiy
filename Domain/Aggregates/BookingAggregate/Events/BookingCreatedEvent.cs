@@ -9,9 +9,11 @@ namespace Domain.Aggregates.BookingAggregate.Events
     {
         public override string Name => nameof(BookingCreatedEvent);
         public override string Domain => "Booking";
+
         public BookingId BookingId { get; }
         public UserId UserId { get; }
         public EventId EventId { get; }
+        public TicketTypeId TicketTypeId { get; }  
         public int Quantity { get; }
         public decimal TotalAmount { get; }
 
@@ -19,6 +21,7 @@ namespace Domain.Aggregates.BookingAggregate.Events
             BookingId bookingId,
             UserId userId,
             EventId eventId,
+            TicketTypeId ticketTypeId, 
             int quantity,
             decimal totalAmount,
             DateTime occurredOnUtc,
@@ -27,6 +30,7 @@ namespace Domain.Aggregates.BookingAggregate.Events
             BookingId = bookingId;
             UserId = userId;
             EventId = eventId;
+            TicketTypeId = ticketTypeId; 
             Quantity = quantity;
             TotalAmount = totalAmount;
         }

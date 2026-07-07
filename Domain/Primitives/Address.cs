@@ -16,14 +16,24 @@ namespace Domain.Primitives
         public string City { get; }
         public string Street { get; }
         public string? PostalCode { get; }
+        public double? Latitude { get; }
+        public double? Longitude { get; }
 
 
-        private Address(string country, string city, string street, string? postalCode = null)
+        private Address(
+            string country,
+            string city,
+            string street,
+            string? postalCode = null,
+            double? latitude = null,
+            double? longitude = null)
         {
             Country = country;
             City = city;
             Street = street;
             PostalCode = postalCode;
+            Latitude = latitude;
+            Longitude = longitude;
         }
 
 
@@ -31,7 +41,9 @@ namespace Domain.Primitives
             string country,
             string city,
             string street,
-            string? postalCode = null)
+            string? postalCode = null,
+            double? latitude = null,
+            double? longitude = null)
         {
             // Validate Country
             if (string.IsNullOrWhiteSpace(country))
@@ -58,11 +70,19 @@ namespace Domain.Primitives
             if (!string.IsNullOrWhiteSpace(postalCode) && postalCode.Length > MAX_POSTAL_CODE_LENGTH)
                 return Result<Address>.Failure(AddressErrors.PostalCodeInvalid(postalCode));
 
+            if (latitude.HasValue && (latitude < -90 || latitude > 90))
+                return Result<Address>.Failure(AddressErrors.InvalidLatitude(latitude.Value));
+
+            if (longitude.HasValue && (longitude < -180 || longitude > 180))
+                return Result<Address>.Failure(AddressErrors.InvalidLongitude(longitude.Value));
+
             return Result<Address>.Success(new Address(
                 country.Trim(),
                 city.Trim(),
                 street.Trim(),
-                postalCode?.Trim()));
+                postalCode?.Trim(),
+                latitude,
+                longitude));
         }
 
 
@@ -94,6 +114,8 @@ namespace Domain.Primitives
             yield return City;
             yield return Street;
             yield return PostalCode ?? string.Empty;
+            yield return Latitude ?? 0;
+            yield return Longitude ?? 0;
         }
 
         public override string ToString()

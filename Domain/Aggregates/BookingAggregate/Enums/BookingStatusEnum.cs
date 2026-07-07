@@ -1,6 +1,4 @@
-﻿
-
-namespace Domain.Aggregates.BookingAggregate.Enums
+﻿namespace Domain.Aggregates.BookingAggregate.Enums
 {
     public enum BookingStatusEnum
     {
@@ -9,7 +7,7 @@ namespace Domain.Aggregates.BookingAggregate.Enums
         Cancelled = 2,
         Expired = 3,
         Refunded = 4,
-  
     }
-
 }
+
+

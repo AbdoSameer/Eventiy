@@ -1,13 +1,19 @@
-﻿using Application.Abstractions.Outbox;
+using Application.Abstractions.Caching;
+using Application.Abstractions.Messaging;
+using Application.Abstractions.Outbox;
 using Application.Abstractions.Persistence;
 using Application.Abstractions.Security;
+using Domain.Abstractions.Persistence;
+using Domain.Abstractions.Storage;
 using Domain.Common;
 using Domain.Persistence.Repositories;
 using Infrastructure.Authentication;
 using Infrastructure.BackgroundJobs;
+using Infrastructure.Caching;
 using Infrastructure.Persistence;
 using Infrastructure.Persistence.Outbox;
 using Infrastructure.Persistence.Repositories;
+using Infrastructure.Storage;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -33,6 +39,7 @@ public static class DependencyInjection
         {
             options.UseSqlServer(connectionString, sqlOptions =>
             {
+                sqlOptions.CommandTimeout(300);
                 sqlOptions.EnableRetryOnFailure(
                     maxRetryCount: 3,
                     maxRetryDelay: TimeSpan.FromSeconds(30),
@@ -53,16 +60,20 @@ public static class DependencyInjection
         });
 
         services.AddScoped<IOutboxRepository, OutboxRepository>();
+        services.AddScoped<OutboxRepository>();
         services.AddScoped<IEventRepository, EventRepository>();
         services.AddScoped<IBookingRepository, BookingRepository>();
-        services.AddScoped<IUserRepository, UserRepository>();  
+        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IApplicationReadDbContext, ReadDbContextAdapter>();
+        services.AddScoped<IEventPhotoRepository, EventPhotoRepository>();
+        services.AddScoped<IFileStorageService, LocalFileStorageService>();
 
         services.AddScoped<IOutboxMessageService, OutboxMessageService>();
         services.AddScoped<IEventSerializer, EventSerializer>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         services.AddHostedService<OutboxProcessor>();
-        services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
+        services.AddSingleton(TimeProvider.System);
 
 
         services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
@@ -71,9 +82,25 @@ public static class DependencyInjection
         services.AddScoped<ICurrentUserService, CurrentUserService>(); 
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
 
+        services.AddScoped<IEventMetadataFactory, Messaging.EventMetadataFactory>();
+        services.AddScoped<IIdempotencyStore, IdempotencyStore>();
         services.AddHttpContextAccessor();
+
+        var redisConnectionString = configuration.GetConnectionString("Redis")
+            ?? "localhost:6379";
+        services.AddSingleton<ICacheService>(sp =>
+        {
+            var logger = sp.GetRequiredService<ILogger<RedisCacheService>>();
+            return new RedisCacheService(redisConnectionString, logger);
+        });
         
-        var jwtSettings = configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>()!;
+        var jwtSettings = configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>()
+            ?? throw new InvalidOperationException(
+                "JWT settings are not configured. Set Jwt:Secret via User Secrets (dev) or environment variables (prod).");
+
+        if (string.IsNullOrWhiteSpace(jwtSettings.Secret) || jwtSettings.Secret.Length < 32)
+            throw new InvalidOperationException(
+                "Jwt:Secret must be at least 32 characters. Use User Secrets for development.");
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>

@@ -42,5 +42,15 @@ namespace Domain.Errors
             => Error.Validation(
                 "Address.StreetTooLong",
                 $"Street name cannot exceed {maxLength} characters.");
+
+        public static Error InvalidLatitude(double latitude)
+            => Error.Validation(
+                "Address.InvalidLatitude",
+                $"Latitude {latitude} is invalid. Must be between -90 and 90.");
+
+        public static Error InvalidLongitude(double longitude)
+            => Error.Validation(
+                "Address.InvalidLongitude",
+                $"Longitude {longitude} is invalid. Must be between -180 and 180.");
     }
 }

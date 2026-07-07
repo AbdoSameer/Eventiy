@@ -1,4 +1,4 @@
-﻿using Domain.Common;
+using Domain.Common;
 
 namespace Application.Abstractions.Outbox;
 
@@ -9,7 +9,7 @@ public interface IOutboxRepository
 
     Task<IReadOnlyList<OutboxMessageDto>> GetAndLockUnprocessedMessagesAsync(
         Guid lockId,
-        IDateTimeProvider dateTimeProvider,
+        TimeProvider dateTimeProvider,
         int batchSize = 50,
         CancellationToken cancellationToken = default);
 
@@ -30,7 +30,30 @@ public interface IOutboxRepository
         DateTime currentTime,
         CancellationToken cancellationToken = default);
 
+    Task MoveToDeadLetterAsync(
+        Guid messageId,
+        string failedReason,
+        DateTime movedAt,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<DeadLetterDto>> GetDeadLettersAsync(
+        CancellationToken cancellationToken = default);
+
+    Task RequeueDeadLetterAsync(
+        Guid id,
+        CancellationToken cancellationToken = default);
 }
+
+public sealed record DeadLetterDto(
+    Guid Id,
+    string EventName,
+    string Domain,
+    string Payload,
+    DateTime OccurredOnUtc,
+    string IdempotencyKey,
+    int RetryCount,
+    string FailedReason,
+    DateTime MovedToDeadLetterAt);
 
 public sealed record OutboxMessageDto(
     Guid Id,

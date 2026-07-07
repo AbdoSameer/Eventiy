@@ -1,6 +1,7 @@
 ﻿using Application.Features.Bookings.Command.CancelBooking;
 using Application.Features.Bookings.Command.ConfirmBooking;
 using Application.Features.Bookings.Command.CreateBooking;
+using Application.Features.Bookings.Query.GetBookingsByUser;
 using Application.Features.Bookings.Query.GetBookingByEvent;
 using Application.Features.Bookings.Query.GetBookingDetails;
 using Eventy.WebApi.Extensions;
@@ -43,17 +44,24 @@ namespace Eventy.WebApi.Controllers
                 : result.ToActionResult();
         }
 
-        [HttpPost("{bookingId}/confirm")]
+        [HttpPost("{bookingId:guid}/confirm")]
         public async Task<IActionResult> ConfirmBooking(Guid bookingId, CancellationToken ct)
         {
             var result = await _sender.Send(new ConfirmBookingCommand(bookingId), ct);
             return result.ToActionResult();
         }
 
-        [HttpPost("{bookingId}/cancel")]
-        public async Task<IActionResult> CancelBooking(Guid bookingId, CancellationToken ct)
+        [HttpPut("{id:guid}/cancel")]
+        public async Task<IActionResult> CancelBooking(Guid id, CancellationToken ct)
         {
-            var result = await _sender.Send(new CancelBookingCommand(bookingId), ct);
+            var result = await _sender.Send(new CancelBookingCommand(id), ct);
+            return result.ToActionResult();
+        }
+
+        [HttpGet("my")]
+        public async Task<IActionResult> GetMyBookings(CancellationToken ct)
+        {
+            var result = await _sender.Send(new GetBookingsByUserQuery(), ct);
             return result.ToActionResult();
         }
     }

@@ -17,4 +17,8 @@ public interface IApplicationReadDbContext
         IQueryable<TEntity> query,
         System.Linq.Expressions.Expression<Func<TEntity, bool>> predicate,
         CancellationToken cancellationToken = default);
+
+    Task<int> CountAsync<TEntity>(
+        IQueryable<TEntity> query,
+        CancellationToken cancellationToken = default);
 }

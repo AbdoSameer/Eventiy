@@ -23,6 +23,7 @@ namespace Infrastructure.Persistence.Repositories
         {
             return await _applicationDbContext.Events
                 .Include(e => e.TicketTypes)
+                .Include(e => e.Photos)
                 .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
         }
 

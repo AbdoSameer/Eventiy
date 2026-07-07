@@ -23,27 +23,28 @@ public sealed class UnitOfWork : IUnitOfWork
         _logger = logger;
     }
 
-    /// <summary>
-    /// ✅ Atomic Commit: Domain Changes + Outbox Messages in ONE Transaction
-    /// ❌ NO MediatR Publishing Here! OutboxProcessor handles that.
-    /// </summary>
     public async Task<int> CommitAsync(CancellationToken cancellationToken = default)
     {
-        // 1️⃣ Extract Domain Events
         var domainEvents = ExtractDomainEvents();
 
-        // 2️⃣ Stage Outbox Messages في Change Tracker (لا I/O هنا)
         if (domainEvents.Count > 0)
-            _outboxService.AddFromDomainEvents(domainEvents);  // ✅ sync، لا await
+            _outboxService.AddFromDomainEvents(domainEvents);
 
-        // 3️⃣ ONE atomic SaveChanges: Domain changes + Outbox messages معاً
-        var result = await _context.SaveChangesAsync(cancellationToken);
+        try
+        {
+            var result = await _context.SaveChangesAsync(cancellationToken);
 
-        _logger?.LogInformation(
-            "✅ Committed {Changes} changes with {Events} outbox events",
-            result, domainEvents.Count);
+            _logger?.LogInformation(
+                "✅ Committed {Changes} changes with {Events} outbox events",
+                result, domainEvents.Count);
 
-        return result;
+            return result;
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            throw new ConcurrencyException(
+                "A concurrency conflict occurred while saving changes. The data was modified by another process.", ex);
+        }
     }
 
     /// <summary>

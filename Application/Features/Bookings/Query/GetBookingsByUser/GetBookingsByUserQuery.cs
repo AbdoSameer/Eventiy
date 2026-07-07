@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Application.Abstractions.Messaging;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -6,7 +7,5 @@ using System.Threading.Tasks;
 
 namespace Application.Features.Bookings.Query.GetBookingsByUser
 {
-    internal class GetBookingsByUserQuery
-    {
-    }
+    public sealed record GetBookingsByUserQuery : IQuery<List<BookingByUserResponse>>;
 }

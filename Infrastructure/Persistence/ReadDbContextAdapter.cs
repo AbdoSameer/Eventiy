@@ -31,4 +31,9 @@ internal sealed class ReadDbContextAdapter : IApplicationReadDbContext
         Expression<Func<TEntity, bool>> predicate,
         CancellationToken cancellationToken = default)
         => query.AnyAsync(predicate, cancellationToken);
+
+    public Task<int> CountAsync<TEntity>(
+        IQueryable<TEntity> query,
+        CancellationToken cancellationToken = default)
+        => query.CountAsync(cancellationToken);
 }

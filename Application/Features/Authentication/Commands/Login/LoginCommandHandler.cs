@@ -26,7 +26,8 @@ namespace Application.Features.Authentication.Commands.Login
                 return Result<AuthResponse>.Failure(UserErrors.InvalidCredentials());
 
             if (user.Role == Role.Organizer && !user.IsApproved)
-                return Result<AuthResponse>.Failure(UserErrors.PendingApproval());
+                return Result<AuthResponse>.Success(new AuthResponse(
+                    user.Id.Value, user.Email.Value, user.Role.Value, null, null, true));
 
             var isPasswordValid = passwordHasher.Verify(command.Password, user.GetPasswordHash());
             if (!isPasswordValid)

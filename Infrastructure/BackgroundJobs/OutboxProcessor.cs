@@ -1,8 +1,7 @@
-﻿using Application.Abstractions.Outbox;
+using Application.Abstractions.Outbox;
 using Application.Abstractions.Persistence;
 using Domain.Common;
 using Infrastructure.Persistence;
-using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -28,6 +27,17 @@ public sealed class OutboxProcessor : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("Outbox Processor started with LockId: {LockId}", _lockId);
+
+        // Give the database seeder time to complete migrations before first run
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(15), stoppingToken);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogInformation("Outbox Processor startup delay cancelled � shutting down");
+            return;
+        }
 
         try
         {
@@ -57,11 +67,10 @@ public sealed class OutboxProcessor : BackgroundService
         using var scope = _serviceProvider.CreateScope();
         var outboxRepository = scope.ServiceProvider.GetRequiredService<IOutboxRepository>();
         var serializer = scope.ServiceProvider.GetRequiredService<IEventSerializer>();
-        var publisher = scope.ServiceProvider.GetRequiredService<IPublisher>();
-        var dateTimeProvider = scope.ServiceProvider.GetRequiredService<IDateTimeProvider>();
+        var dateTimeProvider = scope.ServiceProvider.GetRequiredService<TimeProvider>();
         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-        var now = dateTimeProvider.UtcNow;
+        var now = dateTimeProvider.GetUtcNow().UtcDateTime;
 
         var messages = await outboxRepository.GetAndLockUnprocessedMessagesAsync(
             _lockId, dateTimeProvider, BatchSize, cancellationToken);
@@ -74,7 +83,7 @@ public sealed class OutboxProcessor : BackgroundService
         foreach (var messageDto in messages)
         {
             var processResult = await ProcessSingleMessageAsync(
-                messageDto, serializer, publisher, dateTimeProvider, cancellationToken);
+                messageDto, serializer, scope.ServiceProvider, cancellationToken);
 
             if (processResult.IsSuccess)
             {
@@ -88,18 +97,24 @@ public sealed class OutboxProcessor : BackgroundService
                          not "Serializer.DeserializationReturnedNull");
 
             var newRetryCount = messageDto.RetryCount + 1;
-            var nextRetryOnUtc = isRetryable && newRetryCount < 3
-                ? GetNextRetryOnUtc(newRetryCount, dateTimeProvider)
-                : (DateTime?)null;
+            var error = string.Join(" | ", processResult.Errors.Select(e => $"{e.Code}: {e.Message}"));
 
+            if (!isRetryable || newRetryCount >= 3)
+            {
+                await outboxRepository.MoveToDeadLetterAsync(
+                    messageDto.Id, error, now, cancellationToken);
+                continue;
+            }
+
+            var nextRetryOnUtc = GetNextRetryOnUtc(newRetryCount, dateTimeProvider);
             failedMessages.Add(new OutboxFailedMessageUpdateDto(
                 Id: messageDto.Id,
-                Error: string.Join(" | ", processResult.Errors.Select(e => $"{e.Code}: {e.Message}")),
+                Error: error,
                 NewRetryCount: newRetryCount,
                 NextRetryOnUtc: nextRetryOnUtc));
         }
 
-        // ✅ explicit transaction — الـ status updates atomically
+        // explicit transaction for atomic status updates
         await using var tx = await context.Database.BeginTransactionAsync(cancellationToken);
         try
         {
@@ -113,15 +128,14 @@ public sealed class OutboxProcessor : BackgroundService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to commit outbox status updates — rolling back");
+            _logger.LogError(ex, "Failed to commit outbox status updates - rolling back");
             await tx.RollbackAsync(cancellationToken);
         }
     }
     private async Task<Result> ProcessSingleMessageAsync(
         OutboxMessageDto messageDto,
         IEventSerializer serializer,
-        IPublisher publisher,
-        IDateTimeProvider dateTimeProvider,
+        IServiceProvider serviceProvider,
         CancellationToken cancellationToken)
     {
         var deserializeResult = serializer.Deserialize(messageDto.EventName, messageDto.Payload);
@@ -137,25 +151,36 @@ public sealed class OutboxProcessor : BackgroundService
         }
 
         var domainEvent = deserializeResult.Value;
+        var eventType = domainEvent.GetType();
 
         try
         {
-            await publisher.Publish(domainEvent, cancellationToken);
+            var handlerType = typeof(IDomainEventHandler<>).MakeGenericType(eventType);
+            var handler = serviceProvider.GetService(handlerType);
+
+            if (handler is null)
+            {
+                _logger.LogDebug("No handler registered for {EventType}", messageDto.EventName);
+                return Result.Success();
+            }
+
+            var handleMethod = handlerType.GetMethod("HandleAsync")!;
+            var task = (Task<Result>)handleMethod.Invoke(handler, [domainEvent, cancellationToken])!;
+
+            return await task;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Publisher failed for message {MessageId}", messageDto.Id);
+            _logger.LogError(ex, "Handler failed for message {MessageId}", messageDto.Id);
 
             return Result.Failure(
                 Error.Failure(
-                    "Outbox.PublishFailed",
-                    $"Event publisher failed: {ex.Message}"));
+                    "Outbox.HandlerFailed",
+                    $"Event handler failed: {ex.Message}"));
         }
-
-        return Result.Success();
     }
 
-    private static DateTime? GetNextRetryOnUtc(int retryCount, IDateTimeProvider dateTimeProvider)
+    private static DateTime? GetNextRetryOnUtc(int retryCount, TimeProvider dateTimeProvider)
     {
         if (retryCount >= 3)
             return null;
@@ -167,7 +192,7 @@ public sealed class OutboxProcessor : BackgroundService
             _ => TimeSpan.FromMinutes(5)
         };
 
-        return dateTimeProvider.UtcNow.Add(delay);
+        return dateTimeProvider.GetUtcNow().UtcDateTime.Add(delay);
     }
 
     private async Task ReleaseAllLocksAsync()

@@ -1,5 +1,6 @@
 ﻿using Domain.Aggregates.BookingAggregate;
 using Domain.Aggregates.EventAggregate;
+using Domain.Aggregates.EventAggregate.Entities;
 using Domain.Aggregates.UserAggregate;
 using Infrastructure.Persistence.Outbox;
 using Infrastructure.Seed;
@@ -17,6 +18,9 @@ namespace Infrastructure.Persistence
         public DbSet<TicketType> TicketTypes { get; set; }
         public DbSet<OutboxMessage> OutboxMessages { get; set; }
         public DbSet<User> Users { get; set; }
+        public DbSet<EventPhoto> EventPhotos { get; set; }
+        public DbSet<ProcessedEvent> ProcessedEvents { get; set; }
+        public DbSet<OutboxDeadLetter> OutboxDeadLetters { get; set; }
 
         public ApplicationDbContext(
             DbContextOptions<ApplicationDbContext> options,
@@ -35,29 +39,8 @@ namespace Infrastructure.Persistence
 
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
-            try
-            {
-                var result = await base.SaveChangesAsync(cancellationToken);
-                return result;
-            }
-            catch (DbUpdateException ex)
-            {
-                _logger?.LogError(ex, "Database update error");
-
-                // Log inner exception details
-                if (ex.InnerException != null)
-                {
-                    _logger?.LogError($"Inner exception: {ex.InnerException.Message}");
-                }
-
-                // Log entity entries that caused the error
-                foreach (var entry in ex.Entries)
-                {
-                    _logger?.LogError($"Entity: {entry.Entity.GetType().Name}, State: {entry.State}");
-                }
-
-                throw;
-            }
+            var result = await base.SaveChangesAsync(cancellationToken);
+            return result;
         }
 
         // Method to seed data

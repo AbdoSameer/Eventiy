@@ -1,13 +1,14 @@
-﻿using Domain.Aggregates.BookingAggregate;
+using Domain.Aggregates.BookingAggregate;
 using Domain.Aggregates.BookingAggregate.Enums;
 using Domain.Aggregates.EventAggregate;
 using Domain.Aggregates.EventAggregate.Enums;
+// Import for EventStatus, EventType
 using Domain.Aggregates.UserAggregate;
 using Domain.Aggregates.UserAggregate.ValueObject;
 using Domain.Common;
 using Domain.Primitives;
-using Infrastructure.Persistence;
 using Infrastructure.Authentication;
+using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -22,7 +23,7 @@ public static class DatabaseSeeder
         try
         {
             logger.LogInformation("Starting database seeding...");
-            await SeedAdminUserAsync(context, logger);
+            var userIds = await SeedUsersAsync(context, logger);
 
             if (await context.Events.AnyAsync())
             {
@@ -30,7 +31,7 @@ public static class DatabaseSeeder
                 return;
             }
 
-            await SeedEventsAndBookingsAsync(context, logger);
+            await SeedEventsAndBookingsAsync(context, userIds, logger);
             logger.LogInformation("Database seeded successfully!");
         }
         catch (Exception ex)
@@ -40,50 +41,86 @@ public static class DatabaseSeeder
         }
     }
 
-    private static async Task SeedAdminUserAsync(
+    private static async Task<List<UserId>> SeedUsersAsync(
         ApplicationDbContext context,
         ILogger logger)
     {
-        const string adminEmail = "abdo@eventiy.local";
-        const string adminPassword = "Abdo@12345";
+        var passwordHasher = new PasswordHasher();
+        var utcNow = TimeProvider.System.GetUtcNow().UtcDateTime;
+        var metadata = new EventMetadata(Guid.NewGuid().ToString(), null, null);
+        var userIds = new List<UserId>();
 
-        var existingAdmin = await context.Users
-            .FirstOrDefaultAsync(u => u.Email.Value == adminEmail);
-
-        if (existingAdmin is not null)
+        if (await context.Users.AnyAsync())
         {
-            logger.LogInformation("Admin user already exists: {Email}", adminEmail);
-            return;
+            logger.LogInformation("Users already exist. Skipping user seed.");
+            return await context.Users.Select(u => u.Id).ToListAsync();
         }
 
-        var emailResult = Email.Create(adminEmail);
-        if (emailResult.IsFailure)
-            throw new InvalidOperationException(
-                $"Failed to create admin email: {string.Join(", ", emailResult.Errors.Select(e => e.Message))}");
+        static User CreateUser(string email, string password, Role role, bool isApproved,
+            string firstName, string lastName, PasswordHasher hasher,
+            DateTime utcNow, EventMetadata em)
+        {
+            var emailResult = Email.Create(email);
+            if (emailResult.IsFailure)
+                throw new InvalidOperationException(
+                    $"Failed to create email {email}: {string.Join(", ", emailResult.Errors.Select(e => e.Message))}");
 
-        var passwordHasher = new PasswordHasher();
-        var metadata = new EventMetadata(Guid.NewGuid().ToString(), null, null);
-        var provider = new SystemDateTimeProvider();
+            var userResult = User.Create(
+                firstName,
+                lastName,
+                emailResult.Value,
+                hasher.Hash(password),
+                role,
+                utcNow,
+                em,
+                isApproved);
 
-        var adminResult = User.Create(
-            emailResult.Value,
-            passwordHasher.Hash(adminPassword),
-            Role.Admin,
-            provider,
-            metadata);
+            if (userResult.IsFailure)
+                throw new InvalidOperationException(
+                    $"Failed to create user {email}: {string.Join(", ", userResult.Errors.Select(e => e.Message))}");
 
-        if (adminResult.IsFailure)
-            throw new InvalidOperationException(
-                $"Failed to create admin user: {string.Join(", ", adminResult.Errors.Select(e => e.Message))}");
+            return userResult.Value;
+        }
 
-        await context.Users.AddAsync(adminResult.Value);
+        // Admin
+        var admin = CreateUser("abdo@eventiy.local", "Abdo@12345", Role.Admin, true, "Abdo", "Admin", passwordHasher, utcNow, metadata);
+        context.Users.Add(admin);
+        userIds.Add(admin.Id);
+        logger.LogInformation("Seeded admin user: abdo@eventiy.local");
+
+        // Organizer (approved)
+        var organizer = CreateUser("organizer@eventiy.local", "Org@12345", Role.Organizer, true,
+            "Ahmed", "Organizer", passwordHasher, utcNow, metadata);
+        context.Users.Add(organizer);
+        userIds.Add(organizer.Id);
+        logger.LogInformation("Seeded organizer: organizer@eventiy.local");
+
+        // Organizer (pending � not yet approved)
+        var pendingOrg = CreateUser("pending@eventiy.local", "Pending@12345", Role.Organizer, false,
+            "Tariq", "Pending", passwordHasher, utcNow, metadata);
+        context.Users.Add(pendingOrg);
+        userIds.Add(pendingOrg.Id);
+        logger.LogInformation("Seeded pending organizer: pending@eventiy.local");
+
+        // 10 Attendees
+        for (int i = 1; i <= 10; i++)
+        {
+            var attendee = CreateUser($"attendee{i}@eventiy.local", "Attendee@12345",
+                Role.Attendee, true, $"Attendee{i}", $"User{i}",
+                passwordHasher, utcNow, metadata);
+            context.Users.Add(attendee);
+            userIds.Add(attendee.Id);
+        }
+
         await context.SaveChangesAsync();
+        logger.LogInformation("Seeded {Count} users total", userIds.Count);
 
-        logger.LogInformation("Seeded admin user Abdo with email {Email}", adminEmail);
+        return userIds;
     }
 
     private static async Task SeedEventsAndBookingsAsync(
         ApplicationDbContext context,
+        List<UserId> userIds,
         ILogger logger)
     {
         var events = CreateFifaEvents(logger);
@@ -104,7 +141,8 @@ public static class DatabaseSeeder
             }
         }
 
-        var bookings = CreateFifaBookings(events, logger);
+        var attendeeIds = userIds.Skip(3).ToList();
+        var bookings = CreateFifaBookings(events, attendeeIds, logger);
 
         if (bookings.Any())
         {
@@ -130,7 +168,7 @@ public static class DatabaseSeeder
     private static List<Event> CreateFifaEvents(ILogger logger)
     {
         var events = new List<Event>();
-        var provider = new SystemDateTimeProvider();
+        var utcNow = TimeProvider.System.GetUtcNow().UtcDateTime;
         var metadata = new EventMetadata(Guid.NewGuid().ToString(), null, null);
 
         static T GetValue<T>(Result<T> result, string ctx)
@@ -152,18 +190,18 @@ public static class DatabaseSeeder
                 Event.Create("FIFA World Cup Final 2027", 75000,
                     new DateTime(2027, 7, 19, 18, 0, 0),
                     address1, "The grand finale of the FIFA World Cup 2027.",
-                    provider, metadata),
+                    EventType.Sports, utcNow, metadata),
                 "FIFA World Cup Final 2027");
 
             event1.AddTicketType("VIP Hospitality",
-                GetValue(Money.Create(1500, "USD"), "VIP ticket price"), 500, provider, metadata);
+                GetValue(Money.Create(1500, "USD"), "VIP ticket price"), 500, utcNow, metadata);
             event1.AddTicketType("Premium Category 1",
-                GetValue(Money.Create(800, "USD"), "Premium ticket price"), 2000, provider, metadata);
+                GetValue(Money.Create(800, "USD"), "Premium ticket price"), 2000, utcNow, metadata);
             event1.AddTicketType("Standard Category 2",
-                GetValue(Money.Create(450, "USD"), "Standard ticket price"), 5000, provider, metadata);
+                GetValue(Money.Create(450, "USD"), "Standard ticket price"), 5000, utcNow, metadata);
             event1.AddTicketType("General Admission",
-                GetValue(Money.Create(250, "USD"), "General Admission ticket price"), 25000, provider, metadata);
-            event1.Publish(provider, metadata);
+                GetValue(Money.Create(250, "USD"), "General Admission ticket price"), 25000, utcNow, metadata);
+            event1.Publish(utcNow, metadata);
             events.Add(event1);
 
             // 2. Semi-Final 1
@@ -175,16 +213,16 @@ public static class DatabaseSeeder
                 Event.Create("FIFA World Cup Semi-Final 2027 - Match 1", 68000,
                     new DateTime(2027, 7, 14, 17, 0, 0),
                     address2, "First semi-final of the FIFA World Cup 2027.",
-                    provider, metadata),
+                    EventType.Sports, utcNow, metadata),
                 "Semi-Final 1");
 
             event2.AddTicketType("VIP",
-                GetValue(Money.Create(1200, "USD"), "VIP ticket price"), 400, provider, metadata);
+                GetValue(Money.Create(1200, "USD"), "VIP ticket price"), 400, utcNow, metadata);
             event2.AddTicketType("Premium",
-                GetValue(Money.Create(600, "USD"), "Premium ticket price"), 3000, provider, metadata);
+                GetValue(Money.Create(600, "USD"), "Premium ticket price"), 3000, utcNow, metadata);
             event2.AddTicketType("Standard",
-                GetValue(Money.Create(300, "USD"), "Standard ticket price"), 15000, provider, metadata);
-            event2.Publish(provider, metadata);
+                GetValue(Money.Create(300, "USD"), "Standard ticket price"), 15000, utcNow, metadata);
+            event2.Publish(utcNow, metadata);
             events.Add(event2);
 
             // 3. Semi-Final 2
@@ -196,16 +234,16 @@ public static class DatabaseSeeder
                 Event.Create("FIFA World Cup Semi-Final 2027 - Match 2", 68000,
                     new DateTime(2027, 7, 15, 17, 0, 0),
                     address3, "Second semi-final of the FIFA World Cup 2027.",
-                    provider, metadata),
+                    EventType.Sports, utcNow, metadata),
                 "Semi-Final 2");
 
             event3.AddTicketType("VIP",
-                GetValue(Money.Create(1200, "USD"), "VIP ticket price"), 400, provider, metadata);
+                GetValue(Money.Create(1200, "USD"), "VIP ticket price"), 400, utcNow, metadata);
             event3.AddTicketType("Premium",
-                GetValue(Money.Create(600, "USD"), "Premium ticket price"), 3000, provider, metadata);
+                GetValue(Money.Create(600, "USD"), "Premium ticket price"), 3000, utcNow, metadata);
             event3.AddTicketType("Standard",
-                GetValue(Money.Create(300, "USD"), "Standard ticket price"), 15000, provider, metadata);
-            event3.Publish(provider, metadata);
+                GetValue(Money.Create(300, "USD"), "Standard ticket price"), 15000, utcNow, metadata);
+            event3.Publish(utcNow, metadata);
             events.Add(event3);
 
             // 4. Quarter-Final
@@ -217,16 +255,16 @@ public static class DatabaseSeeder
                 Event.Create("FIFA World Cup Quarter-Final 2027 - Match 1", 55000,
                     new DateTime(2027, 7, 9, 16, 0, 0),
                     address4, "First quarter-final match of the FIFA World Cup 2027.",
-                    provider, metadata),
+                    EventType.Sports, utcNow, metadata),
                 "Quarter-Final");
 
             event4.AddTicketType("VIP",
-                GetValue(Money.Create(900, "USD"), "VIP ticket price"), 300, provider, metadata);
+                GetValue(Money.Create(900, "USD"), "VIP ticket price"), 300, utcNow, metadata);
             event4.AddTicketType("Premium",
-                GetValue(Money.Create(400, "USD"), "Premium ticket price"), 2000, provider, metadata);
+                GetValue(Money.Create(400, "USD"), "Premium ticket price"), 2000, utcNow, metadata);
             event4.AddTicketType("Standard",
-                GetValue(Money.Create(200, "USD"), "Standard ticket price"), 10000, provider, metadata);
-            event4.Publish(provider, metadata);
+                GetValue(Money.Create(200, "USD"), "Standard ticket price"), 10000, utcNow, metadata);
+            event4.Publish(utcNow, metadata);
             events.Add(event4);
 
             // 5. Brazil vs Argentina
@@ -238,18 +276,18 @@ public static class DatabaseSeeder
                 Event.Create("Brazil vs Argentina - Group Stage", 70000,
                     new DateTime(2027, 6, 20, 21, 0, 0),
                     address5, "An epic South American derby in the group stage.",
-                    provider, metadata),
+                    EventType.Sports, utcNow, metadata),
                 "Brazil vs Argentina");
 
             event5.AddTicketType("VIP",
-                GetValue(Money.Create(1000, "USD"), "VIP ticket price"), 350, provider, metadata);
+                GetValue(Money.Create(1000, "USD"), "VIP ticket price"), 350, utcNow, metadata);
             event5.AddTicketType("Premium",
-                GetValue(Money.Create(500, "USD"), "Premium ticket price"), 2500, provider, metadata);
+                GetValue(Money.Create(500, "USD"), "Premium ticket price"), 2500, utcNow, metadata);
             event5.AddTicketType("Standard",
-                GetValue(Money.Create(250, "USD"), "Standard ticket price"), 20000, provider, metadata);
+                GetValue(Money.Create(250, "USD"), "Standard ticket price"), 20000, utcNow, metadata);
             event5.AddTicketType("General Admission",
-                GetValue(Money.Create(150, "USD"), "General Admission ticket price"), 30000, provider, metadata);
-            event5.Publish(provider, metadata);
+                GetValue(Money.Create(150, "USD"), "General Admission ticket price"), 30000, utcNow, metadata);
+            event5.Publish(utcNow, metadata);
             events.Add(event5);
 
             // 6. Spain vs Germany
@@ -261,16 +299,16 @@ public static class DatabaseSeeder
                 Event.Create("Spain vs Germany - Group Stage", 65000,
                     new DateTime(2027, 6, 22, 18, 0, 0),
                     address6, "European powerhouses Spain and Germany face off.",
-                    provider, metadata),
+                    EventType.Sports, utcNow, metadata),
                 "Spain vs Germany");
 
             event6.AddTicketType("VIP",
-                GetValue(Money.Create(900, "USD"), "VIP ticket price"), 300, provider, metadata);
+                GetValue(Money.Create(900, "USD"), "VIP ticket price"), 300, utcNow, metadata);
             event6.AddTicketType("Premium",
-                GetValue(Money.Create(450, "USD"), "Premium ticket price"), 2000, provider, metadata);
+                GetValue(Money.Create(450, "USD"), "Premium ticket price"), 2000, utcNow, metadata);
             event6.AddTicketType("Standard",
-                GetValue(Money.Create(220, "USD"), "Standard ticket price"), 15000, provider, metadata);
-            event6.Publish(provider, metadata);
+                GetValue(Money.Create(220, "USD"), "Standard ticket price"), 15000, utcNow, metadata);
+            event6.Publish(utcNow, metadata);
             events.Add(event6);
 
             // 7. Opening Match
@@ -282,18 +320,18 @@ public static class DatabaseSeeder
                 Event.Create("FIFA World Cup Opening Match 2027", 72000,
                     new DateTime(2027, 6, 14, 20, 0, 0),
                     address7, "The grand opening match of the FIFA World Cup 2027.",
-                    provider, metadata),
+                    EventType.Sports, utcNow, metadata),
                 "Opening Match");
 
             event7.AddTicketType("VIP Opening Ceremony",
-                GetValue(Money.Create(2000, "USD"), "VIP ticket price"), 500, provider, metadata);
+                GetValue(Money.Create(2000, "USD"), "VIP ticket price"), 500, utcNow, metadata);
             event7.AddTicketType("Premium",
-                GetValue(Money.Create(700, "USD"), "Premium ticket price"), 3000, provider, metadata);
+                GetValue(Money.Create(700, "USD"), "Premium ticket price"), 3000, utcNow, metadata);
             event7.AddTicketType("Standard",
-                GetValue(Money.Create(350, "USD"), "Standard ticket price"), 20000, provider, metadata);
+                GetValue(Money.Create(350, "USD"), "Standard ticket price"), 20000, utcNow, metadata);
             event7.AddTicketType("General Admission",
-                GetValue(Money.Create(200, "USD"), "General Admission ticket price"), 35000, provider, metadata);
-            event7.Publish(provider, metadata);
+                GetValue(Money.Create(200, "USD"), "General Admission ticket price"), 35000, utcNow, metadata);
+            event7.Publish(utcNow, metadata);
             events.Add(event7);
 
             // 8. Club World Cup (Draft)
@@ -305,16 +343,16 @@ public static class DatabaseSeeder
                 Event.Create("FIFA Club World Cup Final 2027", 60000,
                     new DateTime(2027, 12, 20, 19, 0, 0),
                     address8, "The FIFA Club World Cup Final.",
-                    provider, metadata),
+                    EventType.Sports, utcNow, metadata),
                 "Club World Cup");
 
             event8.AddTicketType("VIP",
-                GetValue(Money.Create(800, "USD"), "VIP ticket price"), 250, provider, metadata);
+                GetValue(Money.Create(800, "USD"), "VIP ticket price"), 250, utcNow, metadata);
             event8.AddTicketType("Premium",
-                GetValue(Money.Create(400, "USD"), "Premium ticket price"), 2000, provider, metadata);
+                GetValue(Money.Create(400, "USD"), "Premium ticket price"), 2000, utcNow, metadata);
             event8.AddTicketType("Standard",
-                GetValue(Money.Create(200, "USD"), "Standard ticket price"), 15000, provider, metadata);
-            // Draft — not published
+                GetValue(Money.Create(200, "USD"), "Standard ticket price"), 15000, utcNow, metadata);
+            // Draft � not published
             events.Add(event8);
 
             return events;
@@ -326,26 +364,15 @@ public static class DatabaseSeeder
         }
     }
 
-    private static List<Booking> CreateFifaBookings(List<Event> events, ILogger logger)
+    private static List<Booking> CreateFifaBookings(
+        List<Event> events,
+        List<UserId> attendeeIds,
+        ILogger logger)
     {
         var bookings = new List<Booking>();
         var random = new Random();
-        var provider = new SystemDateTimeProvider();
+        var utcNow = TimeProvider.System.GetUtcNow().UtcDateTime;
         var metadata = new EventMetadata(Guid.NewGuid().ToString(), null, null);
-
-        var userIds = new List<UserId>
-        {
-            UserId.FromDatabase(Guid.Parse("11111111-1111-1111-1111-111111111111")),
-            UserId.FromDatabase(Guid.Parse("22222222-2222-2222-2222-222222222222")),
-            UserId.FromDatabase(Guid.Parse("33333333-3333-3333-3333-333333333333")),
-            UserId.FromDatabase(Guid.Parse("44444444-4444-4444-4444-444444444444")),
-            UserId.FromDatabase(Guid.Parse("55555555-5555-5555-5555-555555555555")),
-            UserId.FromDatabase(Guid.Parse("66666666-6666-6666-6666-666666666666")),
-            UserId.FromDatabase(Guid.Parse("77777777-7777-7777-7777-777777777777")),
-            UserId.FromDatabase(Guid.Parse("88888888-8888-8888-8888-888888888888")),
-            UserId.FromDatabase(Guid.Parse("99999999-9999-9999-9999-999999999999")),
-            UserId.FromDatabase(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"))
-        };
 
         foreach (var eventItem in events)
         {
@@ -356,21 +383,18 @@ public static class DatabaseSeeder
             if (!ticketTypes.Any())
                 continue;
 
-            int bookingCount = random.Next(5, 15);
-            var selectedUserIds = userIds.OrderBy(_ => random.Next()).Take(bookingCount).ToList();
+            int bookingCount = random.Next(5, attendeeIds.Count + 1);
+            var selectedUserIds = attendeeIds.OrderBy(_ => random.Next()).Take(bookingCount).ToList();
 
-            for (int i = 0; i < bookingCount && i < selectedUserIds.Count; i++)
+            foreach (var userId in selectedUserIds)
             {
                 var ticketType = ticketTypes[random.Next(ticketTypes.Count)];
-                int quantity = random.Next(1, Math.Min(5, ticketType.Capacity - ticketType.SoldCount + 1));
-
-                if (quantity <= 0 || ticketType.SoldCount + quantity > ticketType.Capacity)
-                    continue;
+                int quantity = random.Next(1, 5);
 
                 var bookingResult = Booking.Create(
-                    selectedUserIds[i], eventItem.Id, ticketType.Id,
+                    userId, eventItem.Id, ticketType.Id,
                     eventItem.EventName.Value, quantity, ticketType.Price,
-                    provider, metadata);
+                    PaymentMethod.Instant, utcNow, metadata);
 
                 if (bookingResult.IsFailure)
                 {
@@ -382,10 +406,10 @@ public static class DatabaseSeeder
                 var booking = bookingResult.Value;
 
                 if (random.NextDouble() > 0.3)
-                    booking.Confirm(Role.Admin, provider, metadata);
+                    booking.Confirm(utcNow, metadata);
 
                 if (booking.Status == BookingStatusEnum.Confirmed && random.NextDouble() < 0.1)
-                    booking.Cancel(Role.Admin, provider, metadata, "Changed my mind");
+                    booking.Cancel(utcNow, metadata, "Changed my mind");
 
                 bookings.Add(booking);
             }

@@ -1,4 +1,4 @@
-﻿using Domain.Aggregates.EventAggregate.ValueObject;
+using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Common;
 using Domain.Primitives;
 using Domain.Errors;
@@ -65,7 +65,7 @@ namespace Domain.Aggregates.EventAggregate
             string name,
             Money price,
             int capacity,
-            IDateTimeProvider dateTimeProvider,
+            DateTime utcNow,
             int? remainingEventCapacity = null)
         {
             // Validate EventId
@@ -113,14 +113,14 @@ namespace Domain.Aggregates.EventAggregate
                 name.Trim(),
                 priceResult.Value!,
                 capacity,
-                dateTimeProvider.UtcNow); 
+                utcNow); 
 
             return Result<TicketType>.Success(ticketType);
         }
 
         // Update Methods
 
-        public Result UpdatePrice(Money newPrice, IDateTimeProvider dateTimeProvider)
+        internal Result UpdatePrice(Money newPrice, DateTime utcNow)
         {
             // Validate
             if (newPrice is null)
@@ -138,12 +138,12 @@ namespace Domain.Aggregates.EventAggregate
 
             // Update
             Price = newPrice;
-            LastModifiedAt = dateTimeProvider.UtcNow; 
+            LastModifiedAt = utcNow; 
 
             return Result.Success();
         }
 
-        public Result UpdateCapacity(int newCapacity, IDateTimeProvider dateTimeProvider, int? remainingEventCapacity = null)
+        internal Result UpdateCapacity(int newCapacity, DateTime utcNow, int? remainingEventCapacity = null)
         {
             // Validate
             if (newCapacity < MIN_CAPACITY)
@@ -164,12 +164,12 @@ namespace Domain.Aggregates.EventAggregate
 
             // Update
             Capacity = newCapacity;
-            LastModifiedAt = dateTimeProvider.UtcNow; 
+            LastModifiedAt = utcNow; 
 
             return Result.Success();
         }
 
-        public Result UpdateName(string newName, IDateTimeProvider dateTimeProvider)
+        internal Result UpdateName(string newName, DateTime utcNow)
         {
             // Validate
             if (string.IsNullOrWhiteSpace(newName))
@@ -184,14 +184,14 @@ namespace Domain.Aggregates.EventAggregate
 
             // Update
             TicketTypeName = newName.Trim();
-            LastModifiedAt = dateTimeProvider.UtcNow; 
+            LastModifiedAt = utcNow; 
 
             return Result.Success();
         }
 
         // Seat Management Methods
 
-        public Result ReserveSeats(int quantity, IDateTimeProvider dateTimeProvider)
+        internal Result ReserveSeats(int quantity, DateTime utcNow)
         {
             if (quantity <= 0)
                 return Result.Failure(TicketTypeErrors.QuantityMustBeGreaterThanZero());
@@ -201,11 +201,11 @@ namespace Domain.Aggregates.EventAggregate
                     quantity, AvailableCount));
 
             ReservedCount += quantity;
-            LastModifiedAt = dateTimeProvider.UtcNow;
+            LastModifiedAt = utcNow;
             return Result.Success();
         }
 
-        public Result ReleaseSeats(int quantity, IDateTimeProvider dateTimeProvider)
+        internal Result ReleaseSeats(int quantity, DateTime utcNow)
         {
             if (quantity <= 0)
                 return Result.Failure(TicketTypeErrors.QuantityMustBeGreaterThanZero());
@@ -215,12 +215,12 @@ namespace Domain.Aggregates.EventAggregate
                     quantity, ReservedCount));
 
             ReservedCount -= quantity;
-            LastModifiedAt = dateTimeProvider.UtcNow; 
+            LastModifiedAt = utcNow; 
 
             return Result.Success();
         }
 
-        public Result ConfirmReservation(int quantity, IDateTimeProvider dateTimeProvider)
+        internal Result ConfirmReservation(int quantity, DateTime utcNow)
         {
             if (quantity <= 0)
                 return Result.Failure(TicketTypeErrors.QuantityMustBeGreaterThanZero());
@@ -235,12 +235,12 @@ namespace Domain.Aggregates.EventAggregate
 
             SoldCount += quantity;
             ReservedCount -= quantity;
-            LastModifiedAt = dateTimeProvider.UtcNow; 
+            LastModifiedAt = utcNow; 
 
             return Result.Success();
         }
 
-        public Result SellDirect(int quantity, IDateTimeProvider dateTimeProvider)
+        internal Result SellDirect(int quantity, DateTime utcNow)
         {
             if (quantity <= 0)
                 return Result.Failure(TicketTypeErrors.QuantityMustBeGreaterThanZero());
@@ -250,11 +250,11 @@ namespace Domain.Aggregates.EventAggregate
                     quantity, AvailableCount));
 
             SoldCount += quantity;
-            LastModifiedAt = dateTimeProvider.UtcNow;
+            LastModifiedAt = utcNow;
             return Result.Success();
         }
 
-        public Result RefundSeats(int quantity, IDateTimeProvider dateTimeProvider)
+        internal Result RefundSeats(int quantity, DateTime utcNow)
         {
             if (quantity <= 0)
                 return Result.Failure(TicketTypeErrors.QuantityMustBeGreaterThanZero());
@@ -264,14 +264,14 @@ namespace Domain.Aggregates.EventAggregate
                     quantity, SoldCount));
 
             SoldCount -= quantity;
-            LastModifiedAt = dateTimeProvider.UtcNow; 
+            LastModifiedAt = utcNow; 
 
             return Result.Success();
         }
 
         // Remove Method
 
-        public Result Remove()
+        internal Result Remove()
         {
             if (SoldCount > 0)
                 return Result.Failure(TicketTypeErrors.CannotRemoveTicketTypeWithBookings(SoldCount));
@@ -284,51 +284,51 @@ namespace Domain.Aggregates.EventAggregate
 
         // Query Methods
 
-        public bool HasAvailableSeats()
+        internal bool HasAvailableSeats()
         {
             return AvailableCount > 0;
         }
 
-        public bool CanAccommodate(int quantity)
+        internal bool CanAccommodate(int quantity)
         {
             return quantity > 0 && quantity <= AvailableCount;
         }
 
-        public decimal CalculateTotalPrice(int quantity)
+        internal decimal CalculateTotalPrice(int quantity)
         {
             if (quantity <= 0) return 0;
             return Price.Amount * quantity;
         }
 
-        public double GetOccupancyRate()
+        internal double GetOccupancyRate()
         {
             if (Capacity == 0) return 0;
             return (double)SoldCount / Capacity * 100;
         }
 
-        public double GetReservationRate()
+        internal double GetReservationRate()
         {
             if (Capacity == 0) return 0;
             return (double)ReservedCount / Capacity * 100;
         }
 
-        public bool IsEmpty()
+        internal bool IsEmpty()
         {
             return SoldCount == 0;
         }
 
-        public bool HasNoReservations()
+        internal bool HasNoReservations()
         {
             return ReservedCount == 0;
         }
 
-        public bool IsFullyBooked()
+        internal bool IsFullyBooked()
         {
             return AvailableCount <= 0;
 
         }
 
-        public bool IsReallyFullyBooked()
+        internal bool IsReallyFullyBooked()
         {
             return SoldCount + ReservedCount >= Capacity;
         }

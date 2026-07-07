@@ -15,6 +15,14 @@ namespace Infrastructure.Persistence.Configuration
             builder.Property(u => u.Id)
                    .HasConversion(id => id.Value, guid => UserId.Create(guid).Value);
 
+            builder.Property(u => u.FirstName)
+                   .HasMaxLength(100)
+                   .IsRequired();
+
+            builder.Property(u => u.LastName)
+                   .HasMaxLength(100)
+                   .IsRequired();
+
             builder.OwnsOne(u => u.Email, emailBuilder =>
             {
                 emailBuilder.Property(e => e.Value)
@@ -25,15 +33,25 @@ namespace Infrastructure.Persistence.Configuration
                 emailBuilder.HasIndex(e => e.Value).IsUnique();
             });
 
-            builder.OwnsOne(u => u.Role, roleBuilder =>
-            {
-                roleBuilder.Property(r => r.Value)
-                           .HasColumnName("Role")
-                           .HasMaxLength(50)
-                           .IsRequired();
-            });
+            builder.Property(u => u.Role)
+                   .HasColumnName("Role")
+                   .HasConversion(
+                       role => role.Value,
+                       value => Role.FromString(value).Value)
+                   .HasMaxLength(50)
+                   .IsRequired();
 
             builder.Property(u => u.PasswordHash).HasMaxLength(500).IsRequired();
+
+           builder.Property(u => u.FirstName)
+                   .HasColumnName("FirstName")
+                   .HasMaxLength(100)
+                   .IsRequired();
+
+            builder.Property(u => u.LastName)
+                   .HasColumnName("LastName")
+                   .HasMaxLength(100)
+                   .IsRequired();
 
             builder.Property(u => u.IsApproved)
                    .HasDefaultValue(true)

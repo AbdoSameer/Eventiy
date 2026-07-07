@@ -1,4 +1,4 @@
-﻿using Application.Abstractions.Messaging;
+using Application.Abstractions.Messaging;
 using Application.Abstractions.Persistence;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Common;
@@ -13,19 +13,25 @@ namespace Application.Features.Events.Commands.AddTicketType
 
         private readonly IUnitOfWork _unitOfWork;
         private readonly IEventRepository _eventRepository;
-        private readonly IDateTimeProvider _dateTimeProvider;
+        private readonly TimeProvider _dateTimeProvider;
+        private readonly IEventMetadataFactory _metadataFactory;
 
         public AddTicketTypeCommandHandler( IUnitOfWork unitOfWork ,
                                            IEventRepository eventRepository,
-                                           IDateTimeProvider dateTimeProvider)
+                                           TimeProvider dateTimeProvider,
+                                           IEventMetadataFactory metadataFactory)
         {
             _unitOfWork = unitOfWork;
             _eventRepository = eventRepository;
             _dateTimeProvider = dateTimeProvider;
+            _metadataFactory = metadataFactory;
         }
         public async Task<Result> Handle(AddTicketTypeCommand request, CancellationToken cancellationToken)
         {
             var EventIdResult = EventId.Create(request.EventId);
+            if (EventIdResult.IsFailure)
+                return Result.Failure(EventIdResult.Errors.ToArray());
+
             var @event = await _eventRepository.GetByIdAsync(
                                                 EventIdResult.Value,
                                                            cancellationToken);
@@ -37,11 +43,12 @@ namespace Application.Features.Events.Commands.AddTicketType
             if (moneyResult.IsFailure)
                 return Result.Failure(moneyResult.Errors.ToArray());
                 
-            var metadata = new EventMetadata(Guid.NewGuid().ToString(), null, null);
+            var metadata = _metadataFactory.Create();
+            var utcNow = _dateTimeProvider.GetUtcNow().UtcDateTime;
             var AddTicketresult = @event.AddTicketType(request.Name,
                                                   moneyResult.Value,
                                                   request.Capacity,
-                                                  _dateTimeProvider,
+                                                  utcNow,
                                                   metadata);
             if (AddTicketresult.IsFailure)
                 return Result.Failure(AddTicketresult.Errors.ToArray());

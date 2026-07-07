@@ -46,6 +46,26 @@ namespace Domain.Errors
                 "Booking.BookingDateCannotBeInPast",
                 "Booking date cannot be in the past.");
 
+        internal static Error CannotHoldBooking(Guid bookingId, BookingStatusEnum currentStatus)
+            => Error.Validation(
+                    "Booking.CannotHoldBooking",
+                    $"Booking {bookingId} cannot be held from status {currentStatus}.");
+
+        internal static Error HoldExpired(Guid bookingId)
+            => Error.Validation(
+                    "Booking.HoldExpired",
+                   $"Booking {bookingId} hold period has expired.");
+
+        internal static Error CannotExpireBooking(Guid bookingId, BookingStatusEnum currentStatus)
+            => Error.Validation(
+                    "Booking.CannotExpireBooking",
+            $"Booking {bookingId} cannot expire from status {currentStatus}.");
+
+        internal static Error HoldNotYetExpired(Guid bookingId)
+            => Error.Validation(
+                    "Booking.HoldNotYetExpired",
+                   $"Booking {bookingId} hold period has not expired yet.");
+
         // ===== Conflict/State Errors =======
         public static Error BookingAlreadyCancelled(Guid bookingId)
             => Error.Conflict(

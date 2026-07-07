@@ -1,4 +1,4 @@
-﻿using Application.Abstractions.Outbox;
+using Application.Abstractions.Outbox;
 using Domain.Common;
 using Infrastructure.Persistence.Outbox;
 using Microsoft.Data.SqlClient;
@@ -49,11 +49,11 @@ public sealed class OutboxRepository : IOutboxRepository
 
     public async Task<IReadOnlyList<OutboxMessageDto>> GetAndLockUnprocessedMessagesAsync(
         Guid lockId,
-        IDateTimeProvider dateTimeProvider,
+        TimeProvider dateTimeProvider,
         int batchSize = 50,
         CancellationToken cancellationToken = default)
     {
-        var now = dateTimeProvider.UtcNow;
+        var now = dateTimeProvider.GetUtcNow().UtcDateTime;
 
         var sql = @"
             UPDATE TOP (@BatchSize) OutboxMessages WITH (UPDLOCK, READPAST, ROWLOCK)
@@ -151,4 +151,68 @@ public sealed class OutboxRepository : IOutboxRepository
             .CountAsync(cancellationToken);
     }
 
+    public async Task MoveToDeadLetterAsync(
+        Guid messageId,
+        string failedReason,
+        DateTime movedAt,
+        CancellationToken cancellationToken = default)
+    {
+        var message = await _context.OutboxMessages
+            .FirstOrDefaultAsync(m => m.Id == messageId, cancellationToken);
+
+        if (message is null) return;
+
+        var deadLetter = new OutboxDeadLetter
+        {
+            Id = message.Id,
+            EventName = message.EventName,
+            Domain = message.Domain,
+            Payload = message.Payload,
+            OccurredOnUtc = message.OccurredOnUtc,
+            IdempotencyKey = message.IdempotencyKey,
+            RetryCount = message.RetryCount,
+            FailedReason = failedReason,
+            MovedToDeadLetterAt = movedAt,
+        };
+
+        _context.OutboxDeadLetters.Add(deadLetter);
+        _context.OutboxMessages.Remove(message);
+    }
+
+    public async Task<IReadOnlyList<DeadLetterDto>> GetDeadLettersAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.OutboxDeadLetters
+            .OrderByDescending(d => d.MovedToDeadLetterAt)
+            .Select(d => new DeadLetterDto(
+                d.Id, d.EventName, d.Domain, d.Payload,
+                d.OccurredOnUtc, d.IdempotencyKey,
+                d.RetryCount, d.FailedReason, d.MovedToDeadLetterAt))
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task RequeueDeadLetterAsync(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var deadLetter = await _context.OutboxDeadLetters
+            .FirstOrDefaultAsync(d => d.Id == id, cancellationToken);
+
+        if (deadLetter is null) return;
+
+        var message = new OutboxMessage(
+            id: deadLetter.Id,
+            eventName: deadLetter.EventName,
+            domain: deadLetter.Domain,
+            payload: deadLetter.Payload,
+            occurredOnUtc: deadLetter.OccurredOnUtc,
+            idempotencyKey: deadLetter.IdempotencyKey,
+            processedOnUtc: null,
+            nextRetryOnUtc: null,
+            error: null,
+            retryCount: 0);
+
+        _context.OutboxMessages.Add(message);
+        _context.OutboxDeadLetters.Remove(deadLetter);
+    }
 }

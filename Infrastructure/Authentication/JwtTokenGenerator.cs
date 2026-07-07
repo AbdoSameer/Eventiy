@@ -1,4 +1,4 @@
-﻿using Application.Abstractions.Security;
+using Application.Abstractions.Security;
 using Domain.Aggregates.UserAggregate;
 using Domain.Common;
 using Microsoft.Extensions.Options;
@@ -12,11 +12,11 @@ namespace Infrastructure.Authentication
     internal sealed class JwtTokenGenerator : IJwtTokenGenerator
     {
         private readonly JwtSettings _settings;
-        private readonly IDateTimeProvider _dateTimeProvider;
+        private readonly TimeProvider _dateTimeProvider;
 
         public JwtTokenGenerator(
             IOptions<JwtSettings> jwtOptions,
-            IDateTimeProvider dateTimeProvider)
+            TimeProvider dateTimeProvider)
         {
             _settings = jwtOptions.Value;
             _dateTimeProvider = dateTimeProvider;
@@ -24,7 +24,7 @@ namespace Infrastructure.Authentication
 
         public (string Token, DateTime ExpiresAt) GenerateToken(User user)
         {
-            var expiresAt = _dateTimeProvider.UtcNow.AddMinutes(_settings.ExpiryMinutes);
+            var expiresAt = _dateTimeProvider.GetUtcNow().UtcDateTime.AddMinutes(_settings.ExpiryMinutes);
 
             var claims = new[]
             {

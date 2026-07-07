@@ -13,12 +13,16 @@ namespace Domain.Aggregates.BookingAggregate.Events
         public BookingId BookingId { get; }
         public UserId UserId { get; }
         public EventId EventId { get; }
+        public TicketTypeId TicketTypeId { get; }
+        public int Quantity { get; }
         public DateTime ConfirmedAt { get; }
 
         public BookingConfirmedEvent(
             BookingId bookingId,
             UserId userId,
             EventId eventId,
+            TicketTypeId ticketTypeId,
+            int quantity,
             DateTime occurredOnUtc,
             EventMetadata metadata): base(occurredOnUtc, metadata)
 
@@ -26,6 +30,8 @@ namespace Domain.Aggregates.BookingAggregate.Events
             BookingId = bookingId;
             UserId = userId;
             EventId = eventId;
+            TicketTypeId = ticketTypeId;
+            Quantity = quantity;
             ConfirmedAt = occurredOnUtc;
         }
     }

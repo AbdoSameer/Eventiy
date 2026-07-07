@@ -1,6 +1,5 @@
 ﻿using Application.Abstractions.Outbox;
 using Domain.Common;
-using Infrastructure.Persistence.Repositories;
 using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
 using System.Text;
@@ -8,12 +7,12 @@ using System.Text;
 namespace Infrastructure.Persistence.Outbox;
 public sealed class OutboxMessageService : IOutboxMessageService
 {
-    private readonly OutboxRepository _outboxRepository;
+    private readonly IOutboxRepository _outboxRepository;
     private readonly IEventSerializer _serializer;
     private readonly ILogger<OutboxMessageService> _logger;
 
     public OutboxMessageService(
-        OutboxRepository outboxRepository,
+        IOutboxRepository outboxRepository,
         IEventSerializer serializer,
         ILogger<OutboxMessageService> logger)
     {

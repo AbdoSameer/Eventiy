@@ -5,4 +5,7 @@
                                        string Currency,
                                        int Capacity);
 
+    public record UpdatePhotoMetadataRequest(string? Caption, int? DisplayOrder);
+
+    public record ReorderPhotosRequest(List<Guid> OrderedPhotoIds);
 }

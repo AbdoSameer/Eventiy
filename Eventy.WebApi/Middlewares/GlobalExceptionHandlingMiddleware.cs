@@ -21,7 +21,7 @@ public sealed class GlobalExceptionHandlingMiddleware(
         {
             await next(context);
         }
-        catch (DbUpdateConcurrencyException ex)
+        catch (ConcurrencyException ex)
         {
             logger.LogWarning(ex, "Concurrency conflict on {Path}", context.Request.Path);
             await WriteProblemAsync(context, HttpStatusCode.Conflict,

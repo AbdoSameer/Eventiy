@@ -216,6 +216,17 @@ public static class EventErrors
             $"Event with ID {id} was not found.");
 
 
+    // ===== Photo Errors ===============================
+    public static Error MaxPhotosReached(int maxAllowed)
+        => Error.Validation(
+            "Event.MaxPhotosReached",
+            $"An event cannot have more than {maxAllowed} photos.");
+
+    public static Error PhotoNotFound(EventPhotoId photoId)
+        => Error.NotFound(
+            "Event.PhotoNotFound",
+            $"Photo with ID {photoId.Value} was not found.");
+
     // ===== Authorization Errors ==========
     //public static Error UserNotAuthorized(Guid userId, EventId eventId)
     //    => Error.Unauthorized(

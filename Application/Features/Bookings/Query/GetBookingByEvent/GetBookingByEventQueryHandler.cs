@@ -38,12 +38,6 @@ public class GetBookingByEventQueryHandler
 
         var bookings = await _context.ToListAsync(query, cancellationToken);
 
-        if (bookings.Count == 0)
-            return Result<List<GetBookingByEventQueryResponse>>.Failure(
-                Error.NotFound(
-                    "Booking.NotFound",
-                    $"No bookings found for event with ID {request.EventId}"));
-
         return Result<List<GetBookingByEventQueryResponse>>.Success(bookings);
     }
 }

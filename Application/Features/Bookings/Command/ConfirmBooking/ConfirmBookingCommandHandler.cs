@@ -1,4 +1,4 @@
-﻿using Application.Abstractions.Messaging;
+using Application.Abstractions.Messaging;
 using Application.Abstractions.Persistence;
 using Application.Abstractions.Security;
 using Domain.Aggregates.BookingAggregate.ValueObject;
@@ -12,22 +12,28 @@ namespace Application.Features.Bookings.Command.ConfirmBooking
         : ICommandHandler<ConfirmBookingCommand, bool>
     {
         private readonly IBookingRepository _bookingRepository;
+        private readonly IEventRepository _eventRepository;
         private readonly IUnitOfWork _unitOfWork;
-        private readonly IDateTimeProvider _dateTimeProvider;
+        private readonly TimeProvider _dateTimeProvider;
         private readonly IUserRepository _userRepository;
         private readonly ICurrentUserService _currentUserService;
+        private readonly IEventMetadataFactory _metadataFactory;
 
         public ConfirmBookingCommandHandler(IBookingRepository bookingRepository,
+                                            IEventRepository eventRepository,
                                             IUnitOfWork unitOfWork,
-                                            IDateTimeProvider dateTimeProvider,
+                                            TimeProvider dateTimeProvider,
                                             IUserRepository userRepository,
-                                            ICurrentUserService currentUserService)
+                                            ICurrentUserService currentUserService,
+                                            IEventMetadataFactory metadataFactory)
         {
             _bookingRepository = bookingRepository;
+            _eventRepository = eventRepository;
             _unitOfWork = unitOfWork;
             _dateTimeProvider = dateTimeProvider;
             _userRepository = userRepository;
             _currentUserService = currentUserService;
+            _metadataFactory = metadataFactory;
         }
 
         public async Task<Result<bool>> Handle(ConfirmBookingCommand request, CancellationToken cancellationToken)
@@ -38,9 +44,9 @@ namespace Application.Features.Bookings.Command.ConfirmBooking
                 return Result<bool>.Failure(bookingIdResult.Errors.ToArray());
             }
 
-            var BookingResult = await _bookingRepository.GetByIdAsync(bookingIdResult.Value);
+            var booking = await _bookingRepository.GetByIdAsync(bookingIdResult.Value);
 
-            if (BookingResult is null)
+            if (booking is null)
             {
                 return Result<bool>.Failure(BookingErrors.BookingNotFound(bookingIdResult.Value));
             }
@@ -57,12 +63,37 @@ namespace Application.Features.Bookings.Command.ConfirmBooking
                 return Result<bool>.Failure(UserErrors.NotFound());
             }
 
-            var metadata = new EventMetadata(Guid.NewGuid().ToString(), null, null);
+            if (UserResult.Role != Domain.Aggregates.UserAggregate.ValueObject.Role.Admin
+                && UserResult.Role != Domain.Aggregates.UserAggregate.ValueObject.Role.Organizer)
+            {
+                return Result<bool>.Failure(Error.Unauthorized(
+                    "Booking.UnauthorizedConfirm",
+                    "Only admins and organizers can confirm bookings."));
+            }
 
-            var ConfirmResult = BookingResult.Confirm(UserResult.Role,_dateTimeProvider, metadata);
+            var metadata = _metadataFactory.Create();
+            var utcNow = _dateTimeProvider.GetUtcNow().UtcDateTime;
+
+            var ConfirmResult = booking.Confirm(utcNow, metadata);
             if (ConfirmResult.IsFailure)
             {
                 return Result<bool>.Failure(ConfirmResult.Errors.ToArray());
+            }
+
+            var eventResult = await _eventRepository.GetByIdAsync(booking.EventId, cancellationToken);
+            if (eventResult is null)
+            {
+                return Result<bool>.Failure(EventErrors.EventNotFound(booking.EventId));
+            }
+
+            var confirmSeatsResult = eventResult.ConfirmReservation(
+                booking.TicketTypeId,
+                booking.Quantity,
+                utcNow,
+                metadata);
+            if (confirmSeatsResult.IsFailure)
+            {
+                return Result<bool>.Failure(confirmSeatsResult.Errors.ToArray());
             }
 
             var rowsAffected = await _unitOfWork.CommitAsync(cancellationToken);
@@ -73,10 +104,6 @@ namespace Application.Features.Bookings.Command.ConfirmBooking
             }
 
             return Result<bool>.Success(true);
-
-
-
         }
     }
 }
-

@@ -1,10 +1,10 @@
-﻿using Application.Abstractions.Messaging;
+using Application.Abstractions.Caching;
+using Application.Abstractions.Messaging;
 using Application.Abstractions.Persistence;
 using Domain.Aggregates.EventAggregate;
 using Domain.Common;
 using Domain.Persistence.Repositories;
 using Domain.Primitives;
-
 
 namespace Application.Features.Events.Commands.CreateEvent
 {
@@ -13,27 +13,39 @@ namespace Application.Features.Events.Commands.CreateEvent
     {
         private readonly IEventRepository _eventRepository;
         private readonly IUnitOfWork _unitOfWork;
-        private readonly IDateTimeProvider _dateTimeProvider;
+        private readonly TimeProvider _dateTimeProvider;
+        private readonly IEventMetadataFactory _metadataFactory;
+        private readonly ICacheService _cache;
 
-        public CreateEventCommandHandler(IEventRepository eventRepository, IUnitOfWork unitOfWork, IDateTimeProvider dateTimeProvider)
+        public CreateEventCommandHandler(
+            IEventRepository eventRepository,
+            IUnitOfWork unitOfWork,
+            TimeProvider dateTimeProvider,
+            IEventMetadataFactory metadataFactory,
+            ICacheService cache)
         {
             _eventRepository = eventRepository;
             _unitOfWork = unitOfWork;
             _dateTimeProvider = dateTimeProvider;
+            _metadataFactory = metadataFactory;
+            _cache = cache;
         }
+
         public async Task<Result<Guid>> Handle(CreateEventCommand request, CancellationToken cancellationToken)
         {
             var addressResult = Address.Create(
                  request.Location.Country,
                  request.Location.City,
-                 request.Location.Street);
-            
+                 request.Location.Street,
+                 latitude: request.Latitude ?? request.Location.Latitude,
+                 longitude: request.Longitude ?? request.Location.Longitude);
+
             if (addressResult.IsFailure)
             {
                 return Result<Guid>.Failure(addressResult.Errors.ToArray());
             }
 
-            var metadata = new EventMetadata(Guid.NewGuid().ToString(), null, null);
+            var metadata = _metadataFactory.Create();
 
             var @event = Event
                         .Create(request.Name,
@@ -41,7 +53,8 @@ namespace Application.Features.Events.Commands.CreateEvent
                                 request.Date,
                                 addressResult.Value,
                                 request.Description,
-                                _dateTimeProvider,
+                                request.Type,
+                                _dateTimeProvider.GetUtcNow().UtcDateTime,
                                 metadata);
 
             if (@event.IsFailure)
@@ -50,7 +63,6 @@ namespace Application.Features.Events.Commands.CreateEvent
             }
 
             await _eventRepository.AddEventAsync(@event.Value, cancellationToken);
-
 
             var result = await _unitOfWork.CommitAsync(cancellationToken);
 
@@ -62,8 +74,9 @@ namespace Application.Features.Events.Commands.CreateEvent
                         "Failed to create the event. Please try again later."));
             }
 
-            return Result<Guid>.Success(@event.Value.Id.Value);
+            await _cache.RemoveByPatternAsync("events:*", cancellationToken);
 
+            return Result<Guid>.Success(@event.Value.Id.Value);
         }
     }
 }

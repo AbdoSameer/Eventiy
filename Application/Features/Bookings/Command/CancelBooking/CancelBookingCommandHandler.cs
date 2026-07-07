@@ -1,34 +1,43 @@
-﻿using Application.Abstractions.Messaging;
+using Application.Abstractions.Messaging;
 using Application.Abstractions.Persistence;
 using Application.Abstractions.Security;
 using Domain.Aggregates.BookingAggregate.ValueObject;
+using Domain.Aggregates.BookingAggregate.Enums;
 using Domain.Common;
 using Domain.Errors;
 using Domain.Persistence.Repositories;
+using MediatR;
 
 namespace Application.Features.Bookings.Command.CancelBooking
 {
     public class CancelBookingCommandHandler : ICommandHandler<CancelBookingCommand, bool>
     {
         private readonly IBookingRepository _bookingRepository;
+        private readonly IEventRepository _eventRepository;
         private readonly IUnitOfWork _unitOfWork;
-        private readonly IDateTimeProvider _dateTimeProvider;
+        private readonly TimeProvider _dateTimeProvider;
         private readonly IUserRepository _userRepository;
         private readonly ICurrentUserService _currentUserService;
-       
+        private readonly IEventMetadataFactory _metadataFactory;
+        private readonly IPublisher _publisher;
 
         public CancelBookingCommandHandler(IBookingRepository bookingRepository,
+                                           IEventRepository eventRepository,
                                            IUnitOfWork unitOfWork,
-                                           IDateTimeProvider dateTimeProvider,
+                                           TimeProvider dateTimeProvider,
                                            IUserRepository userRepository,
-                                           ICurrentUserService currentUserService)
+                                           ICurrentUserService currentUserService,
+                                           IEventMetadataFactory metadataFactory,
+                                           IPublisher publisher)
         {
             _bookingRepository = bookingRepository;
+            _eventRepository = eventRepository;
             _unitOfWork = unitOfWork;
             _dateTimeProvider = dateTimeProvider;
             _currentUserService = currentUserService;
             _userRepository = userRepository;
-
+            _metadataFactory = metadataFactory;
+            _publisher = publisher;
         }
 
         public async Task<Result<bool>> Handle(CancelBookingCommand request, CancellationToken cancellationToken)
@@ -59,19 +68,64 @@ namespace Application.Features.Bookings.Command.CancelBooking
                 return Result<bool>.Failure(UserErrors.NotFound());
             }
 
-            var metadata = new EventMetadata(Guid.NewGuid().ToString(), null, null);
+            if (UserResult.Role != Domain.Aggregates.UserAggregate.ValueObject.Role.Admin
+                && UserResult.Role != Domain.Aggregates.UserAggregate.ValueObject.Role.Organizer)
+            {
+                return Result<bool>.Failure(Error.Unauthorized(
+                    "Booking.UnauthorizedCancel",
+                    "Only admins and organizers can cancel bookings."));
+            }
 
-            var CancelResult = booking.Cancel(UserResult.Role,_dateTimeProvider, metadata);
+            var metadata = _metadataFactory.Create();
+            var utcNow = _dateTimeProvider.GetUtcNow().UtcDateTime;
+            var wasConfirmed = booking.Status == BookingStatusEnum.Confirmed;
+
+            var CancelResult = booking.Cancel(utcNow, metadata);
             if (CancelResult.IsFailure)
             {
                 return Result<bool>.Failure(CancelResult.Errors.ToArray());
             }
 
+            var eventResult = await _eventRepository.GetByIdAsync(booking.EventId, cancellationToken);
+            if (eventResult is null)
+            {
+                return Result<bool>.Failure(EventErrors.EventNotFound(booking.EventId));
+            }
+
+            Result seatsResult;
+            if (wasConfirmed)
+            {
+                seatsResult = eventResult.RefundSeats(
+                    booking.TicketTypeId,
+                    booking.Quantity,
+                    utcNow,
+                    metadata);
+            }
+            else
+            {
+                seatsResult = eventResult.ReleaseSeats(
+                    booking.TicketTypeId,
+                    booking.Quantity,
+                    utcNow,
+                    metadata);
+            }
+
+            if (seatsResult.IsFailure)
+            {
+                return Result<bool>.Failure(seatsResult.Errors.ToArray());
+            }
+
+            foreach (var domainEvent in booking.DomainEvents)
+            {
+                await _publisher.Publish(domainEvent, cancellationToken);
+            }
+            booking.ClearDomainEvents();
+
             var result = await _unitOfWork.CommitAsync(cancellationToken);
 
             if (result <= 0)
             {
-                return Result<bool>.Failure(BookingErrors.CannotCancelBooking(bookingIdResult.Value,booking.Status));
+                return Result<bool>.Failure(BookingErrors.CannotCancelBooking(bookingIdResult.Value, booking.Status));
             }
 
             return Result<bool>.Success(true);

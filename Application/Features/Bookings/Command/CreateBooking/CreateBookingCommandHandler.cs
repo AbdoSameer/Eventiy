@@ -1,90 +1,124 @@
-﻿using Application.Abstractions.Messaging;
+using Application.Abstractions.Caching;
+using Application.Abstractions.Messaging;
 using Application.Abstractions.Persistence;
 using Application.Abstractions.Security;
 using Domain.Aggregates.BookingAggregate;
 using Domain.Aggregates.BookingAggregate.ValueObject;
 using Domain.Aggregates.EventAggregate.ValueObject;
+using Domain.Aggregates.UserAggregate.ValueObject;
 using Domain.Common;
 using Domain.Errors;
 using Domain.Persistence.Repositories;
 
 namespace Application.Features.Bookings.Command.CreateBooking
 {
-    public class CreateBookingCommandHandler : ICommandHandler<CreateBookingCommand, BookingId>
+    public class CreateBookingCommandHandler : ICommandHandler<CreateBookingCommand, Guid>
     {
         private readonly IBookingRepository _bookingRepository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IEventRepository _eventRepository;
-        private readonly IDateTimeProvider _dateTimeProvider;
+        private readonly TimeProvider _dateTimeProvider;
         private readonly ICurrentUserService _currentUserService;
+        private readonly IEventMetadataFactory _metadataFactory;
+        private readonly ICacheService _cache;
 
-        public CreateBookingCommandHandler(IBookingRepository bookingRepository,
-                                           IUnitOfWork unitOfWork ,
-                                           IEventRepository eventRepository,
-                                           IDateTimeProvider dateTimeProvider,
-                                           ICurrentUserService currentUserService)
+        public CreateBookingCommandHandler(
+            IBookingRepository bookingRepository,
+            IUnitOfWork unitOfWork,
+            IEventRepository eventRepository,
+            TimeProvider dateTimeProvider,
+            ICurrentUserService currentUserService,
+            IEventMetadataFactory metadataFactory,
+            ICacheService cache)
         {
             _bookingRepository = bookingRepository;
             _unitOfWork = unitOfWork;
             _eventRepository = eventRepository;
             _dateTimeProvider = dateTimeProvider;
             _currentUserService = currentUserService;
+            _metadataFactory = metadataFactory;
+            _cache = cache;
         }
-        public async Task<Result<BookingId>> Handle(CreateBookingCommand request, CancellationToken cancellationToken)
+        private const int MAX_CONCURRENCY_RETRIES = 3;
+
+        public async Task<Result<Guid>> Handle(CreateBookingCommand request, CancellationToken cancellationToken)
         {
             var userIdResult = _currentUserService.GetCurrentUserId();
             if (userIdResult.IsFailure)
-                return Result<BookingId>.Failure(userIdResult.Errors.ToArray());
+                return Result<Guid>.Failure(userIdResult.Errors.ToArray());
 
             var ticketTypeIdResult = TicketTypeId.Create(request.TicketTypeId);
             if (ticketTypeIdResult.IsFailure)
-                return Result<BookingId>.Failure(ticketTypeIdResult.Errors.ToArray());
+                return Result<Guid>.Failure(ticketTypeIdResult.Errors.ToArray());
 
             var eventIdResult = EventId.Create(request.EventId);
             if (eventIdResult.IsFailure)
-                return Result<BookingId>.Failure(eventIdResult.Errors.ToArray());
+                return Result<Guid>.Failure(eventIdResult.Errors.ToArray());
 
-            var eventResult = await _eventRepository.GetByIdAsync(eventIdResult.Value, cancellationToken);
-            if (eventResult is null)
-                return Result<BookingId>.Failure(EventErrors.EventNotFound(eventIdResult.Value));
-
-            var ticketType = eventResult.TicketTypes.FirstOrDefault(t => t.Id == ticketTypeIdResult.Value);
-            if (ticketType is null)
-                return Result<BookingId>.Failure(EventErrors.TicketTypeNotFound(request.TicketTypeId));
-
-            var metadata = EventMetadata.Create(Guid.NewGuid().ToString(), null, null);
-            
-            var reservationResult = eventResult
-                                        .ReserveSeats(ticketTypeIdResult.Value,
-                                                      request.Quantity,
-                                                      _dateTimeProvider,
-                                                      metadata);
-            if (reservationResult.IsFailure)
+            for (var attempt = 1; attempt <= MAX_CONCURRENCY_RETRIES; attempt++)
             {
-                return Result<BookingId>.Failure(reservationResult.Errors.ToArray());
+                try
+                {
+                    return await AttemptBooking(
+                        userIdResult.Value,
+                        eventIdResult.Value,
+                        ticketTypeIdResult.Value,
+                        request,
+                        cancellationToken);
+                }
+                catch (ConcurrencyException) when (attempt < MAX_CONCURRENCY_RETRIES)
+                {
+                    // Re-read fresh data and retry
+                }
             }
 
+            return Result<Guid>.Failure(BookingErrors.ConcurrencyConflict());
+        }
+
+        private async Task<Result<Guid>> AttemptBooking(
+            UserId userId,
+            EventId eventId,
+            TicketTypeId ticketTypeId,
+            CreateBookingCommand request,
+            CancellationToken cancellationToken)
+        {
+            var eventResult = await _eventRepository.GetByIdAsync(eventId, cancellationToken);
+            if (eventResult is null)
+                return Result<Guid>.Failure(EventErrors.EventNotFound(eventId));
+
+            var ticketType = eventResult.TicketTypes.FirstOrDefault(t => t.Id == ticketTypeId);
+            if (ticketType is null)
+                return Result<Guid>.Failure(EventErrors.TicketTypeNotFound(request.TicketTypeId));
+
+            var metadata = _metadataFactory.Create();
+
+            var reservationResult = eventResult.ReserveSeats(
+                ticketTypeId, request.Quantity, _dateTimeProvider.GetUtcNow().UtcDateTime, metadata);
+            if (reservationResult.IsFailure)
+                return Result<Guid>.Failure(reservationResult.Errors.ToArray());
+
             var booking = Booking.Create(
-                userIdResult.Value,
-                eventIdResult.Value,
-                ticketTypeIdResult.Value,
+                userId, eventId, ticketTypeId,
                 eventResult.EventName.Value,
                 request.Quantity,
                 ticketType.Price,
-                _dateTimeProvider,
+                request.PaymentMethod,
+                _dateTimeProvider.GetUtcNow().UtcDateTime,
                 metadata);
 
             if (booking.IsFailure)
-                return Result<BookingId>.Failure(booking.Errors.ToArray());
+                return Result<Guid>.Failure(booking.Errors.ToArray());
 
             await _bookingRepository.AddBookingAsync(booking.Value, cancellationToken);
 
-            var RowsAffected = await _unitOfWork.CommitAsync(cancellationToken);
+            var rowsAffected = await _unitOfWork.CommitAsync(cancellationToken);
 
-            if (RowsAffected <=0)
-                    return Result<BookingId>.Failure(BookingErrors.BookingCreationFailed());
+            if (rowsAffected <= 0)
+                return Result<Guid>.Failure(BookingErrors.BookingCreationFailed());
 
-            return Result<BookingId>.Success(booking.Value.Id);
+            await _cache.RemoveAsync($"event:details:{request.EventId}", cancellationToken);
+
+            return Result<Guid>.Success(booking.Value.Id.Value);
         }
     }
 }

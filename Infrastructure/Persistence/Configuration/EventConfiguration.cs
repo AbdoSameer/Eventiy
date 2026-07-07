@@ -1,4 +1,5 @@
 ﻿using Domain.Aggregates.EventAggregate;
+using Domain.Aggregates.EventAggregate.Enums;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -26,6 +27,8 @@ namespace Infrastructure.Persistence.Configuration
                            .HasColumnName("Name")
                            .IsRequired()
                            .HasMaxLength(100);
+                nameBuilder.HasIndex(n => n.Value)
+                           .HasDatabaseName("IX_Events_Name");
             });
 
             builder.Property(x => x.Capacity)
@@ -57,7 +60,20 @@ namespace Infrastructure.Persistence.Configuration
                                .HasColumnName("PostalCode")
                                .IsRequired(false)
                                .HasMaxLength(20);
+
+                locationBuilder.Property(l => l.Latitude)
+                               .HasColumnName("Latitude")
+                               .IsRequired(false);
+
+                locationBuilder.Property(l => l.Longitude)
+                               .HasColumnName("Longitude")
+                               .IsRequired(false);
             });
+
+            builder.Property(x => x.Type)
+                   .HasColumnName("Type")
+                   .IsRequired()
+                   .HasConversion<int>();
 
             builder.Property(x => x.Status)
                    .HasColumnName("Status")
@@ -116,11 +132,6 @@ namespace Infrastructure.Persistence.Configuration
             builder.HasIndex(x => x.CreatedAt)
                    .HasDatabaseName("IX_Events_CreatedAt");
 
-            builder.OwnsOne(x => x.EventName, nameBuilder =>
-            {
-                nameBuilder.HasIndex(n => n.Value)
-                           .HasDatabaseName("IX_Events_Name");
-            });
         }
     }
 }

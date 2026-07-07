@@ -12,6 +12,7 @@ public interface IEventRepository
     Task<Event?> GetByIdAsync(
         EventId id,
         CancellationToken cancellationToken);
+    
 
     void Update(Event @event);
 }

@@ -1,4 +1,4 @@
-﻿using Application.Abstractions.Messaging;
+using Application.Abstractions.Messaging;
 using Application.Abstractions.Persistence;
 using Application.Abstractions.Security;
 using Application.Features.Authentication.Responses;
@@ -16,7 +16,8 @@ namespace Application.Features.Authentication.Commands.Register
         IPasswordHasher passwordHasher,
         IJwtTokenGenerator jwtGenerator,
         IUnitOfWork unitOfWork,
-        IDateTimeProvider dateTimeProvider) : ICommandHandler<RegisterUserCommand, AuthResponse>
+        TimeProvider dateTimeProvider,
+        IEventMetadataFactory metadataFactory) : ICommandHandler<RegisterUserCommand, AuthResponse>
     {
         public async Task<Result<AuthResponse>> Handle(
             RegisterUserCommand command, CancellationToken cancellationToken)
@@ -35,14 +36,17 @@ namespace Application.Features.Authentication.Commands.Register
 
             var passwordHash = passwordHasher.Hash(command.Password);
 
-            var metadata = EventMetadata.Create(Guid.NewGuid().ToString(), null, null);
+            var metadata = metadataFactory.Create();
             var requiresApproval = roleResult.Value == Role.Organizer;
         
+            var utcNow = dateTimeProvider.GetUtcNow().UtcDateTime;
             var userResult = User.Create(
+                command.FirstName,
+                command.LastName,
                 emailResult.Value,
                 passwordHash,
                 roleResult.Value,
-                dateTimeProvider,
+                utcNow,
                 metadata,
                 isApproved: !requiresApproval);
 
