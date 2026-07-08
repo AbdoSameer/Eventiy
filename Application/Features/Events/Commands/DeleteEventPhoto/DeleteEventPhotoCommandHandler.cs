@@ -1,3 +1,4 @@
+using Application.Abstractions.Caching;
 using Application.Abstractions.Messaging;
 using Application.Abstractions.Persistence;
 using Domain.Abstractions.Persistence;
@@ -15,19 +16,22 @@ internal sealed class DeleteEventPhotoCommandHandler
     private readonly IUnitOfWork _unitOfWork;
     private readonly TimeProvider _dateTimeProvider;
     private readonly IEventMetadataFactory _metadataFactory;
+    private readonly ICacheService _cache;
 
     public DeleteEventPhotoCommandHandler(
         IEventRepository eventRepository,
         IFileStorageService storageService,
         IUnitOfWork unitOfWork,
         TimeProvider dateTimeProvider,
-        IEventMetadataFactory metadataFactory)
+        IEventMetadataFactory metadataFactory,
+        ICacheService cache)
     {
         _eventRepository = eventRepository;
         _storageService = storageService;
         _unitOfWork = unitOfWork;
         _dateTimeProvider = dateTimeProvider;
         _metadataFactory = metadataFactory;
+        _cache = cache;
     }
 
     public async Task<Result> Handle(DeleteEventPhotoCommand request, CancellationToken cancellationToken)
@@ -59,6 +63,9 @@ internal sealed class DeleteEventPhotoCommandHandler
             return deleteResult;
 
         await _unitOfWork.CommitAsync(cancellationToken);
+
+        // Invalidate the photo list cache so the deletion reflects on next read.
+        await _cache.RemoveAsync($"event:photos:{request.EventId}", cancellationToken);
 
         return Result.Success();
     }

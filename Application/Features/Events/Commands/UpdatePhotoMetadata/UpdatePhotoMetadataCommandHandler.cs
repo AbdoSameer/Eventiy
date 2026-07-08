@@ -1,3 +1,4 @@
+using Application.Abstractions.Caching;
 using Application.Abstractions.Messaging;
 using Application.Abstractions.Persistence;
 using Domain.Abstractions.Persistence;
@@ -13,17 +14,20 @@ internal sealed class UpdatePhotoMetadataCommandHandler
     private readonly IUnitOfWork _unitOfWork;
     private readonly TimeProvider _dateTimeProvider;
     private readonly IEventMetadataFactory _metadataFactory;
+    private readonly ICacheService _cache;
 
     public UpdatePhotoMetadataCommandHandler(
         IEventRepository eventRepository,
         IUnitOfWork unitOfWork,
         TimeProvider dateTimeProvider,
-        IEventMetadataFactory metadataFactory)
+        IEventMetadataFactory metadataFactory,
+        ICacheService cache)
     {
         _eventRepository = eventRepository;
         _unitOfWork = unitOfWork;
         _dateTimeProvider = dateTimeProvider;
         _metadataFactory = metadataFactory;
+        _cache = cache;
     }
 
     public async Task<Result> Handle(UpdatePhotoMetadataCommand request, CancellationToken cancellationToken)
@@ -62,6 +66,9 @@ internal sealed class UpdatePhotoMetadataCommandHandler
         }
 
         await _unitOfWork.CommitAsync(cancellationToken);
+
+        // Invalidate the photo list cache (caption/display-order changed).
+        await _cache.RemoveAsync($"event:photos:{request.EventId}", cancellationToken);
 
         return Result.Success();
     }

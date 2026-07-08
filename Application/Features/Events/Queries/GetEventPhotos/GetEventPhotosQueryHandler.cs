@@ -1,3 +1,4 @@
+using Application.Abstractions.Caching;
 using Application.Abstractions.Messaging;
 using Application.Abstractions.Persistence;
 using Domain.Abstractions.Persistence;
@@ -11,10 +12,15 @@ internal sealed class GetEventPhotosQueryHandler
     : IQueryHandler<GetEventPhotosQuery, List<EventPhotoResponse>>
 {
     private readonly IApplicationReadDbContext _readDbContext;
+    private readonly ICacheService _cache;
+    private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(2);
 
-    public GetEventPhotosQueryHandler(IApplicationReadDbContext readDbContext)
+    public GetEventPhotosQueryHandler(
+        IApplicationReadDbContext readDbContext,
+        ICacheService cache)
     {
         _readDbContext = readDbContext;
+        _cache = cache;
     }
 
     public async Task<Result<List<EventPhotoResponse>>> Handle(
@@ -23,6 +29,13 @@ internal sealed class GetEventPhotosQueryHandler
         var eventIdResult = EventId.Create(request.EventId);
         if (eventIdResult.IsFailure)
             return Result<List<EventPhotoResponse>>.Failure(eventIdResult.Errors.ToArray());
+
+        // Cache-Aside: photos are nearly static, so we cache them longer than event details.
+        var cacheKey = $"event:photos:{request.EventId}";
+
+        var cached = await _cache.GetAsync<List<EventPhotoResponse>>(cacheKey, cancellationToken);
+        if (cached is not null)
+            return Result<List<EventPhotoResponse>>.Success(cached);
 
         var query = _readDbContext.Query<EventPhoto>()
             .Where(p => p.EventId == eventIdResult.Value)
@@ -36,6 +49,8 @@ internal sealed class GetEventPhotosQueryHandler
                 p.UploadedAt));
 
         var photos = await _readDbContext.ToListAsync(query, cancellationToken);
+
+        await _cache.SetAsync(cacheKey, photos, CacheTtl, cancellationToken);
 
         return Result<List<EventPhotoResponse>>.Success(photos);
     }

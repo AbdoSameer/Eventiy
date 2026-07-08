@@ -1,3 +1,4 @@
+using Application.Abstractions.Caching;
 using Application.Abstractions.Messaging;
 using Application.Abstractions.Persistence;
 using Application.Features.Events.Queries.GetEventPhotos;
@@ -18,6 +19,7 @@ internal sealed class UploadEventPhotosCommandHandler
     private readonly IUnitOfWork _unitOfWork;
     private readonly TimeProvider _dateTimeProvider;
     private readonly IEventMetadataFactory _metadataFactory;
+    private readonly ICacheService _cache;
 
     public UploadEventPhotosCommandHandler(
         IEventRepository eventRepository,
@@ -25,7 +27,8 @@ internal sealed class UploadEventPhotosCommandHandler
         IFileStorageService storageService,
         IUnitOfWork unitOfWork,
         TimeProvider dateTimeProvider,
-        IEventMetadataFactory metadataFactory)
+        IEventMetadataFactory metadataFactory,
+        ICacheService cache)
     {
         _eventRepository = eventRepository;
         _photoRepository = photoRepository;
@@ -33,6 +36,7 @@ internal sealed class UploadEventPhotosCommandHandler
         _unitOfWork = unitOfWork;
         _dateTimeProvider = dateTimeProvider;
         _metadataFactory = metadataFactory;
+        _cache = cache;
     }
 
     public async Task<Result<List<EventPhotoResponse>>> Handle(
@@ -112,6 +116,9 @@ internal sealed class UploadEventPhotosCommandHandler
             }
 
             await _unitOfWork.CommitAsync(cancellationToken);
+
+            // Invalidate the photo list cache so the new uploads appear on next read.
+            await _cache.RemoveAsync($"event:photos:{request.EventId}", cancellationToken);
 
             return Result<List<EventPhotoResponse>>.Success(responses);
         }
