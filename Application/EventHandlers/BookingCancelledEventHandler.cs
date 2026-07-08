@@ -1,23 +1,19 @@
 ﻿using Application.Abstractions.Persistence;
 using Domain.Aggregates.BookingAggregate.Events;
 using Domain.Common;
-using Domain.Persistence.Repositories;
 using Microsoft.Extensions.Logging;
 
 namespace Application.EventHandlers
 {
     public class BookingCancelledEventHandler : IDomainEventHandler<BookingCancelledEvent>
     {
-        private readonly IEventRepository _eventRepository;
         private readonly IIdempotencyStore _idempotencyStore;
         private readonly ILogger<BookingCancelledEventHandler> _logger;
 
         public BookingCancelledEventHandler(
-            IEventRepository eventRepository,
             IIdempotencyStore idempotencyStore,
             ILogger<BookingCancelledEventHandler> logger)
         {
-            _eventRepository = eventRepository;
             _idempotencyStore = idempotencyStore;
             _logger = logger;
         }
@@ -32,28 +28,9 @@ namespace Application.EventHandlers
                 return Result.Success();
             }
 
-            var @event = await _eventRepository.GetByIdAsync(notification.EventId, cancellationToken);
-
-            if (@event is null)
-            {
-                _logger.LogWarning(
-                    "Event {EventId} not found while releasing capacity for cancelled booking {BookingId}.",
-                    notification.EventId, notification.BookingId);
-                return Result.Success();
-            }
-
-            var result = @event.ReserveSeats(notification.TicketTypeId,
-                                             notification.Quantity,
-                                             notification.OccurredOnUtc,
-                                             notification.Metadata);
-
-            if (result.IsFailure)
-            {
-                _logger.LogWarning(
-                    "Failed to release ticket capacity for booking {BookingId}: {Error}",
-                    notification.BookingId, result);
-                return result;
-            }
+            _logger.LogInformation(
+                "Booking {BookingId} cancelled — seat release handled by command handler.",
+                notification.BookingId);
 
             await _idempotencyStore.MarkAsProcessedAsync(
                 notification.Id,

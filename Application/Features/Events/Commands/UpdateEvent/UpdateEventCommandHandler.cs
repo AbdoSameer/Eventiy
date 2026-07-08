@@ -1,10 +1,10 @@
 using Application.Abstractions.Caching;
 using Application.Abstractions.Messaging;
 using Application.Abstractions.Persistence;
+using Domain.Abstractions.Persistence;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Common;
 using Domain.Errors;
-using Domain.Persistence.Repositories;
 using Domain.Primitives;
 
 namespace Application.Features.Events.Commands.UpdateEvent;
@@ -55,8 +55,6 @@ public sealed class UpdateEventCommandHandler(
         var updateDescriptionResult = @event.UpdateDescription(request.Description, utcNow);
         if (updateDescriptionResult.IsFailure)
             return Result.Failure(updateDescriptionResult.Errors.ToArray());
-
-        eventRepository.Update(@event);
 
         var rows = await unitOfWork.CommitAsync(cancellationToken);
         if (rows <= 0)

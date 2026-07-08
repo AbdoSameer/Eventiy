@@ -6,7 +6,6 @@ using Application.Abstractions.Security;
 using Domain.Abstractions.Persistence;
 using Domain.Abstractions.Storage;
 using Domain.Common;
-using Domain.Persistence.Repositories;
 using Infrastructure.Authentication;
 using Infrastructure.BackgroundJobs;
 using Infrastructure.Caching;
@@ -60,7 +59,6 @@ public static class DependencyInjection
         });
 
         services.AddScoped<IOutboxRepository, OutboxRepository>();
-        services.AddScoped<OutboxRepository>();
         services.AddScoped<IEventRepository, EventRepository>();
         services.AddScoped<IBookingRepository, BookingRepository>();
         services.AddScoped<IUserRepository, UserRepository>();

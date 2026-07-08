@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, UntypedFormArray, UntypedFormBuilder, UntypedFormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -300,6 +301,7 @@ import { AddTicketTypeRequest, EventPhotoResponse, EVENT_CATEGORIES } from '../.
   `,
 })
 export class EventCreateComponent {
+  private destroyRef = inject(DestroyRef);
   private fb = inject(UntypedFormBuilder);
   private eventApp = inject(EventApplicationService);
   private toast = inject(ToastService);
@@ -439,6 +441,7 @@ export class EventCreateComponent {
         description,
         type: category,
       })
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (result) => {
           this.submitting.set(false);
@@ -467,7 +470,7 @@ export class EventCreateComponent {
     let hasError = false;
 
     for (const ticket of tickets) {
-      this.eventApp.addTicketType(this.createdEventId, ticket).subscribe({
+      this.eventApp.addTicketType(this.createdEventId, ticket).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: (result) => {
           completed++;
           if (result.isFailure) {

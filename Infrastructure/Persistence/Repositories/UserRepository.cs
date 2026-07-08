@@ -1,6 +1,6 @@
-﻿using Domain.Aggregates.UserAggregate;
+﻿using Domain.Abstractions.Persistence;
+using Domain.Aggregates.UserAggregate;
 using Domain.Aggregates.UserAggregate.ValueObject;
-using Domain.Persistence.Repositories;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence.Repositories

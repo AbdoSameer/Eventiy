@@ -1,8 +1,8 @@
-﻿using Domain.Aggregates.BookingAggregate;
+﻿using Domain.Abstractions.Persistence;
+using Domain.Aggregates.BookingAggregate;
 using Domain.Aggregates.BookingAggregate.Enums;
 using Domain.Aggregates.BookingAggregate.ValueObject;
 using Domain.Aggregates.EventAggregate.ValueObject;
-using Domain.Persistence.Repositories;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence.Repositories
@@ -16,11 +16,10 @@ namespace Infrastructure.Persistence.Repositories
             _applicationDbContext = applicationDbContext;
         }
 
-        public Task<Booking> AddBookingAsync(Booking booking, CancellationToken cancellationToken)
+        public Task AddBookingAsync(Booking booking, CancellationToken cancellationToken)
         {
-            var entityEntry = _applicationDbContext.Bookings.Add(booking);
-
-            return Task.FromResult(entityEntry.Entity);
+            _applicationDbContext.Bookings.Add(booking);
+            return Task.CompletedTask;
         }
 
         public Task<Booking?> GetByIdAsync(BookingId id, CancellationToken ct = default)

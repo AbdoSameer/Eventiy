@@ -6,7 +6,6 @@ using Domain.Abstractions.Storage;
 using Domain.Aggregates.EventAggregate.Entities;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Common;
-using Domain.Persistence.Repositories;
 
 namespace Application.Features.Events.Commands.UploadEventPhotos;
 

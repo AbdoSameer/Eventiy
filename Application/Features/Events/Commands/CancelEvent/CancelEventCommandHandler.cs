@@ -1,9 +1,9 @@
 using Application.Abstractions.Messaging;
 using Application.Abstractions.Persistence;
+using Domain.Abstractions.Persistence;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Common;
 using Domain.Errors;
-using Domain.Persistence.Repositories;
 
 namespace Application.Features.Events.Commands.CancelEvent;
 
@@ -28,8 +28,6 @@ public sealed class CancelEventCommandHandler(
         var cancelResult = @event.Cancel(utcNow, metadata);
         if (cancelResult.IsFailure)
             return Result.Failure(cancelResult.Errors.ToArray());
-
-        eventRepository.Update(@event);
 
         var rows = await unitOfWork.CommitAsync(cancellationToken);
         if (rows <= 0)

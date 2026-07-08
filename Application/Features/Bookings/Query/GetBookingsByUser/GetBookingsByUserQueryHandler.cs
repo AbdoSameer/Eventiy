@@ -3,6 +3,7 @@ using Application.Abstractions.Persistence;
 using Application.Abstractions.Security;
 using Domain.Aggregates.BookingAggregate;
 using Domain.Aggregates.EventAggregate;
+using Domain.Aggregates.EventAggregate.Entities;
 using Domain.Common;
 
 

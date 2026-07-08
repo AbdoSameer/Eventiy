@@ -1,10 +1,10 @@
 ﻿using Application.Abstractions.Messaging;
 using Application.Abstractions.Security;
 using Application.Features.Authentication.Responses;
+using Domain.Abstractions.Persistence;
 using Domain.Aggregates.UserAggregate.ValueObject;
 using Domain.Common;
 using Domain.Errors;
-using Domain.Persistence.Repositories;
 
 
 namespace Application.Features.Authentication.Commands.Login
@@ -25,15 +25,14 @@ namespace Application.Features.Authentication.Commands.Login
             if (user is null)
                 return Result<AuthResponse>.Failure(UserErrors.InvalidCredentials());
 
-            if (user.Role == Role.Organizer && !user.IsApproved)
-                return Result<AuthResponse>.Success(new AuthResponse(
-                    user.Id.Value, user.Email.Value, user.Role.Value, null, null, true));
-
             var isPasswordValid = passwordHasher.Verify(command.Password, user.GetPasswordHash());
             if (!isPasswordValid)
                 return Result<AuthResponse>.Failure(UserErrors.InvalidCredentials());
 
-            // 4. Generate Token
+            if (user.Role == Role.Organizer && !user.IsApproved)
+                return Result<AuthResponse>.Success(new AuthResponse(
+                    user.Id.Value, user.Email.Value, user.Role.Value, null, null, true));
+
             var (token, expiresAt) = jwtGenerator.GenerateToken(user);
 
             return Result<AuthResponse>.Success(new AuthResponse(

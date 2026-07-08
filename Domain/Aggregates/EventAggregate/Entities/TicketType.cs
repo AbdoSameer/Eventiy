@@ -3,7 +3,7 @@ using Domain.Common;
 using Domain.Primitives;
 using Domain.Errors;
 
-namespace Domain.Aggregates.EventAggregate
+namespace Domain.Aggregates.EventAggregate.Entities
 {
     public class TicketType : Entity<TicketTypeId>
     {

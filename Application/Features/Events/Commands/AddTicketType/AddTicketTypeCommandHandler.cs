@@ -1,9 +1,9 @@
 using Application.Abstractions.Messaging;
 using Application.Abstractions.Persistence;
+using Domain.Abstractions.Persistence;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Common;
 using Domain.Errors;
-using Domain.Persistence.Repositories;
 using Domain.Primitives;
 
 namespace Application.Features.Events.Commands.AddTicketType

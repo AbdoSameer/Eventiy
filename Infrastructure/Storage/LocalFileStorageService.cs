@@ -42,7 +42,10 @@ internal sealed class LocalFileStorageService : IFileStorageService
 
         try
         {
-            var uniqueFileName = $"{Guid.NewGuid():N}_{fileName}";
+            var safeFileName = string.Concat(
+                Path.GetFileName(fileName)
+                    .Split(Path.GetInvalidFileNameChars()));
+            var uniqueFileName = $"{Guid.NewGuid():N}_{safeFileName}";
             var relativePath = Path.Combine("uploads", "events", uniqueFileName);
             var fullPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", relativePath);
 

@@ -1,7 +1,7 @@
 using Domain.Aggregates.EventAggregate;
 using Domain.Aggregates.EventAggregate.ValueObject;
 
-namespace Domain.Persistence.Repositories;
+namespace Domain.Abstractions.Persistence;
 
 public interface IEventRepository
 {
@@ -12,7 +12,4 @@ public interface IEventRepository
     Task<Event?> GetByIdAsync(
         EventId id,
         CancellationToken cancellationToken);
-    
-
-    void Update(Event @event);
 }

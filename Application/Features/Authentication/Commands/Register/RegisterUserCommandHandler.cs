@@ -2,11 +2,11 @@ using Application.Abstractions.Messaging;
 using Application.Abstractions.Persistence;
 using Application.Abstractions.Security;
 using Application.Features.Authentication.Responses;
+using Domain.Abstractions.Persistence;
 using Domain.Aggregates.UserAggregate;
 using Domain.Aggregates.UserAggregate.ValueObject;
 using Domain.Common;
 using Domain.Errors;
-using Domain.Persistence.Repositories;
 
 
 namespace Application.Features.Authentication.Commands.Register

@@ -1,8 +1,8 @@
 using Domain.Aggregates.BookingAggregate;
 using Domain.Aggregates.BookingAggregate.Enums;
 using Domain.Aggregates.EventAggregate;
+using Domain.Aggregates.EventAggregate.Entities;
 using Domain.Aggregates.EventAggregate.Enums;
-// Import for EventStatus, EventType
 using Domain.Aggregates.UserAggregate;
 using Domain.Aggregates.UserAggregate.ValueObject;
 using Domain.Common;

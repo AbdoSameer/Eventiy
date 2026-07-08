@@ -1,9 +1,9 @@
 using Application.Abstractions.Messaging;
 using Application.Abstractions.Persistence;
+using Domain.Abstractions.Persistence;
 using Domain.Abstractions.Storage;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Common;
-using Domain.Persistence.Repositories;
 
 namespace Application.Features.Events.Commands.DeleteEventPhoto;
 

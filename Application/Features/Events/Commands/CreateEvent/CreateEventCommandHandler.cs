@@ -1,9 +1,9 @@
 using Application.Abstractions.Caching;
 using Application.Abstractions.Messaging;
 using Application.Abstractions.Persistence;
+using Domain.Abstractions.Persistence;
 using Domain.Aggregates.EventAggregate;
 using Domain.Common;
-using Domain.Persistence.Repositories;
 using Domain.Primitives;
 
 namespace Application.Features.Events.Commands.CreateEvent

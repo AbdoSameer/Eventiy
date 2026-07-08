@@ -5,8 +5,8 @@ using Domain.Aggregates.BookingAggregate.ValueObject;
 using Domain.Aggregates.BookingAggregate.Enums;
 using Domain.Common;
 using Domain.Errors;
-using Domain.Persistence.Repositories;
 using MediatR;
+using Domain.Abstractions.Persistence;
 
 namespace Application.Features.Bookings.Command.CancelBooking
 {

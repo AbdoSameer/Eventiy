@@ -1,10 +1,10 @@
 using Application.Abstractions.Messaging;
 using Application.Abstractions.Persistence;
 using Application.Abstractions.Security;
+using Domain.Abstractions.Persistence;
 using Domain.Aggregates.BookingAggregate.ValueObject;
 using Domain.Common;
 using Domain.Errors;
-using Domain.Persistence.Repositories;
 
 namespace Application.Features.Bookings.Command.ConfirmBooking
 {

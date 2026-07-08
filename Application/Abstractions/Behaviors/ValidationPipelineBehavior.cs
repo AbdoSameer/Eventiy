@@ -1,7 +1,8 @@
-﻿using Application.Abstractions.Messaging;
-using Domain.Common;
+﻿using Domain.Common;
 using FluentValidation;
 using MediatR;
+using System.Collections.Concurrent;
+using System.Reflection;
 
 namespace Application.Abstractions.Behaviors;
 
@@ -10,6 +11,8 @@ public sealed class ValidationPipelineBehavior<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
     where TResponse : Result
 {
+    private static readonly ConcurrentDictionary<Type, Func<Error[], object>> FactoryCache = new();
+
     private readonly IEnumerable<IValidator<TRequest>> _validators;
 
     public ValidationPipelineBehavior(
@@ -52,24 +55,15 @@ public sealed class ValidationPipelineBehavior<TRequest, TResponse>
         if (typeof(TResponse) == typeof(Result))
             return (TResponse)(object)Result.Failure(errors);
 
-        if (typeof(TResponse).IsGenericType &&
-            typeof(TResponse).GetGenericTypeDefinition() == typeof(Result<>))
+        var factory = FactoryCache.GetOrAdd(typeof(TResponse), static t =>
         {
-            var valueType = typeof(TResponse).GetGenericArguments()[0];
-            var result = typeof(ResultHelper)
-                .GetMethod(nameof(ResultHelper.Failure))!
-                .MakeGenericMethod(valueType)
-                .Invoke(null, [errors])!;
-            return (TResponse)result;
-        }
+            var valueType = t.GetGenericArguments()[0];
+            var method = typeof(Result<>)
+                .MakeGenericType(valueType)
+                .GetMethod(nameof(Result<object>.Failure), BindingFlags.Static | BindingFlags.Public, [typeof(Error[])])!;
+            return e => method.Invoke(null, [e])!;
+        });
 
-        throw new InvalidOperationException(
-            $"Unsupported response type {typeof(TResponse).Name}. " +
-            $"The type must be Result (for ICommand) or Result<T> (for ICommand<T> or IQuery<T>).");
+        return (TResponse)factory(errors);
     }
-}
-
-internal static class ResultHelper
-{
-    public static Result<T> Failure<T>(Error[] errors) => Result<T>.Failure(errors);
 }

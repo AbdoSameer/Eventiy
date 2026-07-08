@@ -1,4 +1,5 @@
 ﻿using Domain.Aggregates.EventAggregate;
+using Domain.Aggregates.EventAggregate.Entities;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
