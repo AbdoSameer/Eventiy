@@ -179,6 +179,28 @@ namespace Domain.Aggregates.EventAggregate
             return Result.Success();
         }
 
+        public Result AdminCancel(DateTime dateTime, EventMetadata metadata, string? reason = null)
+        {
+            if (Status == EventStatus.Cancelled)
+                return Result.Failure(EventErrors.AlreadyCancelled());
+
+            if (Status == EventStatus.Completed)
+                return Result.Failure(EventErrors.CannotCancelCompletedEvent());
+
+            Status = EventStatus.Cancelled;
+            CancelledAt = dateTime;
+            CancellationReason = reason;
+            LastModifiedAt = dateTime;
+
+            RaiseDomainEvent(new EventCancelledEvent(
+                Id,
+                dateTime,
+                metadata,
+                reason));
+
+            return Result.Success();
+        }
+
         public Result Complete(DateTime dateTime, EventMetadata metadata)
         {
             if (Status == EventStatus.Completed)
@@ -563,6 +585,113 @@ namespace Domain.Aggregates.EventAggregate
         }
 
 
+
+        // ===== Admin Override Methods (bypass Draft-only restriction) ===
+
+        public Result AdminUpdateName(string newName, DateTime utcNow)
+        {
+            if (string.IsNullOrWhiteSpace(newName))
+                return Result.Failure(EventErrors.NameCannotBeEmpty());
+
+            if (newName.Length > MAX_NAME_LENGTH)
+                return Result.Failure(EventErrors.NameTooLong(MAX_NAME_LENGTH));
+
+            var nameResult = EventName.Create(newName);
+            if (nameResult.IsFailure)
+                return Result.Failure(nameResult.Errors.ToArray());
+
+            EventName = nameResult.Value;
+            LastModifiedAt = utcNow;
+
+            return Result.Success();
+        }
+
+        public Result AdminUpdateCapacity(int newCapacityValue, DateTime utcNow, EventMetadata metadata)
+        {
+            if (newCapacityValue < MIN_CAPACITY)
+                return Result.Failure(EventErrors.InvalidTotalSeats(newCapacityValue));
+
+            var allocatedTickets = _ticketTypes.Sum(t => t.Capacity);
+            if (newCapacityValue < allocatedTickets)
+                return Result.Failure(EventErrors.TotalSeatsCannotBeLessThanAllocatedTickets(
+                    newCapacityValue, allocatedTickets));
+
+            var oldCapacity = Capacity;
+            Capacity = newCapacityValue;
+            LastModifiedAt = utcNow;
+
+            RaiseDomainEvent(new EventCapacityUpdatedEvent(
+                Id, oldCapacity, newCapacityValue, utcNow, metadata));
+
+            return Result.Success();
+        }
+
+        public Result AdminUpdateDate(DateTime newDate, DateTime utcNow)
+        {
+            if (newDate < utcNow)
+                return Result.Failure(EventErrors.InvalidEventDate(newDate));
+
+            Date = newDate;
+            LastModifiedAt = utcNow;
+
+            return Result.Success();
+        }
+
+        public Result AdminUpdateDescription(string newDescription, DateTime utcNow)
+        {
+            if (newDescription.Length > MAX_DESCRIPTION_LENGTH)
+                return Result.Failure(EventErrors.DescriptionTooLong(MAX_DESCRIPTION_LENGTH));
+
+            Description = newDescription;
+            LastModifiedAt = utcNow;
+
+            return Result.Success();
+        }
+
+        public Result AdminUpdateLocation(Address newLocation, DateTime utcNow)
+        {
+            if (newLocation == null || string.IsNullOrWhiteSpace(newLocation.City))
+                return Result.Failure(EventErrors.LocationCannotBeEmpty());
+
+            var locationResult = Address.Create(
+                newLocation.Country,
+                newLocation.City,
+                newLocation.Street ?? string.Empty);
+            if (locationResult.IsFailure)
+                return Result.Failure(locationResult.Errors.ToArray());
+
+            Location = locationResult.Value;
+            LastModifiedAt = utcNow;
+
+            return Result.Success();
+        }
+
+        public Result AdminAddTicketType(
+            string name,
+            Money price,
+            int capacity,
+            DateTime dateTime,
+            EventMetadata metadata)
+        {
+            if (_ticketTypes.Count >= MAX_TICKET_TYPES)
+                return Result.Failure(EventErrors.MaxTicketTypesReached(MAX_TICKET_TYPES));
+
+            var remainingCapacity = Capacity - _ticketTypes.Sum(t => t.Capacity);
+
+            var ticketResult = TicketType.Create(
+                Id, name, price, capacity, dateTime, remainingCapacity);
+
+            if (ticketResult.IsFailure)
+                return Result.Failure(ticketResult.Errors.ToArray());
+
+            _ticketTypes.Add(ticketResult.Value);
+            LastModifiedAt = dateTime;
+
+            RaiseDomainEvent(new TicketTypeAddedEvent(
+                Id, ticketResult.Value.Id, name, price.Amount, capacity, dateTime, metadata));
+
+            return Result.Success();
+        }
 
         // ===== Photo Management =====================================
 

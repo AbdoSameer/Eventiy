@@ -1,63 +1,68 @@
-<article
-  (click)="open()"
-  class="group cursor-pointer bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden hover:-translate-y-1 flex flex-col"
->
+<article (click)="open()" class="event-card">
   @let evt = event()!;
-  <!-- Image section: fixed 200px -->
-  <div class="relative h-[200px] overflow-hidden rounded-t-2xl bg-gradient-to-br from-rose-400 to-orange-300">
+
+  <!-- Image section -->
+  <div class="event-card-image">
     @if (evt.coverPhotoUrl) {
       <img
         [src]="evt.coverPhotoUrl"
         [alt]="evt.title"
-        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+        class="event-card-img"
         loading="lazy"
         appImgFallback
       />
     } @else {
-      <div class="w-full h-full flex items-center justify-center text-white text-5xl select-none">
-        🎟️
+      <div class="event-card-img-placeholder">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.712V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" />
+        </svg>
       </div>
     }
-
-    <!-- Price badge top-left -->
-    <span class="absolute top-3 left-3 bg-white/90 text-gray-900 text-xs font-bold px-3 py-1 rounded-full shadow-sm">
-      {{ priceLabel }}
-    </span>
-
-    <!-- Share icon top-right -->
-    <button (click)="share($event)" class="absolute top-3 right-3 w-8 h-8 flex items-center justify-center bg-white/90 rounded-full shadow-sm hover:bg-white transition-colors" aria-label="Share event">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
-      </svg>
-    </button>
   </div>
 
-  <!-- Body -->
-  <div class="p-4 flex flex-col gap-1.5 flex-1">
-    <h3 class="font-bold text-gray-900 line-clamp-2 leading-snug">
-      {{ evt.title }}
-    </h3>
+  <!-- Content section -->
+  <div class="event-card-body">
+    <h3 class="event-card-title">{{ evt.title }}</h3>
 
-    <p class="text-sm text-gray-500 flex items-center gap-1.5">
-      <span>📅</span>
-      <time [attr.datetime]="evt.date">{{ evt.date | dateFormat }}</time>
-    </p>
+    <div class="event-card-meta">
+      <span class="event-card-meta-item">
+        <svg class="event-card-meta-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+        <time [attr.datetime]="evt.date">{{ evt.date | dateFormat }}</time>
+      </span>
 
-    @if (evt.organizerName) {
-      <p class="text-sm text-gray-400">by {{ evt.organizerName }}</p>
-    }
-
-    <div class="flex items-center gap-2 mt-1">
-      <div class="flex -space-x-2">
-        <div class="w-6 h-6 rounded-full bg-gray-300 border-2 border-white"></div>
-        <div class="w-6 h-6 rounded-full bg-gray-400 border-2 border-white"></div>
-        <div class="w-6 h-6 rounded-full bg-gray-500 border-2 border-white"></div>
-      </div>
-      <span class="text-xs text-gray-500 font-medium">{{ attendeeLabel }}</span>
+      @if (evt.location) {
+        <span class="event-card-meta-item">
+          <svg class="event-card-meta-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          {{ evt.location }}
+        </span>
+      }
     </div>
 
-    <div class="mt-auto pt-2 flex justify-end">
-      <span class="text-sm font-medium text-primary">View details &rarr;</span>
+    <div class="event-card-footer">
+      <!-- Attendee avatars -->
+      <div class="event-card-attendees">
+        <div class="avatar-stack">
+          <div class="avatar"></div>
+          <div class="avatar avatar-2"></div>
+          <div class="avatar avatar-3"></div>
+        </div>
+        <span class="attendee-count">{{ attendeeLabel }}</span>
+      </div>
+
+      <!-- Price badge + Share -->
+      <div class="event-card-actions">
+        <span class="price-badge">{{ priceLabel }}</span>
+        <button (click)="share($event)" class="share-btn" aria-label="Share event">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
+          </svg>
+        </button>
+      </div>
     </div>
   </div>
 </article>

@@ -1,0 +1,212 @@
+/* ── Variables ────────────────────────────────────── */
+.how-it-works {
+  --bg-color: #ffffff;
+  --text-main: #1F2937;
+  --text-muted: #6B7280;
+  --accent-color: #F6544C;
+  --accent-hover: #E53E3E;
+  
+  --card-bg: #ffffff;
+  --card-border: #F3F4F6;
+  --card-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.06);
+  --card-shadow-hover: 0 20px 40px -10px rgba(0, 0, 0, 0.12);
+  
+  --icon-bg-1: #ECFDF5; /* Soft Green */
+  --icon-color-1: #10B981;
+  --icon-bg-2: #EEF2FF; /* Soft Indigo */
+  --icon-color-2: #6366F1;
+  --icon-bg-3: #FFF7ED; /* Soft Orange */
+  --icon-color-3: #F97316;
+
+  padding: 6rem 1rem;
+  background-color: var(--bg-color);
+  overflow: hidden;
+}
+
+/* ── Container & Title ────────────────────────────── */
+.hiw-container {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.hiw-title {
+  text-align: center;
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: var(--text-main);
+  margin-bottom: 5rem;
+  letter-spacing: -0.02em;
+}
+
+/* ── Grid Layout ──────────────────────────────────── */
+.hiw-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: auto auto;
+  gap: 2.5rem;
+  position: relative;
+}
+
+/* Card Placements */
+.card-1 { grid-column: 1 / 2; grid-row: 1 / 2; }
+.card-2 { grid-column: 3 / 4; grid-row: 1 / 2; }
+.card-3 { grid-column: 2 / 3; grid-row: 2 / 3; }
+.hiw-doodle { grid-column: 1 / 2; grid-row: 2 / 3; }
+
+/* ── Connecting Arrows ────────────────────────────── */
+.hiw-arrow {
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.hiw-arrow-1 {
+  top: 20%;
+  left: 33%;
+  width: 33%;
+  height: 60px;
+}
+
+.hiw-arrow-2 {
+  top: 35%;
+  right: 18%;
+  width: 15%;
+  height: 120px;
+}
+
+/* ── Cards ────────────────────────────────────────── */
+.hiw-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 1.25rem;
+  padding: 2rem;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 1.25rem;
+  box-shadow: var(--card-shadow);
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+  z-index: 2;
+  position: relative;
+}
+
+.hiw-card:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--card-shadow-hover);
+  border-color: #E5E7EB;
+}
+
+/* ── Icons ────────────────────────────────────────── */
+.hiw-icon {
+  flex-shrink: 0;
+  width: 3rem;
+  height: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+}
+
+.hiw-icon svg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.icon-search { background: var(--icon-bg-1); color: var(--icon-color-1); }
+.icon-people { background: var(--icon-bg-2); color: var(--icon-color-2); }
+.icon-star { background: var(--icon-bg-3); color: var(--icon-color-3); }
+
+/* ── Card Content ─────────────────────────────────── */
+.hiw-content h3 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0 0 0.5rem 0;
+}
+
+.hiw-content p {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 0 0 1rem 0;
+}
+
+.hiw-content a {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--accent-color);
+  text-decoration: none;
+  transition: color 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+}
+
+.hiw-content a:hover {
+  color: var(--accent-hover);
+  text-decoration: underline;
+}
+
+/* ── Doodle Text ──────────────────────────────────── */
+.hiw-doodle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  color: var(--icon-color-3);
+  font-family: 'Comic Sans MS', 'Chalkboard SE', cursive, sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  opacity: 0.75;
+  transform: rotate(-4deg);
+  padding-right: 2rem;
+}
+
+.hiw-doodle svg {
+  width: 2rem;
+  height: 2rem;
+}
+
+/* ── Responsive ───────────────────────────────────── */
+@media (max-width: 1024px) {
+  .hiw-grid {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto;
+  }
+  
+  .card-1 { grid-column: 1 / 2; grid-row: 1 / 2; }
+  .card-2 { grid-column: 2 / 3; grid-row: 1 / 2; }
+  
+  /* Center the bottom card across both columns */
+  .card-3 { 
+    grid-column: 1 / -1; 
+    grid-row: 2 / 3; 
+    justify-self: center; 
+    width: 100%; 
+    max-width: 500px; 
+  }
+  
+  /* Hide desktop decorations on smaller screens */
+  .hiw-doodle, .hiw-arrow { display: none; }
+}
+
+@media (max-width: 768px) {
+  .how-it-works {
+    padding: 4rem 1rem;
+  }
+
+  .hiw-title {
+    font-size: 2rem;
+    margin-bottom: 2.5rem;
+  }
+  
+  .hiw-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  
+  .card-1, .card-2, .card-3 {
+    grid-column: 1 / -1;
+    grid-row: auto;
+    max-width: 100%;
+  }
+}

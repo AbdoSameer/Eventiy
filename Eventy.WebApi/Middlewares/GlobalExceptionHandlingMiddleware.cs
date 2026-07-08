@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Net;
+using System.Security;
 using System.Text.Json;
 
 namespace Eventy.WebApi.Middlewares;
@@ -39,6 +40,13 @@ public sealed class GlobalExceptionHandlingMiddleware(
         {
             logger.LogInformation("Request cancelled on {Path}", context.Request.Path);
             context.Response.StatusCode = 499; // Client Closed Request
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            logger.LogWarning(ex, "Unauthorized access attempt on {Path}", context.Request.Path);
+            await WriteProblemAsync(context, HttpStatusCode.Forbidden,
+                "unauthorized",
+                "You do not have permission to perform this action.");
         }
         catch (Exception ex)
         {

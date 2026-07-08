@@ -133,9 +133,9 @@ export class AttendeeDashboardComponent implements OnInit {
     const title = booking.eventTitle.toLowerCase();
     for (const key of Object.keys(CATEGORY_META)) {
       if (title.includes(key.toLowerCase())) {
-        return CATEGORY_META[key].emoji;
+        return CATEGORY_META[key].label;
       }
     }
-    return '🎟️';
+    return '🎫';
   }
 }

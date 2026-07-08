@@ -123,7 +123,7 @@ public static class DatabaseSeeder
         List<UserId> userIds,
         ILogger logger)
     {
-        var events = CreateFifaEvents(logger);
+        var events = CreateSeedEvents(logger);
 
         foreach (var eventItem in events)
         {
@@ -142,7 +142,7 @@ public static class DatabaseSeeder
         }
 
         var attendeeIds = userIds.Skip(3).ToList();
-        var bookings = CreateFifaBookings(events, attendeeIds, logger);
+        var bookings = CreateSeedBookings(events, attendeeIds, logger);
 
         if (bookings.Any())
         {
@@ -165,7 +165,7 @@ public static class DatabaseSeeder
         await UpdateTicketSalesAsync(context, events, logger);
     }
 
-    private static List<Event> CreateFifaEvents(ILogger logger)
+    private static List<Event> CreateSeedEvents(ILogger logger)
     {
         var events = new List<Event>();
         var utcNow = TimeProvider.System.GetUtcNow().UtcDateTime;
@@ -181,179 +181,395 @@ public static class DatabaseSeeder
 
         try
         {
-            // 1. FIFA World Cup Final 2027
-            var address1 = GetValue(
+            // ─── Music ──────────────────────────────────────────────
+            var addrMusic1 = GetValue(
+                Address.Create("Egypt", "Cairo", "Cairo International Stadium", "11511"),
+                "address for Cairo Music Festival");
+            var music1 = GetValue(
+                Event.Create("Cairo International Music Festival 2027", 60000,
+                    new DateTime(2027, 7, 20, 19, 0, 0),
+                    addrMusic1, "Three nights of world-class performances at the historic Cairo Stadium, featuring international and Arab artists.",
+                    EventType.Music, utcNow, metadata),
+                "Cairo Music Festival");
+            music1.AddTicketType("VIP Golden Circle",
+                GetValue(Money.Create(350, "USD"), "VIP"), 3000, utcNow, metadata);
+            music1.AddTicketType("Premium Seated",
+                GetValue(Money.Create(150, "USD"), "Premium"), 12000, utcNow, metadata);
+            music1.AddTicketType("General Admission",
+                GetValue(Money.Create(50, "USD"), "GA"), 30000, utcNow, metadata);
+            music1.Publish(utcNow, metadata);
+            events.Add(music1);
+
+            var addrMusic2 = GetValue(
+                Address.Create("France", "Paris", "Accor Arena", "75012"),
+                "address for Paris Jazz Festival");
+            var music2 = GetValue(
+                Event.Create("Paris Jazz Festival 2027", 18000,
+                    new DateTime(2027, 6, 5, 18, 0, 0),
+                    addrMusic2, "World-renowned jazz musicians converge at the iconic Accor Arena for a week-long celebration of improvisation and rhythm.",
+                    EventType.Music, utcNow, metadata),
+                "Paris Jazz Festival");
+            music2.AddTicketType("VIP Backstage Pass",
+                GetValue(Money.Create(400, "USD"), "VIP"), 1000, utcNow, metadata);
+            music2.AddTicketType("Orchestre Central",
+                GetValue(Money.Create(180, "USD"), "Central"), 5000, utcNow, metadata);
+            music2.AddTicketType("Latérale",
+                GetValue(Money.Create(80, "USD"), "Side"), 8000, utcNow, metadata);
+            music2.Publish(utcNow, metadata);
+            events.Add(music2);
+
+            // ─── Tech ───────────────────────────────────────────────
+            var addrTech1 = GetValue(
+                Address.Create("United Arab Emirates", "Dubai", "Dubai World Trade Centre", "00000"),
+                "address for Dubai AI Summit");
+            var tech1 = GetValue(
+                Event.Create("Dubai AI & Blockchain Summit 2027", 40000,
+                    new DateTime(2027, 10, 12, 9, 0, 0),
+                    addrTech1, "The Middle East's largest technology summit exploring AI, blockchain, fintech, and Web3 innovation.",
+                    EventType.Tech, utcNow, metadata),
+                "Dubai AI Summit");
+            tech1.AddTicketType("VIP Investor Pass",
+                GetValue(Money.Create(3200, "USD"), "VIP Investor"), 3000, utcNow, metadata);
+            tech1.AddTicketType("Full Conference Pass",
+                GetValue(Money.Create(1500, "USD"), "Full Conference"), 15000, utcNow, metadata);
+            tech1.AddTicketType("Expo Only Pass",
+                GetValue(Money.Create(200, "USD"), "Expo"), 20000, utcNow, metadata);
+            tech1.Publish(utcNow, metadata);
+            events.Add(tech1);
+
+            var addrTech2 = GetValue(
+                Address.Create("Germany", "Berlin", "Berlin ExpoCenter City", "14055"),
+                "address for Berlin TechWeek");
+            var tech2 = GetValue(
+                Event.Create("Berlin TechWeek 2027", 30000,
+                    new DateTime(2027, 9, 6, 9, 0, 0),
+                    addrTech2, "Europe's cutting-edge tech festival showcasing deep tech, SaaS, and green innovation.",
+                    EventType.Tech, utcNow, metadata),
+                "Berlin TechWeek");
+            tech2.AddTicketType("Founder Pass",
+                GetValue(Money.Create(1800, "USD"), "Founder"), 5000, utcNow, metadata);
+            tech2.AddTicketType("Developer Pass",
+                GetValue(Money.Create(600, "USD"), "Developer"), 12000, utcNow, metadata);
+            tech2.AddTicketType("Student Pass",
+                GetValue(Money.Create(150, "USD"), "Student"), 8000, utcNow, metadata);
+            tech2.Publish(utcNow, metadata);
+            events.Add(tech2);
+
+            // ─── Sports ─────────────────────────────────────────────
+            var addrSport1 = GetValue(
+                Address.Create("Brazil", "Rio de Janeiro", "Maracanã Stadium", "20271-130"),
+                "address for Rio Marathon");
+            var sport1 = GetValue(
+                Event.Create("Rio de Janeiro Marathon & Half-Marathon 2027", 35000,
+                    new DateTime(2027, 8, 1, 6, 0, 0),
+                    addrSport1, "Run along the iconic beaches of Copacabana and Ipanema in one of South America's biggest sporting events.",
+                    EventType.Sports, utcNow, metadata),
+                "Rio Marathon 2027");
+            sport1.AddTicketType("Elite Runner Entry",
+                GetValue(Money.Create(300, "USD"), "Elite"), 500, utcNow, metadata);
+            sport1.AddTicketType("Standard Runner",
+                GetValue(Money.Create(120, "USD"), "Standard"), 15000, utcNow, metadata);
+            sport1.AddTicketType("Charity Runner",
+                GetValue(Money.Create(200, "USD"), "Charity"), 5000, utcNow, metadata);
+            sport1.AddTicketType("Spectator Pass",
+                GetValue(Money.Create(40, "USD"), "Spectator"), 10000, utcNow, metadata);
+            sport1.Publish(utcNow, metadata);
+            events.Add(sport1);
+
+            var addrSport2 = GetValue(
                 Address.Create("United States", "New York", "MetLife Stadium", "10001"),
-                "address for FIFA World Cup Final 2027");
-
-            var event1 = GetValue(
-                Event.Create("FIFA World Cup Final 2027", 75000,
-                    new DateTime(2027, 7, 19, 18, 0, 0),
-                    address1, "The grand finale of the FIFA World Cup 2027.",
+                "address for FIFA World Cup Final");
+            var sport2 = GetValue(
+                Event.Create("FIFA World Cup 2027: Brazil vs Argentina — Final", 82500,
+                    new DateTime(2027, 7, 18, 18, 0, 0),
+                    addrSport2, "The grand finale of the FIFA World Cup 2027. Two South American giants battle for football's ultimate prize at MetLife Stadium.",
                     EventType.Sports, utcNow, metadata),
-                "FIFA World Cup Final 2027");
+                "World Cup Final 2027");
+            sport2.AddTicketType("VIP Hospitality Suite",
+                GetValue(Money.Create(3500, "USD"), "VIP Suite"), 500, utcNow, metadata);
+            sport2.AddTicketType("Premium Sideline",
+                GetValue(Money.Create(1200, "USD"), "Premium"), 3000, utcNow, metadata);
+            sport2.AddTicketType("Category 1",
+                GetValue(Money.Create(600, "USD"), "Cat 1"), 8000, utcNow, metadata);
+            sport2.AddTicketType("Category 2",
+                GetValue(Money.Create(350, "USD"), "Cat 2"), 12000, utcNow, metadata);
+            sport2.AddTicketType("Category 3",
+                GetValue(Money.Create(180, "USD"), "Cat 3"), 25000, utcNow, metadata);
+            sport2.Publish(utcNow, metadata);
+            events.Add(sport2);
 
-            event1.AddTicketType("VIP Hospitality",
-                GetValue(Money.Create(1500, "USD"), "VIP ticket price"), 500, utcNow, metadata);
-            event1.AddTicketType("Premium Category 1",
-                GetValue(Money.Create(800, "USD"), "Premium ticket price"), 2000, utcNow, metadata);
-            event1.AddTicketType("Standard Category 2",
-                GetValue(Money.Create(450, "USD"), "Standard ticket price"), 5000, utcNow, metadata);
-            event1.AddTicketType("General Admission",
-                GetValue(Money.Create(250, "USD"), "General Admission ticket price"), 25000, utcNow, metadata);
-            event1.Publish(utcNow, metadata);
-            events.Add(event1);
+            var addrSport3 = GetValue(
+                Address.Create("United States", "Los Angeles", "Rose Bowl Stadium", "91103"),
+                "address for World Cup Semi-Final 1");
+            var sport3 = GetValue(
+                Event.Create("FIFA World Cup 2027: Semi-Final 1 — Germany vs France", 72000,
+                    new DateTime(2027, 7, 14, 20, 0, 0),
+                    addrSport3, "A European classic in the semi-final: Germany take on France at the iconic Rose Bowl with a place in the final on the line.",
+                    EventType.Sports, utcNow, metadata),
+                "World Cup Semi-Final 1");
+            sport3.AddTicketType("Premium Sideline",
+                GetValue(Money.Create(900, "USD"), "Premium"), 4000, utcNow, metadata);
+            sport3.AddTicketType("Category 1",
+                GetValue(Money.Create(450, "USD"), "Cat 1"), 10000, utcNow, metadata);
+            sport3.AddTicketType("Category 2",
+                GetValue(Money.Create(250, "USD"), "Cat 2"), 20000, utcNow, metadata);
+            sport3.AddTicketType("General Admission",
+                GetValue(Money.Create(120, "USD"), "GA"), 30000, utcNow, metadata);
+            sport3.Publish(utcNow, metadata);
+            events.Add(sport3);
 
-            // 2. Semi-Final 1
-            var address2 = GetValue(
+            var addrSport4 = GetValue(
                 Address.Create("Mexico", "Mexico City", "Estadio Azteca", "01000"),
-                "address for Semi-Final 1");
-
-            var event2 = GetValue(
-                Event.Create("FIFA World Cup Semi-Final 2027 - Match 1", 68000,
-                    new DateTime(2027, 7, 14, 17, 0, 0),
-                    address2, "First semi-final of the FIFA World Cup 2027.",
+                "address for World Cup Semi-Final 2");
+            var sport4 = GetValue(
+                Event.Create("FIFA World Cup 2027: Semi-Final 2 — Portugal vs England", 85000,
+                    new DateTime(2027, 7, 15, 15, 0, 0),
+                    addrSport4, "The second semi-final at the legendary Estadio Azteca. Portugal's golden generation faces England's rising stars.",
                     EventType.Sports, utcNow, metadata),
-                "Semi-Final 1");
+                "World Cup Semi-Final 2");
+            sport4.AddTicketType("VIP Hospitality",
+                GetValue(Money.Create(1200, "USD"), "VIP"), 1000, utcNow, metadata);
+            sport4.AddTicketType("Premium",
+                GetValue(Money.Create(600, "USD"), "Premium"), 8000, utcNow, metadata);
+            sport4.AddTicketType("Stand",
+                GetValue(Money.Create(200, "USD"), "Stand"), 30000, utcNow, metadata);
+            sport4.AddTicketType("General Admission",
+                GetValue(Money.Create(90, "USD"), "GA"), 35000, utcNow, metadata);
+            sport4.Publish(utcNow, metadata);
+            events.Add(sport4);
 
-            event2.AddTicketType("VIP",
-                GetValue(Money.Create(1200, "USD"), "VIP ticket price"), 400, utcNow, metadata);
-            event2.AddTicketType("Premium",
-                GetValue(Money.Create(600, "USD"), "Premium ticket price"), 3000, utcNow, metadata);
-            event2.AddTicketType("Standard",
-                GetValue(Money.Create(300, "USD"), "Standard ticket price"), 15000, utcNow, metadata);
-            event2.Publish(utcNow, metadata);
-            events.Add(event2);
-
-            // 3. Semi-Final 2
-            var address3 = GetValue(
-                Address.Create("United States", "Dallas", "AT&T Stadium", "76011"),
-                "address for Semi-Final 2");
-
-            var event3 = GetValue(
-                Event.Create("FIFA World Cup Semi-Final 2027 - Match 2", 68000,
-                    new DateTime(2027, 7, 15, 17, 0, 0),
-                    address3, "Second semi-final of the FIFA World Cup 2027.",
+            var addrSport5 = GetValue(
+                Address.Create("United States", "Atlanta", "Mercedes-Benz Stadium", "30313"),
+                "address for World Cup Quarter-Final 1");
+            var sport5 = GetValue(
+                Event.Create("FIFA World Cup 2027: Quarter-Final — Italy vs Spain", 65000,
+                    new DateTime(2027, 7, 10, 17, 0, 0),
+                    addrSport5, "A Mediterranean derby in the quarter-finals. Italy vs Spain at Mercedes-Benz Stadium for a place in the semi-finals.",
                     EventType.Sports, utcNow, metadata),
-                "Semi-Final 2");
+                "World Cup Quarter-Final Italy vs Spain");
+            sport5.AddTicketType("Premium",
+                GetValue(Money.Create(500, "USD"), "Premium"), 5000, utcNow, metadata);
+            sport5.AddTicketType("Category 1",
+                GetValue(Money.Create(280, "USD"), "Cat 1"), 15000, utcNow, metadata);
+            sport5.AddTicketType("General Admission",
+                GetValue(Money.Create(100, "USD"), "GA"), 30000, utcNow, metadata);
+            sport5.Publish(utcNow, metadata);
+            events.Add(sport5);
 
-            event3.AddTicketType("VIP",
-                GetValue(Money.Create(1200, "USD"), "VIP ticket price"), 400, utcNow, metadata);
-            event3.AddTicketType("Premium",
-                GetValue(Money.Create(600, "USD"), "Premium ticket price"), 3000, utcNow, metadata);
-            event3.AddTicketType("Standard",
-                GetValue(Money.Create(300, "USD"), "Standard ticket price"), 15000, utcNow, metadata);
-            event3.Publish(utcNow, metadata);
-            events.Add(event3);
-
-            // 4. Quarter-Final
-            var address4 = GetValue(
-                Address.Create("Canada", "Toronto", "Rogers Centre", "M5V 1J1"),
-                "address for Quarter-Final");
-
-            var event4 = GetValue(
-                Event.Create("FIFA World Cup Quarter-Final 2027 - Match 1", 55000,
-                    new DateTime(2027, 7, 9, 16, 0, 0),
-                    address4, "First quarter-final match of the FIFA World Cup 2027.",
+            var addrSport6 = GetValue(
+                Address.Create("United States", "Dallas", "AT&T Stadium", "76111"),
+                "address for World Cup Quarter-Final 2");
+            var sport6 = GetValue(
+                Event.Create("FIFA World Cup 2027: Quarter-Final — Netherlands vs Belgium", 70000,
+                    new DateTime(2027, 7, 10, 20, 0, 0),
+                    addrSport6, "A Low Countries showdown in Dallas. Netherlands vs Belgium — bragging rights and a semi-final spot at stake.",
                     EventType.Sports, utcNow, metadata),
-                "Quarter-Final");
+                "World Cup Quarter-Final Netherlands vs Belgium");
+            sport6.AddTicketType("Premium",
+                GetValue(Money.Create(450, "USD"), "Premium"), 6000, utcNow, metadata);
+            sport6.AddTicketType("Category 1",
+                GetValue(Money.Create(250, "USD"), "Cat 1"), 18000, utcNow, metadata);
+            sport6.AddTicketType("General Admission",
+                GetValue(Money.Create(90, "USD"), "GA"), 35000, utcNow, metadata);
+            sport6.Publish(utcNow, metadata);
+            events.Add(sport6);
 
-            event4.AddTicketType("VIP",
-                GetValue(Money.Create(900, "USD"), "VIP ticket price"), 300, utcNow, metadata);
-            event4.AddTicketType("Premium",
-                GetValue(Money.Create(400, "USD"), "Premium ticket price"), 2000, utcNow, metadata);
-            event4.AddTicketType("Standard",
-                GetValue(Money.Create(200, "USD"), "Standard ticket price"), 10000, utcNow, metadata);
-            event4.Publish(utcNow, metadata);
-            events.Add(event4);
-
-            // 5. Brazil vs Argentina
-            var address5 = GetValue(
-                Address.Create("United States", "Los Angeles", "SoFi Stadium", "90295"),
-                "address for Brazil vs Argentina");
-
-            var event5 = GetValue(
-                Event.Create("Brazil vs Argentina - Group Stage", 70000,
-                    new DateTime(2027, 6, 20, 21, 0, 0),
-                    address5, "An epic South American derby in the group stage.",
-                    EventType.Sports, utcNow, metadata),
-                "Brazil vs Argentina");
-
-            event5.AddTicketType("VIP",
-                GetValue(Money.Create(1000, "USD"), "VIP ticket price"), 350, utcNow, metadata);
-            event5.AddTicketType("Premium",
-                GetValue(Money.Create(500, "USD"), "Premium ticket price"), 2500, utcNow, metadata);
-            event5.AddTicketType("Standard",
-                GetValue(Money.Create(250, "USD"), "Standard ticket price"), 20000, utcNow, metadata);
-            event5.AddTicketType("General Admission",
-                GetValue(Money.Create(150, "USD"), "General Admission ticket price"), 30000, utcNow, metadata);
-            event5.Publish(utcNow, metadata);
-            events.Add(event5);
-
-            // 6. Spain vs Germany
-            var address6 = GetValue(
-                Address.Create("Mexico", "Guadalajara", "Estadio Akron", "45100"),
-                "address for Spain vs Germany");
-
-            var event6 = GetValue(
-                Event.Create("Spain vs Germany - Group Stage", 65000,
-                    new DateTime(2027, 6, 22, 18, 0, 0),
-                    address6, "European powerhouses Spain and Germany face off.",
-                    EventType.Sports, utcNow, metadata),
-                "Spain vs Germany");
-
-            event6.AddTicketType("VIP",
-                GetValue(Money.Create(900, "USD"), "VIP ticket price"), 300, utcNow, metadata);
-            event6.AddTicketType("Premium",
-                GetValue(Money.Create(450, "USD"), "Premium ticket price"), 2000, utcNow, metadata);
-            event6.AddTicketType("Standard",
-                GetValue(Money.Create(220, "USD"), "Standard ticket price"), 15000, utcNow, metadata);
-            event6.Publish(utcNow, metadata);
-            events.Add(event6);
-
-            // 7. Opening Match
-            var address7 = GetValue(
-                Address.Create("Mexico", "Mexico City", "Estadio Azteca", "01000"),
-                "address for Opening Match");
-
-            var event7 = GetValue(
-                Event.Create("FIFA World Cup Opening Match 2027", 72000,
-                    new DateTime(2027, 6, 14, 20, 0, 0),
-                    address7, "The grand opening match of the FIFA World Cup 2027.",
-                    EventType.Sports, utcNow, metadata),
-                "Opening Match");
-
-            event7.AddTicketType("VIP Opening Ceremony",
-                GetValue(Money.Create(2000, "USD"), "VIP ticket price"), 500, utcNow, metadata);
-            event7.AddTicketType("Premium",
-                GetValue(Money.Create(700, "USD"), "Premium ticket price"), 3000, utcNow, metadata);
-            event7.AddTicketType("Standard",
-                GetValue(Money.Create(350, "USD"), "Standard ticket price"), 20000, utcNow, metadata);
-            event7.AddTicketType("General Admission",
-                GetValue(Money.Create(200, "USD"), "General Admission ticket price"), 35000, utcNow, metadata);
-            event7.Publish(utcNow, metadata);
-            events.Add(event7);
-
-            // 8. Club World Cup (Draft)
-            var address8 = GetValue(
+            var addrSport7 = GetValue(
                 Address.Create("United States", "Miami", "Hard Rock Stadium", "33056"),
-                "address for Club World Cup");
-
-            var event8 = GetValue(
-                Event.Create("FIFA Club World Cup Final 2027", 60000,
-                    new DateTime(2027, 12, 20, 19, 0, 0),
-                    address8, "The FIFA Club World Cup Final.",
+                "address for World Cup Round of 16");
+            var sport7 = GetValue(
+                Event.Create("FIFA World Cup 2027: Round of 16 — Uruguay vs Croatia", 55000,
+                    new DateTime(2027, 7, 6, 16, 0, 0),
+                    addrSport7, "A knockout clash between two nations who've punched above their weight. Uruguay vs Croatia at Hard Rock Stadium.",
                     EventType.Sports, utcNow, metadata),
-                "Club World Cup");
+                "World Cup Round of 16 Uruguay vs Croatia");
+            sport7.AddTicketType("Premium",
+                GetValue(Money.Create(350, "USD"), "Premium"), 4000, utcNow, metadata);
+            sport7.AddTicketType("Standard",
+                GetValue(Money.Create(180, "USD"), "Standard"), 20000, utcNow, metadata);
+            sport7.AddTicketType("General Admission",
+                GetValue(Money.Create(75, "USD"), "GA"), 25000, utcNow, metadata);
+            sport7.Publish(utcNow, metadata);
+            events.Add(sport7);
 
-            event8.AddTicketType("VIP",
-                GetValue(Money.Create(800, "USD"), "VIP ticket price"), 250, utcNow, metadata);
-            event8.AddTicketType("Premium",
-                GetValue(Money.Create(400, "USD"), "Premium ticket price"), 2000, utcNow, metadata);
-            event8.AddTicketType("Standard",
-                GetValue(Money.Create(200, "USD"), "Standard ticket price"), 15000, utcNow, metadata);
-            // Draft � not published
-            events.Add(event8);
+            // ─── Art ────────────────────────────────────────────────
+            var addrArt1 = GetValue(
+                Address.Create("France", "Paris", "Musée du Louvre", "75001"),
+                "address for Louvre Exhibition");
+            var art1 = GetValue(
+                Event.Create("Louvre: Masters of Modern Art Exhibition 2027", 25000,
+                    new DateTime(2027, 4, 10, 9, 0, 0),
+                    addrArt1, "An exclusive exhibition featuring masterpieces from the Musée d'Orsay and the Louvre's modern art collection.",
+                    EventType.Art, utcNow, metadata),
+                "Louvre Masters Exhibition");
+            art1.AddTicketType("VIP Guided Tour",
+                GetValue(Money.Create(500, "USD"), "VIP Tour"), 500, utcNow, metadata);
+            art1.AddTicketType("Full Access Pass",
+                GetValue(Money.Create(120, "USD"), "Full Access"), 10000, utcNow, metadata);
+            art1.AddTicketType("Standard Entry",
+                GetValue(Money.Create(40, "USD"), "Standard"), 12000, utcNow, metadata);
+            art1.Publish(utcNow, metadata);
+            events.Add(art1);
+
+            var addrArt2 = GetValue(
+                Address.Create("Japan", "Tokyo", "Mori Arts Center Gallery", "106-6150"),
+                "address for Tokyo Art Fair");
+            var art2 = GetValue(
+                Event.Create("Tokyo International Art Fair 2027", 20000,
+                    new DateTime(2027, 11, 5, 10, 0, 0),
+                    addrArt2, "Contemporary art from Asia's most innovative creators at the Roppongi Hills Mori Tower.",
+                    EventType.Art, utcNow, metadata),
+                "Tokyo Art Fair 2027");
+            art2.AddTicketType("Collector's Pass",
+                GetValue(Money.Create(450, "USD"), "Collector"), 2000, utcNow, metadata);
+            art2.AddTicketType("General Admission",
+                GetValue(Money.Create(60, "USD"), "GA"), 10000, utcNow, metadata);
+            art2.Publish(utcNow, metadata);
+            events.Add(art2);
+
+            // ─── Food ───────────────────────────────────────────────
+            var addrFood1 = GetValue(
+                Address.Create("Egypt", "Cairo", "Zamalek Corniche", "11511"),
+                "address for Cairo Food Festival");
+            var food1 = GetValue(
+                Event.Create("Cairo Nile Food Festival 2027", 30000,
+                    new DateTime(2027, 5, 15, 16, 0, 0),
+                    addrFood1, "Egyptian street food, international gourmet dishes, and live cooking competitions along the Nile.",
+                    EventType.Food, utcNow, metadata),
+                "Cairo Food Festival");
+            food1.AddTicketType("VIP Tasting Pass",
+                GetValue(Money.Create(200, "USD"), "VIP Tasting"), 3000, utcNow, metadata);
+            food1.AddTicketType("Standard Entry",
+                GetValue(Money.Create(30, "USD"), "Standard"), 20000, utcNow, metadata);
+            food1.Publish(utcNow, metadata);
+            events.Add(food1);
+
+            var addrFood2 = GetValue(
+                Address.Create("Japan", "Osaka", "Osaka Castle Park", "540-0002"),
+                "address for Osaka Food Fest");
+            var food2 = GetValue(
+                Event.Create("Osaka Street Food & Ramen Festival 2027", 40000,
+                    new DateTime(2027, 3, 22, 11, 0, 0),
+                    addrFood2, "Japan's culinary capital presents its annual celebration of takoyaki, okonomiyaki, ramen, and sake.",
+                    EventType.Food, utcNow, metadata),
+                "Osaka Food Festival");
+            food2.AddTicketType("Premium All-You-Can-Eat",
+                GetValue(Money.Create(180, "USD"), "Premium"), 5000, utcNow, metadata);
+            food2.AddTicketType("Tasting Pass (10 dishes)",
+                GetValue(Money.Create(80, "USD"), "Tasting Pass"), 15000, utcNow, metadata);
+            food2.AddTicketType("General Entry",
+                GetValue(Money.Create(15, "USD"), "General"), 20000, utcNow, metadata);
+            food2.Publish(utcNow, metadata);
+            events.Add(food2);
+
+            // ─── Education ──────────────────────────────────────────
+            var addrEdu1 = GetValue(
+                Address.Create("Egypt", "Alexandria", "Bibliotheca Alexandrina", "21526"),
+                "address for Alexandria Knowledge Summit");
+            var edu1 = GetValue(
+                Event.Create("Alexandria Knowledge Summit 2027", 8000,
+                    new DateTime(2027, 9, 20, 9, 0, 0),
+                    addrEdu1, "A gathering of scholars, scientists, and thought leaders at the legendary Library of Alexandria.",
+                    EventType.Education, utcNow, metadata),
+                "Alexandria Knowledge Summit");
+            edu1.AddTicketType("Academic Pass",
+                GetValue(Money.Create(300, "USD"), "Academic"), 3000, utcNow, metadata);
+            edu1.AddTicketType("Student Pass",
+                GetValue(Money.Create(50, "USD"), "Student"), 4000, utcNow, metadata);
+            edu1.Publish(utcNow, metadata);
+            events.Add(edu1);
+
+            var addrEdu2 = GetValue(
+                Address.Create("France", "Lyon", "Centre de Congrès de Lyon", "69006"),
+                "address for Lyon Education Forum");
+            var edu2 = GetValue(
+                Event.Create("Global Education Leaders Forum Lyon 2027", 5000,
+                    new DateTime(2027, 6, 14, 8, 0, 0),
+                    addrEdu2, "Ministers, educators, and EdTech founders reimagining the future of learning.",
+                    EventType.Education, utcNow, metadata),
+                "Lyon Education Forum");
+            edu2.AddTicketType("Delegate Pass",
+                GetValue(Money.Create(800, "USD"), "Delegate"), 1500, utcNow, metadata);
+            edu2.AddTicketType("Educator Pass",
+                GetValue(Money.Create(250, "USD"), "Educator"), 2500, utcNow, metadata);
+            edu2.AddTicketType("Virtual Pass",
+                GetValue(Money.Create(100, "USD"), "Virtual"), 5000, utcNow, metadata);
+            edu2.Publish(utcNow, metadata);
+            events.Add(edu2);
+
+            // ─── Theater ────────────────────────────────────────────
+            var addrTheatre1 = GetValue(
+                Address.Create("Egypt", "Cairo", "Cairo Opera House", "11511"),
+                "address for Cairo Opera Season");
+            var theatre1 = GetValue(
+                Event.Create("Cairo Opera: Aida — Verdi's Masterpiece", 1200,
+                    new DateTime(2027, 4, 25, 20, 0, 0),
+                    addrTheatre1, "Verdi's timeless opera performed by the Cairo Symphony Orchestra at the stunning Cairo Opera House.",
+                    EventType.Theater, utcNow, metadata),
+                "Cairo Opera Aida");
+            theatre1.AddTicketType("Presidential Box",
+                GetValue(Money.Create(350, "USD"), "Presidential Box"), 50, utcNow, metadata);
+            theatre1.AddTicketType("Orchestra Seats",
+                GetValue(Money.Create(180, "USD"), "Orchestra"), 400, utcNow, metadata);
+            theatre1.AddTicketType("Balcony",
+                GetValue(Money.Create(80, "USD"), "Balcony"), 500, utcNow, metadata);
+            theatre1.Publish(utcNow, metadata);
+            events.Add(theatre1);
+
+            var addrTheatre2 = GetValue(
+                Address.Create("France", "Paris", "Opéra Garnier", "75009"),
+                "address for Paris Ballet");
+            var theatre2 = GetValue(
+                Event.Create("Ballet de l'Opéra National de Paris — Swan Lake", 1800,
+                    new DateTime(2027, 5, 8, 20, 0, 0),
+                    addrTheatre2, "Tchaikovsky's Swan Lake performed by the world-famous Paris Opera Ballet at the Palais Garnier.",
+                    EventType.Theater, utcNow, metadata),
+                "Paris Opera Ballet");
+            theatre2.AddTicketType("Premium Loge",
+                GetValue(Money.Create(450, "USD"), "Premium Loge"), 100, utcNow, metadata);
+            theatre2.AddTicketType("Grand Circle",
+                GetValue(Money.Create(220, "USD"), "Grand Circle"), 400, utcNow, metadata);
+            theatre2.AddTicketType("Balcony",
+                GetValue(Money.Create(90, "USD"), "Balcony"), 600, utcNow, metadata);
+            theatre2.Publish(utcNow, metadata);
+            events.Add(theatre2);
+
+            // ─── Outdoors ───────────────────────────────────────────
+            var addrOut1 = GetValue(
+                Address.Create("Egypt", "Giza", "Giza Plateau", "12511"),
+                "address for Giza Desert Expedition");
+            var out1 = GetValue(
+                Event.Create("Giza Desert Safari & Pyramids Camping", 200,
+                    new DateTime(2027, 10, 15, 5, 0, 0),
+                    addrOut1, "A 3-day guided desert expedition including camel trekking, stargazing, and overnight camping with views of the Great Pyramids.",
+                    EventType.Outdoors, utcNow, metadata),
+                "Giza Desert Safari");
+            out1.AddTicketType("Premium Camping Package",
+                GetValue(Money.Create(600, "USD"), "Premium Package"), 50, utcNow, metadata);
+            out1.AddTicketType("Standard Camping",
+                GetValue(Money.Create(250, "USD"), "Standard"), 80, utcNow, metadata);
+            out1.AddTicketType("Day Trip Only",
+                GetValue(Money.Create(80, "USD"), "Day Trip"), 70, utcNow, metadata);
+            out1.Publish(utcNow, metadata);
+            events.Add(out1);
+
+            var addrOut2 = GetValue(
+                Address.Create("Australia", "Sydney", "Royal National Park Entrance", "2232"),
+                "address for Sydney Coastal Trek");
+            var out2 = GetValue(
+                Event.Create("Royal National Park Coastal Trek — Sydney", 150,
+                    new DateTime(2027, 3, 28, 6, 0, 0),
+                    addrOut2, "A two-day guided hike along the stunning coastal cliffs, rainforest trails, and hidden beaches of Australia's oldest national park.",
+                    EventType.Outdoors, utcNow, metadata),
+                "Sydney Coastal Trek");
+            out2.AddTicketType("Guided Trek + Camping Gear",
+                GetValue(Money.Create(450, "USD"), "Full Package"), 40, utcNow, metadata);
+            out2.AddTicketType("Guided Trek Only",
+                GetValue(Money.Create(200, "USD"), "Trek Only"), 60, utcNow, metadata);
+            out2.AddTicketType("Self-Guided Permit",
+                GetValue(Money.Create(35, "USD"), "Permit"), 50, utcNow, metadata);
+            out2.Publish(utcNow, metadata);
+            events.Add(out2);
 
             return events;
         }
@@ -364,7 +580,7 @@ public static class DatabaseSeeder
         }
     }
 
-    private static List<Booking> CreateFifaBookings(
+    private static List<Booking> CreateSeedBookings(
         List<Event> events,
         List<UserId> attendeeIds,
         ILogger logger)

@@ -7,7 +7,6 @@ import {
   EventDetailsDto,
   PaginatedEventResponse,
   CreateEventCommand,
-  UpdateEventCommand,
   AddTicketTypeRequest,
 } from '../../core/models/event.model';
 import { Result } from '../../core/models/result.model';
@@ -15,7 +14,6 @@ import { HttpClientBase } from './http-client-base';
 
 export interface EventQuery {
   keyword?: string;
-  category?: string;
   page?: number;
   pageSize?: number;
   type?: string;
@@ -31,7 +29,6 @@ export class EventHttpService extends HttpClientBase {
   getEvents(query?: EventQuery): Observable<Result<EventCardDto[]>> {
     let params = new HttpParams();
     if (query?.keyword) params = params.set('keyword', query.keyword);
-    if (query?.category) params = params.set('category', query.category);
     if (query?.type) params = params.set('type', query.type);
     if (query?.page) params = params.set('page', query.page);
     if (query?.pageSize) params = params.set('pageSize', query.pageSize);
@@ -58,22 +55,22 @@ export class EventHttpService extends HttpClientBase {
     );
   }
 
-  addTicketType(eventId: string, data: AddTicketTypeRequest): Observable<Result<boolean>> {
-    return this.http.put<void>(`${this.baseUrl}/${eventId}/ticket-types`, data).pipe(
+  deleteEvent(id: string): Observable<Result<boolean>> {
+    return this.http.delete<void>(`${this.baseUrl}/${id}`).pipe(
       map((): Result<boolean> => ({ isSuccess: true, isFailure: false, value: true })),
       catchError((err) => this.toErrorResult(err)),
     );
   }
 
-  updateEvent(id: string, data: UpdateEventCommand): Observable<Result<boolean>> {
+  updateEvent(id: string, data: { name: string; capacity: number; date: string; location: { country: string; city: string; street: string }; description: string }): Observable<Result<boolean>> {
     return this.http.put<void>(`${this.baseUrl}/${id}`, data).pipe(
       map((): Result<boolean> => ({ isSuccess: true, isFailure: false, value: true })),
       catchError((err) => this.toErrorResult(err)),
     );
   }
 
-  deleteEvent(id: string): Observable<Result<boolean>> {
-    return this.http.delete<void>(`${this.baseUrl}/${id}`).pipe(
+  addTicketType(eventId: string, data: AddTicketTypeRequest): Observable<Result<boolean>> {
+    return this.http.post<void>(`${this.baseUrl}/${eventId}/ticket-types`, data).pipe(
       map((): Result<boolean> => ({ isSuccess: true, isFailure: false, value: true })),
       catchError((err) => this.toErrorResult(err)),
     );

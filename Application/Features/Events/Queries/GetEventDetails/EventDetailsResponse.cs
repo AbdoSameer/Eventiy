@@ -12,6 +12,7 @@ namespace Application.Features.Events.Queries.GetEventDetails
         public string Description { get; init; } = string.Empty;
         public EventStatus Status { get; init; }
         public EventType Type { get; init; }
+        public int Capacity { get; init; }
         public decimal LowestTicketPrice { get; init; }
         public int TotalSold { get; init; }
         public AddressResponse Location { get; init; }

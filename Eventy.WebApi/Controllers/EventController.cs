@@ -1,7 +1,7 @@
-﻿using Application.Features.Events.Commands.AddTicketType;
-using Application.Features.Events.Commands.CreateEvent;
-using Application.Features.Events.Commands.UpdateEvent;
+﻿using Application.Features.Events.Commands.CreateEvent;
 using Application.Features.Events.Commands.CancelEvent;
+using Application.Features.Events.Commands.UpdateEvent;
+using Application.Features.Events.Commands.AddTicketType;
 using Application.Features.Events.Commands.DeleteEventPhoto;
 using Application.Features.Events.Commands.ReorderEventPhotos;
 using Application.Features.Events.Commands.SetCoverPhoto;
@@ -65,9 +65,18 @@ namespace Eventy.WebApi.Controllers
                 : result.ToActionResult();
         }
 
+        [HttpPut("{id:guid}")]
         [Authorize(Roles = "Organizer,Admin")]
-        [HttpPut("{eventId}/ticket-types")]
-        public async Task<IActionResult> CreateTicketType(
+        public async Task<IActionResult> UpdateEvent(
+            Guid id, [FromBody] UpdateEventCommand command, CancellationToken ct)
+        {
+            var result = await _sender.Send(command with { EventId = id }, ct);
+            return result.ToActionResult();
+        }
+
+        [HttpPost("{eventId:guid}/ticket-types")]
+        [Authorize(Roles = "Organizer,Admin")]
+        public async Task<IActionResult> AddTicketType(
             Guid eventId,
             [FromBody] AddTicketTypeRequest request,
             CancellationToken ct)
@@ -78,17 +87,8 @@ namespace Eventy.WebApi.Controllers
             var result = await _sender.Send(command, ct);
 
             return result.IsSuccess
-                ? CreatedAtRoute(nameof(GetEvent), new { eventId }, null)
+                ? CreatedAtAction(nameof(UpdateEvent), new { id = eventId }, null)
                 : result.ToActionResult();
-        }
-
-        [HttpPut("{id:guid}")]
-        [Authorize(Roles = "Organizer,Admin")]
-        public async Task<IActionResult> UpdateEvent(
-        Guid id, [FromBody] UpdateEventCommand command, CancellationToken ct)
-        {
-            var result = await _sender.Send(command with { EventId = id }, ct);
-            return result.ToActionResult();
         }
 
         [HttpPut("{id:guid}/cancel")]

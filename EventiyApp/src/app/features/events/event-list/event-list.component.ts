@@ -180,7 +180,7 @@ export class EventListComponent implements OnInit {
   /** Recompute the visible list from current filters + sort. */
   recompute(): void {
     let items = this.allEvents().filter((e) => {
-      const matchesCategory = !this.selectedCategory || (e.category && e.category === this.selectedCategory);
+      const matchesCategory = !this.selectedCategory || e.type === this.selectedCategory;
       const matchesPrice = (e.price ?? 0) <= this.maxPrice;
       const matchesDate = this.matchesDate(e.date);
       return matchesCategory && matchesPrice && matchesDate;

@@ -1,21 +1,22 @@
+using Application.Abstractions.Caching;
 using Application.Abstractions.Messaging;
 using Application.Abstractions.Persistence;
-using Application.Abstractions.Security;
 using Domain.Abstractions.Persistence;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Common;
 using Domain.Errors;
+using Domain.Primitives;
 
-namespace Application.Features.Events.Commands.CancelEvent;
+namespace Application.Features.Events.Commands.PublishEvent;
 
-public sealed class CancelEventCommandHandler(
+public sealed class PublishEventCommandHandler(
     IEventRepository eventRepository,
     IUnitOfWork unitOfWork,
     TimeProvider dateTimeProvider,
     IEventMetadataFactory metadataFactory,
-    ICurrentUserService currentUser) : ICommandHandler<CancelEventCommand>
+    ICacheService cache) : ICommandHandler<PublishEventCommand>
 {
-    public async Task<Result> Handle(CancelEventCommand request, CancellationToken cancellationToken)
+    public async Task<Result> Handle(PublishEventCommand request, CancellationToken cancellationToken)
     {
         var eventIdResult = EventId.Create(request.EventId);
         if (eventIdResult.IsFailure)
@@ -28,18 +29,16 @@ public sealed class CancelEventCommandHandler(
         var metadata = metadataFactory.Create();
         var utcNow = dateTimeProvider.GetUtcNow().UtcDateTime;
 
-        Result cancelResult;
-        if (currentUser.GetCurrentUserRole() == "Admin")
-            cancelResult = @event.AdminCancel(utcNow, metadata);
-        else
-            cancelResult = @event.Cancel(utcNow, metadata);
-
-        if (cancelResult.IsFailure)
-            return Result.Failure(cancelResult.Errors.ToArray());
+        var publishResult = @event.Publish(utcNow, metadata);
+        if (publishResult.IsFailure)
+            return publishResult;
 
         var rows = await unitOfWork.CommitAsync(cancellationToken);
         if (rows <= 0)
-            return Result.Failure(Error.Failure("Event.CancelFailed", "Failed to cancel the event."));
+            return Result.Failure(Error.Failure("Event.PublishFailed", "Failed to publish the event."));
+
+        await cache.RemoveAsync($"event:details:{request.EventId}", cancellationToken);
+        await cache.RemoveByPatternAsync("events:list:*", cancellationToken);
 
         return Result.Success();
     }

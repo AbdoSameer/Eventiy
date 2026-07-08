@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HeroComponent } from './hero/hero.component';
+import { HowItWorksComponent } from './how-it-works/how-it-works.component';
 import { CategoriesComponent } from './categories/categories.component';
 import { EventsGridComponent } from './events-grid/events-grid.component';
 import { SearchCriteria } from '../../shared/components/search-bar/search-bar.component';
@@ -18,10 +19,11 @@ import { Event } from '../../core/models/event.model';
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [CommonModule, HeroComponent, CategoriesComponent, EventsGridComponent],
+  imports: [CommonModule, HeroComponent, HowItWorksComponent, CategoriesComponent, EventsGridComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-hero (search)="onSearch($event)" />
+    <app-how-it-works />
     <app-categories (categorySelect)="onCategory($event)" />
     <app-events-grid [events]="visibleEvents()" [loading]="loading()" />
   `,
@@ -85,7 +87,7 @@ export class HomeComponent implements OnInit {
     const filtered = this.allEvents().filter((e) => {
       const matchesKeyword = !kw || e.title.toLowerCase().includes(kw) || e.description.toLowerCase().includes(kw);
       const matchesLocation = !loc || e.location.toLowerCase().includes(loc);
-      const matchesCategory = !cat || e.category.toLowerCase() === cat;
+      const matchesCategory = !cat || e.type.toLowerCase() === cat;
       return matchesKeyword && matchesLocation && matchesCategory;
     });
 

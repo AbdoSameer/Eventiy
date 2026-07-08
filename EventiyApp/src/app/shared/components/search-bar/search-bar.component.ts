@@ -8,10 +8,10 @@ export interface SearchCriteria {
 }
 
 /**
- * Dual-input search bar embedded in the hero.
+ * Clean, full-width search bar with keyword + location inputs.
  *
- * Emits a `search` event with the keyword + location so the parent
- * (HomeComponent) can filter the events list — no service calls here.
+ * Meetup-inspired design: white card, icon-prefixed inputs, rounded CTA.
+ * Emits a `search` event with the keyword + location.
  */
 @Component({
   selector: 'app-search-bar',
@@ -19,54 +19,146 @@ export interface SearchCriteria {
   imports: [CommonModule, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <form
-      (ngSubmit)="onSubmit()"
-      class="bg-white rounded-2xl shadow-lg border border-border p-2 flex flex-col sm:flex-row gap-2"
-    >
-      <!-- Keyword -->
-      <div class="flex-1 flex items-center gap-2 px-3">
-        <svg class="w-5 h-5 text-text-secondary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
-        <input
-          type="text"
-          name="keyword"
-          [(ngModel)]="keyword"
-          placeholder="What do you want to do?"
-          class="w-full py-3 text-text-primary placeholder:text-text-secondary bg-transparent border-0 focus:ring-0"
-          aria-label="Search by keyword"
-        />
-      </div>
+    <div class="search-bar-wrapper">
+      <form (ngSubmit)="onSubmit()" class="search-form">
+        <!-- Keyword input -->
+        <div class="search-field">
+          <input
+            type="text"
+            name="keyword"
+            [(ngModel)]="keyword"
+            placeholder="Search events"
+            class="search-input"
+            aria-label="Search events"
+          />
+        </div>
 
-      <div class="hidden sm:block w-px bg-border"></div>
+        <div class="search-divider"></div>
 
-      <!-- Location -->
-      <div class="flex-1 flex items-center gap-2 px-3">
-        <svg class="w-5 h-5 text-text-secondary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-        </svg>
-        <input
-          type="text"
-          name="location"
-          [(ngModel)]="location"
-          placeholder="Location"
-          class="w-full py-3 text-text-primary placeholder:text-text-secondary bg-transparent border-0 focus:ring-0"
-          aria-label="Search by location"
-        />
-      </div>
+        <!-- Location input -->
+        <div class="search-field">
+          <input
+            type="text"
+            name="location"
+            [(ngModel)]="location"
+            placeholder="Location"
+            class="search-input"
+            aria-label="Location"
+          />
+        </div>
 
-      <button
-        type="submit"
-        class="rounded-xl bg-primary text-white px-6 py-3 font-semibold hover:bg-primary-dark transition-colors flex items-center justify-center gap-2"
-      >
-        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
-        <span>Search</span>
-      </button>
-    </form>
+        <button type="submit" class="search-btn" aria-label="Search">
+          <svg class="search-btn-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </button>
+      </form>
+    </div>
   `,
+  styles: [`
+    .search-bar-wrapper {
+      background-color: #ffffff;
+      border-radius: 9999px; /* pill shape */
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      border: 1px solid #E5E7EB;
+      padding: 0.5rem;
+      width: 100%;
+    }
+
+    .search-form {
+      display: flex;
+      align-items: center;
+      width: 100%;
+    }
+
+    .search-field {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      padding: 0 1rem;
+    }
+
+    .search-input {
+      width: 100%;
+      border: none;
+      outline: none;
+      font-size: 1rem;
+      color: #1F2937;
+      background: transparent;
+      font-family: inherit;
+      padding: 0.5rem 0;
+    }
+
+    .search-input::placeholder {
+      color: #9CA3AF;
+      font-weight: 500;
+    }
+
+    .search-divider {
+      width: 1px;
+      height: 2.5rem;
+      background-color: #E5E7EB;
+      flex-shrink: 0;
+    }
+
+    .search-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 3rem;
+      height: 3rem;
+      background-color: #F6544C;
+      color: #ffffff;
+      border: none;
+      border-radius: 9999px; /* perfect circle */
+      cursor: pointer;
+      transition: background-color 0.2s, transform 0.15s;
+      flex-shrink: 0;
+      margin-left: 0.5rem;
+    }
+
+    .search-btn:hover {
+      background-color: #E53E3E;
+    }
+
+    .search-btn:active {
+      transform: scale(0.95);
+    }
+
+    .search-btn-icon {
+      width: 1.25rem;
+      height: 1.25rem;
+    }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      .search-bar-wrapper {
+        border-radius: 1.5rem;
+      }
+      
+      .search-form {
+        flex-direction: column;
+      }
+
+      .search-divider {
+        width: calc(100% - 2rem);
+        height: 1px;
+        margin: 0.5rem 1rem;
+      }
+
+      .search-field {
+        width: 100%;
+        padding: 0.5rem 1rem;
+      }
+
+      .search-btn {
+        width: calc(100% - 1rem);
+        border-radius: 1rem;
+        margin: 0.5rem;
+        height: 3rem;
+      }
+    }
+  `]
 })
 export class SearchBarComponent {
   @Output() search = new EventEmitter<SearchCriteria>();

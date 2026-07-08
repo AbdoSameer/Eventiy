@@ -122,24 +122,9 @@ export class EventApplicationService {
     });
   }
 
-  updateEvent(id: string, data: { name: string; capacity: number; date: string; description: string; location: { country: string; city: string; street: string }; type: string }): Observable<Result<boolean>> {
-    this.invalidateCache();
-    return this.eventHttp.updateEvent(id, {
-      ...data,
-      type: data.type,
-      latitude: null,
-      longitude: null,
-    });
-  }
-
   deleteEvent(id: string): Observable<Result<boolean>> {
     this.invalidateCache();
     return this.eventHttp.deleteEvent(id);
-  }
-
-  addTicketType(eventId: string, data: { name: string; amount: number; currency: string; capacity: number }): Observable<Result<boolean>> {
-    this.invalidateCache();
-    return this.eventHttp.addTicketType(eventId, data);
   }
 
   uploadPhotos(eventId: string, files: File[]): Observable<Result<EventPhotoResponse[]>> {

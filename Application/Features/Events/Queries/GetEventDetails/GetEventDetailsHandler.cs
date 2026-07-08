@@ -49,6 +49,7 @@ public class GetEventDetailsHandler
                 Description = e.Description,
                 Status = e.Status,
                 Type = e.Type,
+                Capacity = e.Capacity,
                 LowestTicketPrice = e.TicketTypes
                     .Min(t => (decimal?)t.Price.Amount) ?? 0m,
                 TotalSold = e.TicketTypes.Sum(t => t.SoldCount),

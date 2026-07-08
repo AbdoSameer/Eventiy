@@ -83,8 +83,8 @@ namespace Domain.Aggregates.EventAggregate.Entities
             if (price is null)
                 return Result<TicketType>.Failure(TicketTypeErrors.PriceCannotBeNull());
 
-            if (price.Amount <= MIN_PRICE)
-                return Result<TicketType>.Failure(TicketTypeErrors.PriceMustBeGreaterThanZero());
+            if (price.Amount < MIN_PRICE)
+                return Result<TicketType>.Failure(TicketTypeErrors.PriceCannotBeNegative());
 
             if (string.IsNullOrWhiteSpace(price.Currency))
                 return Result<TicketType>.Failure(TicketTypeErrors.InvalidCurrency());
@@ -126,8 +126,8 @@ namespace Domain.Aggregates.EventAggregate.Entities
             if (newPrice is null)
                 return Result.Failure(TicketTypeErrors.PriceCannotBeNull());
 
-            if (newPrice.Amount <= MIN_PRICE)
-                return Result.Failure(TicketTypeErrors.PriceMustBeGreaterThanZero());
+            if (newPrice.Amount < MIN_PRICE)
+                return Result.Failure(TicketTypeErrors.PriceCannotBeNegative());
 
             if (string.IsNullOrWhiteSpace(newPrice.Currency))
                 return Result.Failure(TicketTypeErrors.InvalidCurrency());

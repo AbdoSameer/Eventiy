@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { forkJoin, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
+import { AuthApplicationService } from '../../../application/services/auth-application.service';
 import { EventApplicationService } from '../../../application/services/event-application.service';
 import { BookingApplicationService } from '../../../application/services/booking-application.service';
 import { ToastService } from '../../../infrastructure/services/toast.service';
@@ -84,7 +85,11 @@ type Tab = 'events' | 'bookings' | 'analytics';
                         <span class="rounded-full px-3 py-1 text-xs font-semibold" [class]="eventStatusClass(event.status)">{{ event.status || 'Published' }}</span>
                       </td>
                       <td class="px-5 py-4 text-right space-x-2 whitespace-nowrap">
-                        <a [routerLink]="['/events', event.id]" class="text-primary hover:underline text-sm font-semibold">Edit</a>
+                        @if (isAdmin || event.status === 'Draft') {
+                          <a [routerLink]="['/events', event.id, 'edit']" class="text-primary hover:underline text-sm font-semibold">Edit</a>
+                        } @else {
+                          <a [routerLink]="['/events', event.id]" class="text-primary hover:underline text-sm font-semibold">View</a>
+                        }
                         <button (click)="cancelEvent(event)" class="text-red-600 hover:underline text-sm font-semibold">Cancel</button>
                       </td>
                     </tr>
@@ -188,7 +193,12 @@ type Tab = 'events' | 'bookings' | 'analytics';
 export class OrganizerDashboardComponent implements OnInit {
   private eventApp = inject(EventApplicationService);
   private bookingApp = inject(BookingApplicationService);
+  private auth = inject(AuthApplicationService);
   private toast = inject(ToastService);
+
+  get isAdmin(): boolean {
+    return this.auth.userRole() === 'Admin';
+  }
 
   protected readonly tabs: { id: Tab; label: string }[] = [
     { id: 'events', label: 'My Events' },
@@ -348,6 +358,6 @@ export class OrganizerDashboardComponent implements OnInit {
   }
 
   safeCategory(event: Event): string {
-    return event.category ? event.category + ' • ' : '';
+    return event.type ? event.type + ' • ' : '';
   }
 }

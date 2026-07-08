@@ -46,6 +46,12 @@ export const routes: Routes = [
     title: 'Event Details — Eventiy',
   },
   {
+    path: 'events/:id/edit',
+    canActivate: [authGuard, roleGuard(['Admin', 'Organizer'])],
+    loadComponent: () => import('./features/events/event-edit/event-edit.component').then((m) => m.EventEditComponent),
+    title: 'Edit Event — Eventiy',
+  },
+  {
     path: 'dashboard/organizer',
     canActivate: [authGuard, roleGuard(['Organizer', 'Admin'])],
     loadComponent: () => import('./features/dashboard/organizer-dashboard/organizer-dashboard.component').then((m) => m.OrganizerDashboardComponent),

@@ -44,7 +44,14 @@ Complete code quality improvements, flash-sale performance optimization, and sec
 - **RedisCacheService**: `StackExchange.Redis` `ConnectionMultiplexer` as Singleton, graceful fallback
 - **Event List cache-aside**: key `cache:events:list:{page}:{size}:{type}:{lat}:{lng}:{dist}`, TTL 30s
 - **Event Details cache-aside**: key `cache:event:details:{eventId}`, TTL 60s
-- **Cache invalidation**: Create → `RemoveByPatternAsync("events:*")`; Update → evict detail + list; Booking → evict detail
+- **Event Photos cache-aside**: key `cache:event:photos:{eventId}`, TTL 120s (nearly-static data)
+- **Cache invalidation**:
+  - CreateEvent → `RemoveByPatternAsync("events:*")`
+  - UpdateEvent → evict `event:details:{id}` + `events:list:*`
+  - CreateBooking → evict `event:details:{id}` (refresh seats capacity, prevent overbooking)
+  - UploadEventPhotos / DeleteEventPhoto / ReorderEventPhotos / UpdatePhotoMetadata → evict `event:photos:{eventId}`
+  - SetCoverPhoto → evict BOTH `event:photos:{eventId}` (IsCover flag) + `event:details:{eventId}` (computed CoverPhotoUrl)
+- **Decisions**: All invalidation runs *after* successful `CommitAsync` (no eviction before tx success). Booking queries intentionally uncached — financial/personal data with high mutation rate; stale data risk outweighs cache benefit.
 - **NuGet**: `StackExchange.Redis 2.8.31` added to Infrastructure
 
 ### Dead-Letter Table
@@ -118,6 +125,8 @@ Complete code quality improvements, flash-sale performance optimization, and sec
 - Two event handlers (both with idempotency): `BookingCreatedEventHandler` (validation), `BookingCancelledEventHandler` (capacity release)
 - `IEventValidator<BookingCreatedEvent>` exists but no others yet
 - Redis connection reads from `ConnectionStrings:Redis` (default `localhost:6379`)
+- **Caching coverage**: 3/6 read queries cached — Events list (30s), Event details (60s), Event photos (120s). Booking queries (`GetBookingsByUser`, `GetBookingDetails`, `GetBookingByEvent`) intentionally uncached — financial/personal data with high mutation rate.
+- All cache invalidation runs *after* successful `UnitOfWork.CommitAsync()` — no eviction before tx success
 - JWT secret loaded from User Secrets (dev) / env vars (prod); appsettings.json has `Issuer`, `Audience`, `ExpiryMinutes` only
 - Git history rewritten: old secret replaced with `REVOKED_JWT_SECRET` across all 62 commits; backup refs deleted; repo fully gc'd
 
@@ -126,7 +135,7 @@ Complete code quality improvements, flash-sale performance optimization, and sec
 - **Nearby Events — new**: `Domain/Aggregates/EventAggregate/Enums/EventType.cs`
 - **Nearby Events — updated**: `Address.cs`, `Event.cs`, `EventConfiguration.cs`, `CreateEventCommand.cs` + handler, `GetEventsQuery.cs` + `GetEventsHandler.cs` + `EventCardResponse.cs`, `EventController.cs`, `DatabaseSeeder.cs`
 - **Redis — new**: `Application/Abstractions/Caching/ICacheService.cs`, `Infrastructure/Caching/RedisCacheService.cs`
-- **Redis — updated**: `GetEventsHandler.cs`, `GetEventDetailsHandler.cs`, `CreateEventCommandHandler.cs`, `UpdateEventCommandHandler.cs`, `CreateBookingCommandHandler.cs`, `Infrastructure/DependencyInjection.cs`, `Infrastructure/Infrastructure.csproj`
+- **Redis — updated**: `GetEventsHandler.cs`, `GetEventDetailsHandler.cs`, `GetEventPhotosQueryHandler.cs`, `CreateEventCommandHandler.cs`, `UpdateEventCommandHandler.cs`, `CreateBookingCommandHandler.cs`, `UploadEventPhotosCommandHandler.cs`, `DeleteEventPhotoCommandHandler.cs`, `ReorderEventPhotosCommandHandler.cs`, `SetCoverPhotoCommandHandler.cs`, `UpdatePhotoMetadataCommandHandler.cs`, `Infrastructure/DependencyInjection.cs`, `Infrastructure/Infrastructure.csproj`
 - **Dead-letter — new**: `OutboxDeadLetter.cs`, `OutboxDeadLetterConfiguration.cs`, `AdminController.cs`
 - **Dead-letter — updated**: `IOutboxRepository.cs`, `OutboxRepository.cs`, `OutboxProcessor.cs`, `ApplicationDbContext.cs`
 - **Idempotency**: `ProcessedEvent.cs`, `IIdempotencyStore.cs`, `IdempotencyStore.cs`, `BookingCreatedEventHandler.cs`, `BookingCancelledEventHandler.cs`, `OutboxProcessor.cs`, `DomainEventHandlerException.cs`

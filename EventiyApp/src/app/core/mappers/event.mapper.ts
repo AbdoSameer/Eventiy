@@ -5,7 +5,7 @@ export function eventCardToEvent(dto: EventCardDto): Event {
     id: dto.id,
     title: dto.title,
     description: dto.description ?? '',
-    category: dto.type,
+    type: dto.type,
     date: dto.date,
     location: `${dto.city}, ${dto.country}`,
     price: dto.lowestPrice,
@@ -16,7 +16,6 @@ export function eventCardToEvent(dto: EventCardDto): Event {
     city: dto.city,
     country: dto.country,
     currency: dto.currency,
-    type: dto.type,
     latitude: dto.latitude,
     longitude: dto.longitude,
   };
@@ -27,7 +26,7 @@ export function eventDetailsToEvent(dto: EventDetailsDto): Event {
     id: dto.id,
     title: dto.name,
     description: dto.description,
-    category: dto.type,
+    type: dto.type,
     date: dto.date,
     location: `${dto.location.city}, ${dto.location.country}`,
     price: dto.lowestTicketPrice,
@@ -40,7 +39,6 @@ export function eventDetailsToEvent(dto: EventDetailsDto): Event {
     city: dto.location.city,
     country: dto.location.country,
     currency: dto.ticketDetails[0]?.currency ?? 'USD',
-    type: dto.type,
     latitude: dto.location.latitude,
     longitude: dto.location.longitude,
   };

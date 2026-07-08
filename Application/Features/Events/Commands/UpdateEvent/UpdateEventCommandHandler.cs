@@ -1,6 +1,7 @@
 using Application.Abstractions.Caching;
 using Application.Abstractions.Messaging;
 using Application.Abstractions.Persistence;
+using Application.Abstractions.Security;
 using Domain.Abstractions.Persistence;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Common;
@@ -14,10 +15,17 @@ public sealed class UpdateEventCommandHandler(
     IUnitOfWork unitOfWork,
     TimeProvider dateTimeProvider,
     IEventMetadataFactory metadataFactory,
-    ICacheService cache) : ICommandHandler<UpdateEventCommand>
+    ICacheService cache,
+    ICurrentUserService currentUser) : ICommandHandler<UpdateEventCommand>
 {
     public async Task<Result> Handle(UpdateEventCommand request, CancellationToken cancellationToken)
     {
+        var role = currentUser.GetCurrentUserRole();
+        if (role != "Admin" && role != "Organizer")
+            throw new UnauthorizedAccessException("Only administrators or organizers can update events.");
+
+        var isAdmin = role == "Admin";
+
         var eventIdResult = EventId.Create(request.EventId);
         if (eventIdResult.IsFailure)
             return Result.Failure(eventIdResult.Errors.ToArray());
@@ -36,25 +44,50 @@ public sealed class UpdateEventCommandHandler(
         var metadata = metadataFactory.Create();
         var utcNow = dateTimeProvider.GetUtcNow().UtcDateTime;
 
-        var updateNameResult = @event.UpdateName(request.Name, utcNow);
-        if (updateNameResult.IsFailure)
-            return Result.Failure(updateNameResult.Errors.ToArray());
+        if (isAdmin)
+        {
+            var updateNameResult = @event.AdminUpdateName(request.Name, utcNow);
+            if (updateNameResult.IsFailure)
+                return Result.Failure(updateNameResult.Errors.ToArray());
 
-        var updateCapacityResult = @event.UpdateCapacity(request.Capacity, utcNow, metadata);
-        if (updateCapacityResult.IsFailure)
-            return Result.Failure(updateCapacityResult.Errors.ToArray());
+            var updateCapacityResult = @event.AdminUpdateCapacity(request.Capacity, utcNow, metadata);
+            if (updateCapacityResult.IsFailure)
+                return Result.Failure(updateCapacityResult.Errors.ToArray());
 
-        var updateDateResult = @event.UpdateDate(request.Date, utcNow);
-        if (updateDateResult.IsFailure)
-            return Result.Failure(updateDateResult.Errors.ToArray());
+            var updateDateResult = @event.AdminUpdateDate(request.Date, utcNow);
+            if (updateDateResult.IsFailure)
+                return Result.Failure(updateDateResult.Errors.ToArray());
 
-        var updateLocationResult = @event.UpdateLocation(locationResult.Value, utcNow);
-        if (updateLocationResult.IsFailure)
-            return Result.Failure(updateLocationResult.Errors.ToArray());
+            var updateLocationResult = @event.AdminUpdateLocation(locationResult.Value, utcNow);
+            if (updateLocationResult.IsFailure)
+                return Result.Failure(updateLocationResult.Errors.ToArray());
 
-        var updateDescriptionResult = @event.UpdateDescription(request.Description, utcNow);
-        if (updateDescriptionResult.IsFailure)
-            return Result.Failure(updateDescriptionResult.Errors.ToArray());
+            var updateDescriptionResult = @event.AdminUpdateDescription(request.Description, utcNow);
+            if (updateDescriptionResult.IsFailure)
+                return Result.Failure(updateDescriptionResult.Errors.ToArray());
+        }
+        else
+        {
+            var updateNameResult = @event.UpdateName(request.Name, utcNow);
+            if (updateNameResult.IsFailure)
+                return Result.Failure(updateNameResult.Errors.ToArray());
+
+            var updateCapacityResult = @event.UpdateCapacity(request.Capacity, utcNow, metadata);
+            if (updateCapacityResult.IsFailure)
+                return Result.Failure(updateCapacityResult.Errors.ToArray());
+
+            var updateDateResult = @event.UpdateDate(request.Date, utcNow);
+            if (updateDateResult.IsFailure)
+                return Result.Failure(updateDateResult.Errors.ToArray());
+
+            var updateLocationResult = @event.UpdateLocation(locationResult.Value, utcNow);
+            if (updateLocationResult.IsFailure)
+                return Result.Failure(updateLocationResult.Errors.ToArray());
+
+            var updateDescriptionResult = @event.UpdateDescription(request.Description, utcNow);
+            if (updateDescriptionResult.IsFailure)
+                return Result.Failure(updateDescriptionResult.Errors.ToArray());
+        }
 
         var rows = await unitOfWork.CommitAsync(cancellationToken);
         if (rows <= 0)

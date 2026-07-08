@@ -3,6 +3,9 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, UntypedFormArray, UntypedFormBuilder, UntypedFormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
+import { AuthApplicationService } from '../../../application/services/auth-application.service';
+import { AdminEventHttpService } from '../../../application/http/admin-event.http-service';
+import { EventHttpService } from '../../../application/http/event.http-service';
 import { EventApplicationService } from '../../../application/services/event-application.service';
 import { ToastService } from '../../../infrastructure/services/toast.service';
 import { PhotoUploaderComponent } from '../../../shared/components/photo-uploader/photo-uploader.component';
@@ -21,28 +24,27 @@ import { AddTicketTypeRequest, EventPhotoResponse, EVENT_CATEGORIES } from '../.
           <p class="text-text-secondary mt-1">Fill in the details to publish your event.</p>
         </header>
 
-        <!-- Progress indicator -->
-        <ol class="flex items-center justify-between mb-10">
-          @for (step of stepLabels; track step; let i = $index) {
-            <li class="flex-1 flex items-center" [class.last]="i === stepLabels.length - 1">
-              <div class="flex flex-col items-center">
-                <div
-                  class="w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-colors"
-                  [class]="currentStep() >= i ? 'bg-primary text-white' : 'bg-gray-200 text-text-secondary'"
-                >
-                  {{ i + 1 }}
-                </div>
-                <span class="hidden sm:block mt-1 text-xs font-medium text-text-secondary">{{ step }}</span>
-              </div>
-              @if (i < stepLabels.length - 1) {
-                <div class="flex-1 h-0.5 mx-2" [class]="currentStep() > i ? 'bg-primary' : 'bg-gray-200'"></div>
-              }
-            </li>
-          }
-        </ol>
-
         @if (!eventCreated()) {
-          <!-- STEP 1: Basic info -->
+          <!-- Progress indicator -->
+          <ol class="flex items-center justify-between mb-10">
+            @for (step of stepLabels; track step; let i = $index) {
+              <li class="flex-1 flex items-center" [class.last]="i === stepLabels.length - 1">
+                <div class="flex flex-col items-center">
+                  <div
+                    class="w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-colors"
+                    [class]="currentStep() >= i ? 'bg-primary text-white' : 'bg-gray-200 text-text-secondary'"
+                  >
+                    {{ i + 1 }}
+                  </div>
+                  <span class="hidden sm:block mt-1 text-xs font-medium text-text-secondary">{{ step }}</span>
+                </div>
+                @if (i < stepLabels.length - 1) {
+                  <div class="flex-1 h-0.5 mx-2" [class]="currentStep() > i ? 'bg-primary' : 'bg-gray-200'"></div>
+                }
+              </li>
+            }
+          </ol>
+
           <form [formGroup]="form" (ngSubmit)="createEvent()" class="bg-white rounded-2xl shadow-md p-6 sm:p-8">
             @if (currentStep() === 0) {
               <h2 class="text-xl font-bold text-text-primary mb-4">Event details</h2>
@@ -92,7 +94,6 @@ import { AddTicketTypeRequest, EventPhotoResponse, EVENT_CATEGORIES } from '../.
               </div>
             }
 
-            <!-- STEP 2: Date & location -->
             @if (currentStep() === 1) {
               <h2 class="text-xl font-bold text-text-primary mb-4">Date &amp; location</h2>
 
@@ -187,20 +188,52 @@ import { AddTicketTypeRequest, EventPhotoResponse, EVENT_CATEGORIES } from '../.
               </div>
             }
 
-            <!-- STEP 3: Photos -->
             @if (currentStep() === 2) {
-              <h2 class="text-xl font-bold text-text-primary mb-4">Photos</h2>
-              <p class="text-text-secondary mb-4">Upload photos for your event. You can add more later.</p>
-              @if (createdEventId) {
-                <app-photo-uploader
-                  [eventId]="createdEventId"
-                  [photos]="uploadedPhotos()"
-                  (photosChange)="uploadedPhotos.set($event)"
-                />
-              }
+              <h2 class="text-xl font-bold text-text-primary mb-4">Ticket types</h2>
+              <p class="text-text-secondary mb-4">Define ticket tiers for your event. Attendees will pick from these at checkout.</p>
+
+              <div [formGroup]="ticketTypesForm">
+                <div formArrayName="tickets" class="space-y-4 mb-6">
+                  @for (ticket of ticketTypes.controls; track $index; let i = $index) {
+                    <div [formGroupName]="i" class="grid grid-cols-1 sm:grid-cols-[1fr_120px_100px_120px_auto] gap-3 items-end bg-background-alt rounded-xl p-4">
+                      <div>
+                        <label class="block text-xs font-semibold text-text-primary mb-1">Name</label>
+                        <input type="text" formControlName="name" class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-primary focus:ring-primary" placeholder="VIP" />
+                      </div>
+                      <div>
+                        <label class="block text-xs font-semibold text-text-primary mb-1">Price</label>
+                        <input type="number" min="0" step="0.01" formControlName="amount" class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-primary focus:ring-primary" />
+                      </div>
+                      <div>
+                        <label class="block text-xs font-semibold text-text-primary mb-1">Currency</label>
+                        <input type="text" formControlName="currency" class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-primary focus:ring-primary" />
+                      </div>
+                      <div>
+                        <label class="block text-xs font-semibold text-text-primary mb-1">Capacity</label>
+                        <input type="number" min="1" formControlName="capacity" class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-primary focus:ring-primary" />
+                      </div>
+                      <button
+                        type="button"
+                        (click)="removeTicket(i)"
+                        class="rounded-full px-3 py-2 text-red-600 hover:bg-red-50"
+                        aria-label="Remove ticket type"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  }
+                </div>
+
+                <button
+                  type="button"
+                  (click)="addTicket()"
+                  class="rounded-full border-2 border-primary text-primary px-5 py-2 font-semibold hover:bg-primary hover:text-white transition-colors"
+                >
+                  + Add ticket type
+                </button>
+              </div>
             }
 
-            <!-- Navigation -->
             <div class="flex items-center justify-between mt-8 pt-6 border-t border-border">
               <button
                 type="button"
@@ -231,69 +264,37 @@ import { AddTicketTypeRequest, EventPhotoResponse, EVENT_CATEGORIES } from '../.
             </div>
           </form>
         } @else {
-          <!-- STEP 2: Add ticket types -->
-          <div class="bg-white rounded-2xl shadow-md p-6 sm:p-8">
-            <h2 class="text-xl font-bold text-text-primary mb-4">Add ticket types</h2>
-            <p class="text-text-secondary mb-4">Define ticket tiers for your event. Attendees will pick from these at checkout.</p>
+          <div class="bg-white rounded-2xl shadow-md p-6 sm:p-8 text-center">
+            <p class="text-5xl mb-3" aria-hidden="true">✅</p>
+            <h3 class="text-xl font-semibold text-text-primary mb-2">Event created!</h3>
+            <p class="text-text-secondary mb-6">You can now upload photos or go to your dashboard.</p>
 
-            <div class="space-y-4 mb-6">
-              @for (ticket of ticketTypes.controls; track $index; let i = $index) {
-                <div [formGroupName]="i" class="grid grid-cols-1 sm:grid-cols-[1fr_120px_100px_120px_auto] gap-3 items-end bg-background-alt rounded-xl p-4">
-                  <div>
-                    <label class="block text-xs font-semibold text-text-primary mb-1">Name</label>
-                    <input type="text" formControlName="name" class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-primary focus:ring-primary" placeholder="VIP" />
-                  </div>
-                  <div>
-                    <label class="block text-xs font-semibold text-text-primary mb-1">Price</label>
-                    <input type="number" min="0" step="0.01" formControlName="amount" class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-primary focus:ring-primary" />
-                  </div>
-                  <div>
-                    <label class="block text-xs font-semibold text-text-primary mb-1">Currency</label>
-                    <input type="text" formControlName="currency" value="USD" class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-primary focus:ring-primary" />
-                  </div>
-                  <div>
-                    <label class="block text-xs font-semibold text-text-primary mb-1">Capacity</label>
-                    <input type="number" min="1" formControlName="capacity" class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-primary focus:ring-primary" />
-                  </div>
-                  <button
-                    type="button"
-                    (click)="removeTicket(i)"
-                    class="rounded-full px-3 py-2 text-red-600 hover:bg-red-50"
-                    aria-label="Remove ticket type"
-                  >
-                    ✕
-                  </button>
-                </div>
-              }
-            </div>
-
-            <button
-              type="button"
-              (click)="addTicket()"
-              class="rounded-full border-2 border-primary text-primary px-5 py-2 font-semibold hover:bg-primary hover:text-white transition-colors"
-            >
-              + Add ticket type
-            </button>
-
-            @if (ticketTypes.length > 0) {
-              <div class="flex items-center justify-between mt-8 pt-6 border-t border-border">
-                <button
-                  type="button"
-                  (click)="skipTicketTypes()"
-                  class="rounded-full px-6 py-2.5 font-semibold text-text-secondary hover:bg-background-alt"
-                >
-                  Skip — add later
-                </button>
-                <button
-                  type="button"
-                  (click)="submitTicketTypes()"
-                  [disabled]="addingTickets()"
-                  class="rounded-full bg-primary text-white px-6 py-2.5 font-semibold hover:bg-primary-dark transition-colors disabled:opacity-60"
-                >
-                  {{ addingTickets() ? 'Saving…' : 'Save Ticket Types' }}
-                </button>
+            @if (createdEventId) {
+              <div class="mb-6 text-left">
+                <app-photo-uploader
+                  [eventId]="createdEventId"
+                  [photos]="uploadedPhotos()"
+                  (photosChange)="uploadedPhotos.set($event)"
+                />
               </div>
             }
+
+            <div class="flex items-center justify-center gap-4">
+              <button
+                type="button"
+                (click)="router.navigateByUrl('/events/' + createdEventId)"
+                class="rounded-full bg-primary text-white px-6 py-2.5 font-semibold hover:bg-primary-dark transition-colors"
+              >
+                View Event
+              </button>
+              <button
+                type="button"
+                (click)="router.navigateByUrl('/dashboard/organizer')"
+                class="rounded-full border-2 border-primary text-primary px-6 py-2.5 font-semibold hover:bg-primary hover:text-white transition-colors"
+              >
+                Go to Dashboard
+              </button>
+            </div>
           </div>
         }
       </div>
@@ -301,24 +302,28 @@ import { AddTicketTypeRequest, EventPhotoResponse, EVENT_CATEGORIES } from '../.
   `,
 })
 export class EventCreateComponent {
+  protected router = inject(Router);
   private destroyRef = inject(DestroyRef);
   private fb = inject(UntypedFormBuilder);
   private eventApp = inject(EventApplicationService);
+  private adminHttp = inject(AdminEventHttpService);
+  private eventHttp = inject(EventHttpService);
+  private auth = inject(AuthApplicationService);
   private toast = inject(ToastService);
-  private router = inject(Router);
 
-  protected readonly stepLabels = ['Details', 'Date & Location', 'Photos'];
+  get isAdmin(): boolean {
+    return this.auth.userRole() === 'Admin';
+  }
+
+  protected readonly stepLabels = ['Details', 'Date & Location', 'Ticket Types'];
   protected readonly totalSteps = this.stepLabels.length;
 
   readonly currentStep = signal(0);
   readonly submitting = signal(false);
-  readonly addingTickets = signal(false);
   readonly eventCreated = signal(false);
   readonly uploadedPhotos = signal<EventPhotoResponse[]>([]);
 
   protected createdEventId = '';
-
-  readonly currencies = ['USD', 'EUR', 'GBP'];
 
   protected readonly categories = EVENT_CATEGORIES;
 
@@ -365,7 +370,7 @@ export class EventCreateComponent {
           && !!(this.form.get('country')?.valid) && !!(this.form.get('capacity')?.valid)
           && this.isFutureDate();
       case 2:
-        return true; // photos are optional
+        return true;
       default:
         return true;
     }
@@ -375,7 +380,6 @@ export class EventCreateComponent {
     const fields = step === 0
       ? ['name', 'description']
       : ['date', 'time', 'street', 'city', 'country', 'capacity'];
-    if (step === 2) return; // no form fields for photos step
     fields.forEach((f) => this.form.get(f)?.markAsTouched());
   }
 
@@ -383,7 +387,7 @@ export class EventCreateComponent {
     this.ticketTypes.push(
       this.fb.group({
         name: ['', [Validators.required]],
-        amount: [0, [Validators.required, Validators.min(0)]],
+        amount: [10, [Validators.required, Validators.min(1)]],
         currency: ['USD', [Validators.required]],
         capacity: [1, [Validators.required, Validators.min(1)]],
       }),
@@ -431,6 +435,7 @@ export class EventCreateComponent {
 
     const { name, description, date, time, street, city, country, capacity, category } = this.form.value;
     const combinedDate = new Date(`${date}T${time}`).toISOString();
+    const tickets = this.ticketTypes.value as AddTicketTypeRequest[];
 
     this.eventApp
       .createEvent({
@@ -444,56 +449,59 @@ export class EventCreateComponent {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (result) => {
-          this.submitting.set(false);
           if (result.isSuccess && result.value) {
             this.createdEventId = result.value;
-            this.toast.showSuccess('Event created! Now add ticket types.');
-            this.eventCreated.set(true);
+            if (tickets.length === 0) {
+              this.submitting.set(false);
+              this.eventCreated.set(true);
+              this.toast.showSuccess('Event created successfully!');
+              return;
+            }
+            this.addTicketsToEvent(tickets);
           } else if (result.isFailure) {
+            this.submitting.set(false);
             this.toast.showError(result.errors?.[0]?.message ?? 'Could not create the event.');
           }
         },
-        error: () => this.submitting.set(false),
+        error: () => {
+          this.submitting.set(false);
+          this.toast.showError('Could not reach the server.');
+        },
       });
   }
 
-  submitTicketTypes(): void {
-    const tickets = this.ticketTypes.value as AddTicketTypeRequest[];
-    if (tickets.length === 0) {
-      this.toast.showSuccess('Event created successfully!');
-      this.router.navigateByUrl('/dashboard/organizer');
-      return;
-    }
+  private addTicketsToEvent(tickets: AddTicketTypeRequest[]): void {
+    const addFn = this.isAdmin
+      ? (t: AddTicketTypeRequest) => this.adminHttp.addTicketType(this.createdEventId, t)
+      : (t: AddTicketTypeRequest) => this.eventHttp.addTicketType(this.createdEventId, t);
 
-    this.addingTickets.set(true);
     let completed = 0;
     let hasError = false;
 
     for (const ticket of tickets) {
-      this.eventApp.addTicketType(this.createdEventId, ticket).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-        next: (result) => {
+      addFn(ticket).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+        next: (res) => {
           completed++;
-          if (result.isFailure) {
+          if (res.isFailure) {
             hasError = true;
-            this.toast.showError(result.errors?.[0]?.message ?? 'Failed to add a ticket type.');
+            this.toast.showError(res.errors?.[0]?.message ?? 'Failed to add a ticket type.');
           }
-          if (completed === tickets.length && !hasError) {
-            this.toast.showSuccess('Event and ticket types created successfully!');
-            this.router.navigateByUrl('/dashboard/organizer');
+          if (completed === tickets.length) {
+            this.submitting.set(false);
+            this.eventCreated.set(true);
+            if (hasError) {
+              this.toast.showError('Event created but some ticket types failed. You can add them later.');
+            }
           }
         },
         error: () => {
           completed++;
           if (completed === tickets.length) {
-            this.router.navigateByUrl('/dashboard/organizer');
+            this.submitting.set(false);
+            this.eventCreated.set(true);
           }
         },
       });
     }
-  }
-
-  skipTicketTypes(): void {
-    this.toast.showSuccess('Event created successfully!');
-    this.router.navigateByUrl('/dashboard/organizer');
   }
 }

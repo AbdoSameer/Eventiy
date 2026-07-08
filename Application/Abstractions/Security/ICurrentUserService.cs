@@ -6,6 +6,7 @@ namespace Application.Abstractions.Security
     public interface ICurrentUserService
     {
         Result<UserId> GetCurrentUserId();
+        string? GetCurrentUserRole();
         bool IsAuthenticated { get; }
     }
 }

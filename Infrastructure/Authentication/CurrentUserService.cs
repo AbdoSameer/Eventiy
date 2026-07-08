@@ -27,5 +27,8 @@ namespace Infrastructure.Authentication
                 : Result<UserId>.Failure(UserErrors.UserNotAuthenticated());
         }
 
+        public string? GetCurrentUserRole()
+            => _accessor.HttpContext?.User?.FindFirst(ClaimTypes.Role)?.Value;
+
     }
 }

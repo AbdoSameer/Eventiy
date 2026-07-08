@@ -17,20 +17,15 @@ namespace Domain.Errors
                 "TicketType.NameTooLong",
                 $"Ticket type name cannot exceed {maxLength} characters.");
 
-        public static Error PriceMustBeGreaterThanZero()
+        public static Error PriceCannotBeNegative()
             => Error.Validation(
-                "TicketType.PriceMustBeGreaterThanZero",
-                "Ticket price must be greater than zero.");
+                "TicketType.PriceCannotBeNegative",
+                "Ticket price cannot be negative.");
 
         public static Error PriceCannotBeNull()
             => Error.Validation(
                 "TicketType.PriceCannotBeNull",
                 "Ticket price cannot be null.");
-
-        public static Error PriceCannotBeNegative()
-            => Error.Validation(
-                "TicketType.PriceCannotBeNegative",
-                "Ticket price cannot be negative.");
 
         public static Error CapacityMustBeGreaterThanZero()
             => Error.Validation(
