@@ -1,3 +1,4 @@
+using Application.Abstractions.Caching;
 using Application.Abstractions.Messaging;
 using Application.Abstractions.Persistence;
 using Application.Abstractions.Security;
@@ -5,7 +6,6 @@ using Domain.Aggregates.BookingAggregate.ValueObject;
 using Domain.Aggregates.BookingAggregate.Enums;
 using Domain.Common;
 using Domain.Errors;
-using MediatR;
 using Domain.Abstractions.Persistence;
 
 namespace Application.Features.Bookings.Command.CancelBooking
@@ -19,7 +19,7 @@ namespace Application.Features.Bookings.Command.CancelBooking
         private readonly IUserRepository _userRepository;
         private readonly ICurrentUserService _currentUserService;
         private readonly IEventMetadataFactory _metadataFactory;
-        private readonly IPublisher _publisher;
+        private readonly ICacheService _cache;
 
         public CancelBookingCommandHandler(IBookingRepository bookingRepository,
                                            IEventRepository eventRepository,
@@ -28,16 +28,16 @@ namespace Application.Features.Bookings.Command.CancelBooking
                                            IUserRepository userRepository,
                                            ICurrentUserService currentUserService,
                                            IEventMetadataFactory metadataFactory,
-                                           IPublisher publisher)
+                                           ICacheService cache)
         {
             _bookingRepository = bookingRepository;
             _eventRepository = eventRepository;
             _unitOfWork = unitOfWork;
             _dateTimeProvider = dateTimeProvider;
-            _currentUserService = currentUserService;
             _userRepository = userRepository;
+            _currentUserService = currentUserService;
             _metadataFactory = metadataFactory;
-            _publisher = publisher;
+            _cache = cache;
         }
 
         public async Task<Result<bool>> Handle(CancelBookingCommand request, CancellationToken cancellationToken)
@@ -115,18 +115,14 @@ namespace Application.Features.Bookings.Command.CancelBooking
                 return Result<bool>.Failure(seatsResult.Errors.ToArray());
             }
 
-            foreach (var domainEvent in booking.DomainEvents)
-            {
-                await _publisher.Publish(domainEvent, cancellationToken);
-            }
-            booking.ClearDomainEvents();
-
             var result = await _unitOfWork.CommitAsync(cancellationToken);
 
             if (result <= 0)
             {
                 return Result<bool>.Failure(BookingErrors.CannotCancelBooking(bookingIdResult.Value, booking.Status));
             }
+
+            await _cache.RemoveAsync($"event:details:{booking.EventId.Value}", cancellationToken);
 
             return Result<bool>.Success(true);
 

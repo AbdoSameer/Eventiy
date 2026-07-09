@@ -71,6 +71,7 @@ public static class DependencyInjection
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         services.AddHostedService<OutboxProcessor>();
+        services.AddHostedService<BookingExpirationJob>();
         services.AddSingleton(TimeProvider.System);
 
 

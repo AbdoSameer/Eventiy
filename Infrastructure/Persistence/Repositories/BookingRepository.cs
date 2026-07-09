@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence.Repositories
 {
-    public class BookingRepository :IBookingRepository
+    public class BookingRepository : IBookingRepository
     {
         private readonly ApplicationDbContext _applicationDbContext;
 
@@ -26,18 +26,21 @@ namespace Infrastructure.Persistence.Repositories
         {
             return _applicationDbContext.Bookings
                      .FirstOrDefaultAsync(e => e.Id == id, ct);
-            
+
         }
 
-        public async Task<int> GetTotalReservedAsync(EventId eventId, CancellationToken ct = default)
+        public async Task<IReadOnlyList<Booking>> GetExpiredPendingBookingsAsync(
+            DateTime utcNow,
+            int batchSize,
+            CancellationToken ct = default)
         {
-            var result = await _applicationDbContext.Bookings
-                                .Where(b => b.EventId == eventId
-                                 && b.Status != BookingStatusEnum.Cancelled
-                                 && b.Status != BookingStatusEnum.Expired)
-                                .SumAsync(b => b.Quantity, ct);
-            
-            return (int)result;
+            return await _applicationDbContext.Bookings
+                .Where(b => b.Status == BookingStatusEnum.Pending
+                         && b.HoldExpiresAt.HasValue
+                         && b.HoldExpiresAt.Value <= utcNow)
+                .OrderBy(b => b.HoldExpiresAt)
+                .Take(batchSize)
+                .ToListAsync(ct);
         }
     }
 }

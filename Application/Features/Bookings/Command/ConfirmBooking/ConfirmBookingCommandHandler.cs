@@ -1,3 +1,4 @@
+using Application.Abstractions.Caching;
 using Application.Abstractions.Messaging;
 using Application.Abstractions.Persistence;
 using Application.Abstractions.Security;
@@ -18,6 +19,7 @@ namespace Application.Features.Bookings.Command.ConfirmBooking
         private readonly IUserRepository _userRepository;
         private readonly ICurrentUserService _currentUserService;
         private readonly IEventMetadataFactory _metadataFactory;
+        private readonly ICacheService _cache;
 
         public ConfirmBookingCommandHandler(IBookingRepository bookingRepository,
                                             IEventRepository eventRepository,
@@ -25,7 +27,8 @@ namespace Application.Features.Bookings.Command.ConfirmBooking
                                             TimeProvider dateTimeProvider,
                                             IUserRepository userRepository,
                                             ICurrentUserService currentUserService,
-                                            IEventMetadataFactory metadataFactory)
+                                            IEventMetadataFactory metadataFactory,
+                                            ICacheService cache)
         {
             _bookingRepository = bookingRepository;
             _eventRepository = eventRepository;
@@ -34,6 +37,7 @@ namespace Application.Features.Bookings.Command.ConfirmBooking
             _userRepository = userRepository;
             _currentUserService = currentUserService;
             _metadataFactory = metadataFactory;
+            _cache = cache;
         }
 
         public async Task<Result<bool>> Handle(ConfirmBookingCommand request, CancellationToken cancellationToken)
@@ -102,6 +106,8 @@ namespace Application.Features.Bookings.Command.ConfirmBooking
             {
                 return Result<bool>.Failure(BookingErrors.BookingCreationFailed());
             }
+
+            await _cache.RemoveAsync($"event:details:{booking.EventId.Value}", cancellationToken);
 
             return Result<bool>.Success(true);
         }

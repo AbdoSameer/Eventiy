@@ -7,7 +7,7 @@ namespace Domain.Common
         public virtual string Name => GetType().Name;
         public virtual string Domain { get; }
         public DateTime OccurredOnUtc { get; }
-        public string IdempotencyKey { get; } 
+        public string IdempotencyKey { get; }
         public EventMetadata Metadata { get; }
 
         protected DomainEvent(string domain,
@@ -18,7 +18,7 @@ namespace Domain.Common
             Domain = domain;
             OccurredOnUtc = occurredOnUtc;
             Metadata = metadata;
-            IdempotencyKey = $"{metadata.CorrelationId}:{Name}:{Id}"; 
+            IdempotencyKey = $"{metadata.CorrelationId}:{Name}";
         }
         protected DomainEvent(DateTime occurredOnUtc,
                             EventMetadata metadata)
@@ -26,7 +26,7 @@ namespace Domain.Common
             Id = Guid.NewGuid();
             OccurredOnUtc = occurredOnUtc;
             Metadata = metadata;
-            IdempotencyKey = $"{metadata.CorrelationId}:{Name}:{Id}";
+            IdempotencyKey = $"{metadata.CorrelationId}:{Name}";
         }
     }
 

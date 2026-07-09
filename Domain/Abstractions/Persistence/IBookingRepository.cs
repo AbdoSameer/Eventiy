@@ -13,5 +13,8 @@ public interface IBookingRepository
 
     Task<Booking?> GetByIdAsync(BookingId id, CancellationToken ct = default);
 
-    Task<int> GetTotalReservedAsync(EventId eventId, CancellationToken ct = default);
+    Task<IReadOnlyList<Booking>> GetExpiredPendingBookingsAsync(
+        DateTime utcNow,
+        int batchSize,
+        CancellationToken ct = default);
 }
