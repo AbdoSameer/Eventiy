@@ -3,7 +3,7 @@ using Domain.Aggregates.BookingAggregate.Events;
 using Domain.Common;
 using Microsoft.Extensions.Logging;
 
-namespace Application.EventHandlers;
+namespace Application.Features.Bookings.Events.BookingCreated;
 
 public class BookingCreatedEventHandler : IDomainEventHandler<BookingCreatedEvent>
 {
@@ -28,9 +28,8 @@ public class BookingCreatedEventHandler : IDomainEventHandler<BookingCreatedEven
         if (await _idempotencyStore.IsProcessedAsync(@event.Id, cancellationToken))
         {
             _logger.LogInformation(
-                "Event {EventId} with key {IdempotencyKey} already processed - skipping",
-                @event.Id,
-                @event.IdempotencyKey);
+                "Event {EventId} already processed - skipping",
+                @event.Id);
 
             return Result.Success();
         }
@@ -41,7 +40,7 @@ public class BookingCreatedEventHandler : IDomainEventHandler<BookingCreatedEven
 
         await _idempotencyStore.MarkAsProcessedAsync(
             @event.Id,
-            @event.IdempotencyKey,
+            @event.Id.ToString("N"),
             @event.OccurredOnUtc,
             cancellationToken);
 

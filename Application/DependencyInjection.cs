@@ -1,4 +1,7 @@
 ﻿using Application.Abstractions.Behaviors;
+using Application.Features.Bookings.Events.BookingCreated;
+using Domain.Aggregates.BookingAggregate.Events;
+using Application.Abstractions.Persistence;
 using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,6 +17,8 @@ public static class DependencyInjection
 
         services.AddValidatorsFromAssembly(assembly, includeInternalTypes: true);
 
+        services.AddScoped<IEventValidator<BookingCreatedEvent>, BookingCreatedValidator>();
+
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingPipelineBehavior<,>));
 
         services.AddMediatR(config =>
@@ -22,7 +27,6 @@ public static class DependencyInjection
 
             config.AddBehavior(typeof(IPipelineBehavior<,>), typeof(ValidationPipelineBehavior<,>));
         });
-
 
         return services;
     }
