@@ -24,8 +24,7 @@ namespace Domain.Aggregates.BookingAggregate.Events
             TicketTypeId ticketTypeId,
             int quantity,                
             DateTime occurredOnUtc,
-            EventMetadata metadata,
-            string? reason = null) : base(occurredOnUtc, metadata)
+            string? reason = null) : base(occurredOnUtc)
         {
             BookingId = bookingId;  
             UserId = userId;

@@ -16,8 +16,7 @@ namespace Domain.Aggregates.EventAggregate.Events.TicketTypeEvents
             EventId eventId,
             int oldCapacity,
             int newCapacity,
-            DateTime occurredOnUtc,
-            EventMetadata metadata) : base(ticketTypeId, eventId, occurredOnUtc, metadata)
+            DateTime occurredOnUtc) : base(ticketTypeId, eventId, occurredOnUtc)
         {
             OldCapacity = oldCapacity;
             NewCapacity = newCapacity;

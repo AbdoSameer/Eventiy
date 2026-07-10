@@ -16,8 +16,7 @@ namespace Application.Features.Authentication.Commands.Register
         IPasswordHasher passwordHasher,
         IJwtTokenGenerator jwtGenerator,
         IUnitOfWork unitOfWork,
-        TimeProvider dateTimeProvider,
-        IEventMetadataFactory metadataFactory) : ICommandHandler<RegisterUserCommand, AuthResponse>
+        TimeProvider dateTimeProvider) : ICommandHandler<RegisterUserCommand, AuthResponse>
     {
         public async Task<Result<AuthResponse>> Handle(
             RegisterUserCommand command, CancellationToken cancellationToken)
@@ -36,7 +35,6 @@ namespace Application.Features.Authentication.Commands.Register
 
             var passwordHash = passwordHasher.Hash(command.Password);
 
-            var metadata = metadataFactory.Create();
             var requiresApproval = roleResult.Value == Role.Organizer;
         
             var utcNow = dateTimeProvider.GetUtcNow().UtcDateTime;
@@ -47,8 +45,7 @@ namespace Application.Features.Authentication.Commands.Register
                 passwordHash,
                 roleResult.Value,
                 utcNow,
-                metadata,
-                isApproved: !requiresApproval);
+                !requiresApproval);
 
             if (userResult.IsFailure)
                 return Result<AuthResponse>.Failure(userResult.Errors.ToArray());

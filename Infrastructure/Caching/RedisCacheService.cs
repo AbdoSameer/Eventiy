@@ -5,12 +5,11 @@ using StackExchange.Redis;
 
 namespace Infrastructure.Caching;
 
-internal sealed class RedisCacheService : ICacheService, IDisposable
+internal sealed class RedisCacheService : ICacheService
 {
     private readonly IDatabase _db;
     private readonly IServer _server;
     private readonly ILogger<RedisCacheService> _logger;
-    private readonly ConnectionMultiplexer _multiplexer;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -19,13 +18,12 @@ internal sealed class RedisCacheService : ICacheService, IDisposable
     private const string KeyPrefix = "cache:";
 
     public RedisCacheService(
-        string connectionString,
+        ConnectionMultiplexer multiplexer,
         ILogger<RedisCacheService> logger)
     {
         _logger = logger;
-        _multiplexer = ConnectionMultiplexer.Connect(connectionString);
-        _db = _multiplexer.GetDatabase();
-        _server = _multiplexer.GetServer(_multiplexer.GetEndPoints().First());
+        _db = multiplexer.GetDatabase();
+        _server = multiplexer.GetServer(multiplexer.GetEndPoints().First());
     }
 
     public async Task<T?> GetAsync<T>(string key, CancellationToken cancellationToken = default)
@@ -110,8 +108,6 @@ internal sealed class RedisCacheService : ICacheService, IDisposable
             _logger.LogWarning(ex, "Redis FLUSHDB failed");
         }
     }
-
-    public void Dispose() => _multiplexer?.Dispose();
 
     private static string BuildKey(string key) => $"{KeyPrefix}{key}";
 }

@@ -16,8 +16,7 @@ namespace Domain.Aggregates.EventAggregate.Events.TicketTypeEvents
             EventId eventId,
             string oldName,
             string newName,
-            DateTime occurredOnUtc,
-            EventMetadata metadata) : base(ticketTypeId, eventId, occurredOnUtc, metadata)
+            DateTime occurredOnUtc) : base(ticketTypeId, eventId, occurredOnUtc)
         {
             OldName = oldName;
             NewName = newName;

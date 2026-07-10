@@ -14,20 +14,17 @@ namespace Application.Features.Events.Commands.CreateEvent
         private readonly IEventRepository _eventRepository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly TimeProvider _dateTimeProvider;
-        private readonly IEventMetadataFactory _metadataFactory;
         private readonly ICacheService _cache;
 
         public CreateEventCommandHandler(
             IEventRepository eventRepository,
             IUnitOfWork unitOfWork,
             TimeProvider dateTimeProvider,
-            IEventMetadataFactory metadataFactory,
             ICacheService cache)
         {
             _eventRepository = eventRepository;
             _unitOfWork = unitOfWork;
             _dateTimeProvider = dateTimeProvider;
-            _metadataFactory = metadataFactory;
             _cache = cache;
         }
 
@@ -45,8 +42,6 @@ namespace Application.Features.Events.Commands.CreateEvent
                 return Result<Guid>.Failure(addressResult.Errors.ToArray());
             }
 
-            var metadata = _metadataFactory.Create();
-
             var @event = Event
                         .Create(request.Name,
                                 request.Capacity,
@@ -54,8 +49,7 @@ namespace Application.Features.Events.Commands.CreateEvent
                                 addressResult.Value,
                                 request.Description,
                                 request.Type,
-                                _dateTimeProvider.GetUtcNow().UtcDateTime,
-                                metadata);
+                                _dateTimeProvider.GetUtcNow().UtcDateTime);
 
             if (@event.IsFailure)
             {
@@ -74,7 +68,7 @@ namespace Application.Features.Events.Commands.CreateEvent
                         "Failed to create the event. Please try again later."));
             }
 
-            await _cache.RemoveByPatternAsync("events:*", cancellationToken);
+            await _cache.RemoveByPatternAsync("events:list:*", cancellationToken);
 
             return Result<Guid>.Success(@event.Value.Id.Value);
         }

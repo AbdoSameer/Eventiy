@@ -23,7 +23,6 @@ namespace Domain.Aggregates.UserAggregate
             string passwordHash,
             Role role,
             DateTime utcNow,
-            EventMetadata eventMetadata,
             bool isApproved = true)
         {
             var user = new User
@@ -37,7 +36,7 @@ namespace Domain.Aggregates.UserAggregate
                 IsApproved = isApproved
             };
 
-            user.RaiseDomainEvent(new UserRegisteredEvent(user.Id, email, utcNow, eventMetadata));
+            user.RaiseDomainEvent(new UserRegisteredEvent(user.Id, email, utcNow));
 
             return Result<User>.Success(user);
         }

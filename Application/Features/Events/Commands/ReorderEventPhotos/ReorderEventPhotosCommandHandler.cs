@@ -13,20 +13,17 @@ internal sealed class ReorderEventPhotosCommandHandler
     private readonly IEventRepository _eventRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly TimeProvider _dateTimeProvider;
-    private readonly IEventMetadataFactory _metadataFactory;
     private readonly ICacheService _cache;
 
     public ReorderEventPhotosCommandHandler(
         IEventRepository eventRepository,
         IUnitOfWork unitOfWork,
         TimeProvider dateTimeProvider,
-        IEventMetadataFactory metadataFactory,
         ICacheService cache)
     {
         _eventRepository = eventRepository;
         _unitOfWork = unitOfWork;
         _dateTimeProvider = dateTimeProvider;
-        _metadataFactory = metadataFactory;
         _cache = cache;
     }
 
@@ -50,12 +47,10 @@ internal sealed class ReorderEventPhotosCommandHandler
             return Result.Failure(errors);
         }
 
-        var metadata = _metadataFactory.Create();
         var utcNow = _dateTimeProvider.GetUtcNow().UtcDateTime;
         var result = @event.ReorderPhotos(
             orderedIds.Select(r => r.Value).ToList(),
-            utcNow,
-            metadata);
+            utcNow);
 
         if (result.IsFailure)
             return result;

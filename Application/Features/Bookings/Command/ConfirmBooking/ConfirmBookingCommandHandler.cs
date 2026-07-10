@@ -18,7 +18,6 @@ namespace Application.Features.Bookings.Command.ConfirmBooking
         private readonly TimeProvider _dateTimeProvider;
         private readonly IUserRepository _userRepository;
         private readonly ICurrentUserService _currentUserService;
-        private readonly IEventMetadataFactory _metadataFactory;
         private readonly ICacheService _cache;
 
         public ConfirmBookingCommandHandler(IBookingRepository bookingRepository,
@@ -27,7 +26,6 @@ namespace Application.Features.Bookings.Command.ConfirmBooking
                                             TimeProvider dateTimeProvider,
                                             IUserRepository userRepository,
                                             ICurrentUserService currentUserService,
-                                            IEventMetadataFactory metadataFactory,
                                             ICacheService cache)
         {
             _bookingRepository = bookingRepository;
@@ -36,7 +34,6 @@ namespace Application.Features.Bookings.Command.ConfirmBooking
             _dateTimeProvider = dateTimeProvider;
             _userRepository = userRepository;
             _currentUserService = currentUserService;
-            _metadataFactory = metadataFactory;
             _cache = cache;
         }
 
@@ -48,7 +45,7 @@ namespace Application.Features.Bookings.Command.ConfirmBooking
                 return Result<bool>.Failure(bookingIdResult.Errors.ToArray());
             }
 
-            var booking = await _bookingRepository.GetByIdAsync(bookingIdResult.Value);
+            var booking = await _bookingRepository.GetByIdAsync(bookingIdResult.Value, cancellationToken);
 
             if (booking is null)
             {
@@ -61,7 +58,7 @@ namespace Application.Features.Bookings.Command.ConfirmBooking
                 return Result<bool>.Failure(CurrentUserIdResult.Errors.ToArray());
             }
 
-            var UserResult = await _userRepository.GetByIdAsync(CurrentUserIdResult.Value);
+            var UserResult = await _userRepository.GetByIdAsync(CurrentUserIdResult.Value, cancellationToken);
             if (UserResult is null)
             {
                 return Result<bool>.Failure(UserErrors.NotFound());
@@ -75,10 +72,9 @@ namespace Application.Features.Bookings.Command.ConfirmBooking
                     "Only admins and organizers can confirm bookings."));
             }
 
-            var metadata = _metadataFactory.Create();
             var utcNow = _dateTimeProvider.GetUtcNow().UtcDateTime;
 
-            var ConfirmResult = booking.Confirm(utcNow, metadata);
+            var ConfirmResult = booking.Confirm(utcNow);
             if (ConfirmResult.IsFailure)
             {
                 return Result<bool>.Failure(ConfirmResult.Errors.ToArray());
@@ -93,8 +89,7 @@ namespace Application.Features.Bookings.Command.ConfirmBooking
             var confirmSeatsResult = eventResult.ConfirmReservation(
                 booking.TicketTypeId,
                 booking.Quantity,
-                utcNow,
-                metadata);
+                utcNow);
             if (confirmSeatsResult.IsFailure)
             {
                 return Result<bool>.Failure(confirmSeatsResult.Errors.ToArray());
@@ -104,7 +99,7 @@ namespace Application.Features.Bookings.Command.ConfirmBooking
 
             if (rowsAffected <= 0)
             {
-                return Result<bool>.Failure(BookingErrors.BookingCreationFailed());
+                return Result<bool>.Failure(BookingErrors.BookingConfirmationFailed());
             }
 
             await _cache.RemoveAsync($"event:details:{booking.EventId.Value}", cancellationToken);

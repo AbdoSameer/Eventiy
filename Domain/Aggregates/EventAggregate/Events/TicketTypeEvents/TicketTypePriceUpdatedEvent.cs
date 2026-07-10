@@ -18,8 +18,7 @@ namespace Domain.Aggregates.EventAggregate.Events.TicketTypeEvents
             decimal oldPrice,
             decimal newPrice,
             string currency,
-            DateTime occurredOnUtc,
-            EventMetadata metadata) : base(ticketTypeId, eventId, occurredOnUtc, metadata)
+            DateTime occurredOnUtc) : base(ticketTypeId, eventId, occurredOnUtc)
         {
             OldPrice = oldPrice;
             NewPrice = newPrice;

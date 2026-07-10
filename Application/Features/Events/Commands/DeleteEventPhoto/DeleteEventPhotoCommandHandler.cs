@@ -15,7 +15,6 @@ internal sealed class DeleteEventPhotoCommandHandler
     private readonly IFileStorageService _storageService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly TimeProvider _dateTimeProvider;
-    private readonly IEventMetadataFactory _metadataFactory;
     private readonly ICacheService _cache;
 
     public DeleteEventPhotoCommandHandler(
@@ -23,14 +22,12 @@ internal sealed class DeleteEventPhotoCommandHandler
         IFileStorageService storageService,
         IUnitOfWork unitOfWork,
         TimeProvider dateTimeProvider,
-        IEventMetadataFactory metadataFactory,
         ICacheService cache)
     {
         _eventRepository = eventRepository;
         _storageService = storageService;
         _unitOfWork = unitOfWork;
         _dateTimeProvider = dateTimeProvider;
-        _metadataFactory = metadataFactory;
         _cache = cache;
     }
 
@@ -52,9 +49,8 @@ internal sealed class DeleteEventPhotoCommandHandler
         if (photo is null)
             return Result.Failure(Domain.Errors.EventErrors.PhotoNotFound(photoIdResult.Value));
 
-        var metadata = _metadataFactory.Create();
         var utcNow = _dateTimeProvider.GetUtcNow().UtcDateTime;
-        var removeResult = @event.RemovePhoto(photoIdResult.Value, utcNow, metadata);
+        var removeResult = @event.RemovePhoto(photoIdResult.Value, utcNow);
         if (removeResult.IsFailure)
             return removeResult;
 

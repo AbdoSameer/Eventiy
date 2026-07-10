@@ -10,10 +10,14 @@ import {
 import { eventCardToEvent, eventDetailsToEvent } from '../../core/mappers/event.mapper';
 import { Result } from '../../core/models/result.model';
 
+function cacheKey(query?: EventQuery): string {
+  const q = query ?? {};
+  return `${q.page ?? 1}:${q.pageSize ?? 10}:${q.type ?? ''}:${q.keyword ?? ''}:${q.userLatitude ?? ''}:${q.userLongitude ?? ''}:${q.distanceInKm ?? ''}`;
+}
+
 @Injectable({ providedIn: 'root' })
 export class EventApplicationService {
-  private eventsCache$: Observable<Result<Event[]>> | null = null;
-  private lastFetchTime = 0;
+  private readonly cache = new Map<string, { data$: Observable<Result<Event[]>>; timestamp: number }>();
   private readonly CACHE_TTL_MS = 30_000;
 
   readonly userLocation = signal<{ lat: number; lng: number } | null>(null);
@@ -56,11 +60,6 @@ export class EventApplicationService {
   }
 
   getEvents(forceRefresh = false, query?: EventQuery): Observable<Result<Event[]>> {
-    const isExpired = Date.now() - this.lastFetchTime > this.CACHE_TTL_MS;
-    if (!forceRefresh && this.eventsCache$ && !isExpired) {
-      return this.eventsCache$;
-    }
-
     const mergedQuery: EventQuery = { ...query };
     if (this.nearbyEnabled()) {
       const loc = this.userLocation();
@@ -71,24 +70,28 @@ export class EventApplicationService {
       }
     }
 
-    this.eventsCache$ = this.eventHttp.getEvents(mergedQuery).pipe(
+    const key = cacheKey(mergedQuery);
+    const entry = this.cache.get(key);
+
+    if (!forceRefresh && entry && Date.now() - entry.timestamp < this.CACHE_TTL_MS) {
+      return entry.data$;
+    }
+
+    const data$ = this.eventHttp.getEvents(mergedQuery).pipe(
       map(result => {
         if (!result.isSuccess) return result as unknown as Result<Event[]>;
         return { isSuccess: true, isFailure: false, value: result.value!.map(eventCardToEvent) } as Result<Event[]>;
       }),
-      shareReplay(1),
-      catchError(err => {
-        this.eventsCache$ = null;
-        return of({ isSuccess: false, isFailure: true, errors: [{ code: 'cache.error', message: err.message, type: 1 }] } as Result<Event[]>);
-      }),
+      shareReplay({ bufferSize: 1, refCount: true }),
+      catchError(err => of({ isSuccess: false, isFailure: true, errors: [{ code: 'cache.error', message: err.message, type: 1 }] } as Result<Event[]>)),
     );
-    this.lastFetchTime = Date.now();
-    return this.eventsCache$;
+
+    this.cache.set(key, { data$, timestamp: Date.now() });
+    return data$;
   }
 
   private invalidateCache(): void {
-    this.eventsCache$ = null;
-    this.lastFetchTime = 0;
+    this.cache.clear();
   }
 
   getEvent(id: string): Observable<Result<Event>> {

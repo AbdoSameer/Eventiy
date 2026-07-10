@@ -13,20 +13,17 @@ internal sealed class UpdatePhotoMetadataCommandHandler
     private readonly IEventRepository _eventRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly TimeProvider _dateTimeProvider;
-    private readonly IEventMetadataFactory _metadataFactory;
     private readonly ICacheService _cache;
 
     public UpdatePhotoMetadataCommandHandler(
         IEventRepository eventRepository,
         IUnitOfWork unitOfWork,
         TimeProvider dateTimeProvider,
-        IEventMetadataFactory metadataFactory,
         ICacheService cache)
     {
         _eventRepository = eventRepository;
         _unitOfWork = unitOfWork;
         _dateTimeProvider = dateTimeProvider;
-        _metadataFactory = metadataFactory;
         _cache = cache;
     }
 
@@ -44,12 +41,10 @@ internal sealed class UpdatePhotoMetadataCommandHandler
         if (photoIdResult.IsFailure)
             return Result.Failure(photoIdResult.Errors.ToArray());
 
-        var metadata = _metadataFactory.Create();
-
         if (request.Caption is not null)
         {
             var utcNow = _dateTimeProvider.GetUtcNow().UtcDateTime;
-            var captionResult = @event.UpdatePhotoCaption(photoIdResult.Value, request.Caption, utcNow, metadata);
+            var captionResult = @event.UpdatePhotoCaption(photoIdResult.Value, request.Caption, utcNow);
             if (captionResult.IsFailure)
                 return captionResult;
         }

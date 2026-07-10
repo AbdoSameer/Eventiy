@@ -51,6 +51,10 @@ export class AuthApplicationService {
     this.router.navigateByUrl('/');
   }
 
+  navigateToUnauthorized(): void {
+    this.router.navigateByUrl('/unauthorized');
+  }
+
   getToken(): string | null {
     return this.currentUser()?.token ?? null;
   }

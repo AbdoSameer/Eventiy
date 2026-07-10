@@ -1,5 +1,4 @@
-﻿
-using Domain.Aggregates.UserAggregate.ValueObject;
+﻿using Domain.Aggregates.UserAggregate.ValueObject;
 using Domain.Common;
 
 namespace Domain.Aggregates.UserAggregate.Events
@@ -14,8 +13,7 @@ namespace Domain.Aggregates.UserAggregate.Events
         public UserRegisteredEvent(
             UserId userId,
             Email email,
-            DateTime occurredOnUtc,
-            EventMetadata metadata) : base( occurredOnUtc, metadata)
+            DateTime occurredOnUtc) : base(occurredOnUtc)
         {
             UserId = userId;
             Email = email;

@@ -1,7 +1,6 @@
 ﻿using Application.Abstractions.Outbox;
 using Application.Abstractions.Persistence;
 using Domain.Common;
-using Domain.Primitives;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -35,7 +34,7 @@ public sealed class UnitOfWork : IUnitOfWork
             var result = await _context.SaveChangesAsync(cancellationToken);
 
             _logger?.LogInformation(
-                "✅ Committed {Changes} changes with {Events} outbox events",
+                "Committed {Changes} changes with {Events} outbox events",
                 result, domainEvents.Count);
 
             return result;
@@ -47,10 +46,7 @@ public sealed class UnitOfWork : IUnitOfWork
         }
     }
 
-    /// <summary>
-    /// ✅ Save changes WITHOUT extracting/publishing events
-    /// Used by OutboxProcessor to save processed status
-    /// </summary>
+
     public async Task<int> CommitWithoutEventsAsync(CancellationToken cancellationToken = default)
         => await _context.SaveChangesAsync(cancellationToken);
 

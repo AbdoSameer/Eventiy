@@ -34,6 +34,6 @@ internal sealed class EventMetadataFactory : IEventMetadataFactory
             ? _currentUserService.GetCurrentUserId().Value?.Value.ToString()
             : null;
 
-        return new EventMetadata(correlationId, causationId, userId);
+        return new EventMetadata(correlationId ?? Guid.NewGuid().ToString(), causationId, userId);
     }
 }

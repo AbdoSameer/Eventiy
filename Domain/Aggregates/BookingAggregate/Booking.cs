@@ -66,8 +66,7 @@ namespace Domain.Aggregates.BookingAggregate
             int quantity,
             Money money,
             PaymentMethod paymentMethod,       
-            DateTime utcNow,
-            EventMetadata metadata)
+            DateTime utcNow)
         {
             // Validate quantity
             if (quantity <= 0)
@@ -103,38 +102,37 @@ namespace Domain.Aggregates.BookingAggregate
                 booking.TicketTypeId,   
                 booking.Quantity,
                 booking.TotalAmount,
-                utcNow,
-                metadata));
+                utcNow));
 
             return Result<Booking>.Success(booking);
         }
 
-        public Result Confirm(DateTime utcNow, EventMetadata metadata)
+        public Result Confirm(DateTime utcNow)
         {
             if (Status == BookingStatusEnum.Confirmed)
                 return Result.Failure(BookingErrors.BookingAlreadyConfirmed(Id.Value));
-         
+          
             if (Status == BookingStatusEnum.Expired)
                 return Result.Failure(BookingErrors.BookingExpired(Id.Value));
-          
+           
             if (Status == BookingStatusEnum.Cancelled)
                 return Result.Failure(BookingErrors.BookingAlreadyCancelled(Id.Value));
-           
+            
             if (Status == BookingStatusEnum.Refunded)
                 return Result.Failure(BookingErrors.CannotModifyRefundedBooking(Id.Value));
-       
+        
             if (Status != BookingStatusEnum.Pending)  
                 return Result.Failure(BookingErrors.BookingNotPending(Id.Value, Status));
 
             Status = BookingStatusEnum.Confirmed;
             ConfirmationDate = utcNow;
-           
-            RaiseDomainEvent(new BookingConfirmedEvent(Id, UserId, EventId, TicketTypeId, Quantity, utcNow, metadata));
-         
+            
+            RaiseDomainEvent(new BookingConfirmedEvent(Id, UserId, EventId, TicketTypeId, Quantity, utcNow));
+          
             return Result.Success();
         }
 
-        public Result Cancel(DateTime utcNow, EventMetadata metadata, string? reason = null)
+        public Result Cancel(DateTime utcNow, string? reason = null)
         {
             if (Status != BookingStatusEnum.Pending && Status != BookingStatusEnum.Confirmed)
                 return Result.Failure(BookingErrors.CannotCancelBooking(Id.Value, Status));
@@ -152,12 +150,12 @@ namespace Domain.Aggregates.BookingAggregate
             CancellationDate = utcNow;
             CancellationReason = reason;
 
-            RaiseDomainEvent(new BookingCancelledEvent(Id, UserId, EventId, TicketTypeId, Quantity, utcNow, metadata, reason));
+            RaiseDomainEvent(new BookingCancelledEvent(Id, UserId, EventId, TicketTypeId, Quantity, utcNow, reason));
 
             return Result.Success();
         }
 
-        public Result RequestCancellation(DateTime utcNow, EventMetadata metadata, string? reason = null)
+        public Result RequestCancellation(DateTime utcNow, string? reason = null)
         {
             if (Status == BookingStatusEnum.Cancelled)
                 return Result.Failure(BookingErrors.BookingAlreadyCancelled(Id.Value));
@@ -175,15 +173,15 @@ namespace Domain.Aggregates.BookingAggregate
             // For confirmed bookings, request cancellation (admin approval needed)
             if (Status == BookingStatusEnum.Confirmed)
             {
-                RaiseDomainEvent(new BookingCancellationRequestedEvent(Id, UserId, EventId, utcNow, metadata, reason));
+                RaiseDomainEvent(new BookingCancellationRequestedEvent(Id, UserId, EventId, utcNow, reason));
                 return Result.Success();
             }
 
             // For pending bookings, cancel directly
-            return Cancel(utcNow, metadata, reason);
+            return Cancel(utcNow, reason);
         }
 
-        public Result Refund(DateTime utcNow, EventMetadata metadata)
+        public Result Refund(DateTime utcNow)
         {
             if (Status != BookingStatusEnum.Cancelled)
                 return Result.Failure(BookingErrors.RefundNotAllowed(Id.Value));
@@ -202,12 +200,12 @@ namespace Domain.Aggregates.BookingAggregate
             Status = BookingStatusEnum.Refunded;
             RefundDate = utcNow;
 
-            RaiseDomainEvent(new BookingRefundedEvent(Id, UserId, EventId, TotalAmount, utcNow, metadata));
+            RaiseDomainEvent(new BookingRefundedEvent(Id, UserId, EventId, TotalAmount, utcNow));
 
             return Result.Success();
         }
 
-        public Result Expire(DateTime utcNow, EventMetadata metadata)
+        public Result Expire(DateTime utcNow)
         {
             if (Status != BookingStatusEnum.Pending)
                 return Result.Failure(BookingErrors.CannotExpireBooking(Id.Value, Status));
@@ -218,12 +216,12 @@ namespace Domain.Aggregates.BookingAggregate
             Status = BookingStatusEnum.Expired;
 
             RaiseDomainEvent(new BookingExpiredEvent(
-                Id, UserId, EventId, TicketTypeId, Quantity, utcNow, metadata));
+                Id, UserId, EventId, TicketTypeId, Quantity, utcNow));
 
             return Result.Success();
         }
 
-        public Result UpdateQuantity(int newQuantity, DateTime utcNow, EventMetadata metadata)
+        public Result UpdateQuantity(int newQuantity, DateTime utcNow)
         {
             if (Status != BookingStatusEnum.Pending)
                 return Result.Failure(BookingErrors.BookingNotPending(Id.Value, Status));
@@ -239,7 +237,7 @@ namespace Domain.Aggregates.BookingAggregate
             Quantity = newQuantity;
             TotalAmount = Money.Amount * newQuantity;
 
-            RaiseDomainEvent(new BookingQuantityUpdatedEvent(Id, oldTotal, TotalAmount, utcNow, metadata));
+            RaiseDomainEvent(new BookingQuantityUpdatedEvent(Id, oldTotal, TotalAmount, utcNow));
 
             return Result.Success();
         }

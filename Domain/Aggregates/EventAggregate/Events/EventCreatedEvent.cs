@@ -18,8 +18,7 @@ namespace Domain.Aggregates.EventAggregate.Events
             string name,
             DateTime date,
             int capacity,
-            DateTime occurredOnUtc,
-            EventMetadata metadata) : base(occurredOnUtc, metadata)
+            DateTime occurredOnUtc) : base(occurredOnUtc)
         {
             EventId = eventId;
             EventName = name;

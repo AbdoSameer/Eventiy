@@ -60,7 +60,6 @@ public sealed class BookingExpirationJob : BackgroundService
         var eventRepo = scope.ServiceProvider.GetRequiredService<IEventRepository>();
         var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
         var timeProvider = scope.ServiceProvider.GetRequiredService<TimeProvider>();
-        var metadataFactory = scope.ServiceProvider.GetRequiredService<IEventMetadataFactory>();
 
         var now = timeProvider.GetUtcNow().UtcDateTime;
         var expiredBookings = await bookingRepo.GetExpiredPendingBookingsAsync(now, BatchSize, ct);
@@ -71,7 +70,7 @@ public sealed class BookingExpirationJob : BackgroundService
 
         foreach (var booking in expiredBookings)
         {
-            var expireResult = booking.Expire(now, metadataFactory.Create());
+            var expireResult = booking.Expire(now);
             if (expireResult.IsFailure)
             {
                 _logger.LogWarning(
@@ -87,8 +86,7 @@ public sealed class BookingExpirationJob : BackgroundService
                 var releaseResult = evt.ReleaseSeats(
                     booking.TicketTypeId,
                     booking.Quantity,
-                    now,
-                    metadataFactory.Create());
+                    now);
 
                 if (releaseResult.IsFailure)
                 {

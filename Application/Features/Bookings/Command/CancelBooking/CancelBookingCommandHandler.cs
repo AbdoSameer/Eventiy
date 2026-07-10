@@ -18,7 +18,6 @@ namespace Application.Features.Bookings.Command.CancelBooking
         private readonly TimeProvider _dateTimeProvider;
         private readonly IUserRepository _userRepository;
         private readonly ICurrentUserService _currentUserService;
-        private readonly IEventMetadataFactory _metadataFactory;
         private readonly ICacheService _cache;
 
         public CancelBookingCommandHandler(IBookingRepository bookingRepository,
@@ -27,7 +26,6 @@ namespace Application.Features.Bookings.Command.CancelBooking
                                            TimeProvider dateTimeProvider,
                                            IUserRepository userRepository,
                                            ICurrentUserService currentUserService,
-                                           IEventMetadataFactory metadataFactory,
                                            ICacheService cache)
         {
             _bookingRepository = bookingRepository;
@@ -36,7 +34,6 @@ namespace Application.Features.Bookings.Command.CancelBooking
             _dateTimeProvider = dateTimeProvider;
             _userRepository = userRepository;
             _currentUserService = currentUserService;
-            _metadataFactory = metadataFactory;
             _cache = cache;
         }
 
@@ -48,7 +45,7 @@ namespace Application.Features.Bookings.Command.CancelBooking
                 return Result<bool>.Failure(bookingIdResult.Errors.ToArray());
             }
 
-            var booking = await _bookingRepository.GetByIdAsync(bookingIdResult.Value);
+            var booking = await _bookingRepository.GetByIdAsync(bookingIdResult.Value, cancellationToken);
 
             if (booking is null)
             {
@@ -62,7 +59,7 @@ namespace Application.Features.Bookings.Command.CancelBooking
                 return Result<bool>.Failure(CurrentUserIdResult.Errors.ToArray());
             }
 
-            var UserResult = await _userRepository.GetByIdAsync(CurrentUserIdResult.Value);
+            var UserResult = await _userRepository.GetByIdAsync(CurrentUserIdResult.Value, cancellationToken);
             if (UserResult is null)
             {
                 return Result<bool>.Failure(UserErrors.NotFound());
@@ -76,11 +73,10 @@ namespace Application.Features.Bookings.Command.CancelBooking
                     "Only admins and organizers can cancel bookings."));
             }
 
-            var metadata = _metadataFactory.Create();
             var utcNow = _dateTimeProvider.GetUtcNow().UtcDateTime;
             var wasConfirmed = booking.Status == BookingStatusEnum.Confirmed;
 
-            var CancelResult = booking.Cancel(utcNow, metadata);
+            var CancelResult = booking.Cancel(utcNow);
             if (CancelResult.IsFailure)
             {
                 return Result<bool>.Failure(CancelResult.Errors.ToArray());
@@ -98,16 +94,14 @@ namespace Application.Features.Bookings.Command.CancelBooking
                 seatsResult = eventResult.RefundSeats(
                     booking.TicketTypeId,
                     booking.Quantity,
-                    utcNow,
-                    metadata);
+                    utcNow);
             }
             else
             {
                 seatsResult = eventResult.ReleaseSeats(
                     booking.TicketTypeId,
                     booking.Quantity,
-                    utcNow,
-                    metadata);
+                    utcNow);
             }
 
             if (seatsResult.IsFailure)

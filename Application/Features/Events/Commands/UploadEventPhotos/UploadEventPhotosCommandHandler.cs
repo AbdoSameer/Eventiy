@@ -18,7 +18,6 @@ internal sealed class UploadEventPhotosCommandHandler
     private readonly IFileStorageService _storageService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly TimeProvider _dateTimeProvider;
-    private readonly IEventMetadataFactory _metadataFactory;
     private readonly ICacheService _cache;
 
     public UploadEventPhotosCommandHandler(
@@ -27,7 +26,6 @@ internal sealed class UploadEventPhotosCommandHandler
         IFileStorageService storageService,
         IUnitOfWork unitOfWork,
         TimeProvider dateTimeProvider,
-        IEventMetadataFactory metadataFactory,
         ICacheService cache)
     {
         _eventRepository = eventRepository;
@@ -35,7 +33,6 @@ internal sealed class UploadEventPhotosCommandHandler
         _storageService = storageService;
         _unitOfWork = unitOfWork;
         _dateTimeProvider = dateTimeProvider;
-        _metadataFactory = metadataFactory;
         _cache = cache;
     }
 
@@ -51,7 +48,6 @@ internal sealed class UploadEventPhotosCommandHandler
             return Result<List<EventPhotoResponse>>.Failure(
                 Domain.Errors.EventErrors.EventNotFound(eventIdResult.Value));
 
-        var metadata = _metadataFactory.Create();
         var utcNow = _dateTimeProvider.GetUtcNow().UtcDateTime;
         var uploadedPaths = new List<string>();
         var responses = new List<EventPhotoResponse>();
@@ -96,7 +92,7 @@ internal sealed class UploadEventPhotosCommandHandler
 
                 var photo = photoResult.Value;
 
-                var addResult = @event.AddPhoto(photo, utcNow, metadata);
+                var addResult = @event.AddPhoto(photo, utcNow);
                 if (addResult.IsFailure)
                 {
                     foreach (var path in uploadedPaths)

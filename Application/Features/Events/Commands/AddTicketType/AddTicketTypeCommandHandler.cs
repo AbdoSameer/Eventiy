@@ -16,21 +16,18 @@ namespace Application.Features.Events.Commands.AddTicketType
         private readonly IUnitOfWork _unitOfWork;
         private readonly IEventRepository _eventRepository;
         private readonly TimeProvider _dateTimeProvider;
-        private readonly IEventMetadataFactory _metadataFactory;
         private readonly ICurrentUserService _currentUser;
         private readonly ICacheService _cache;
 
         public AddTicketTypeCommandHandler( IUnitOfWork unitOfWork ,
                                            IEventRepository eventRepository,
                                            TimeProvider dateTimeProvider,
-                                           IEventMetadataFactory metadataFactory,
                                            ICurrentUserService currentUser,
                                            ICacheService cache)
         {
             _unitOfWork = unitOfWork;
             _eventRepository = eventRepository;
             _dateTimeProvider = dateTimeProvider;
-            _metadataFactory = metadataFactory;
             _currentUser = currentUser;
             _cache = cache;
         }
@@ -57,7 +54,6 @@ namespace Application.Features.Events.Commands.AddTicketType
             if (moneyResult.IsFailure)
                 return Result.Failure(moneyResult.Errors.ToArray());
                 
-            var metadata = _metadataFactory.Create();
             var utcNow = _dateTimeProvider.GetUtcNow().UtcDateTime;
 
             Result addTicketResult;
@@ -66,16 +62,14 @@ namespace Application.Features.Events.Commands.AddTicketType
                 addTicketResult = @event.AdminAddTicketType(request.Name,
                     moneyResult.Value,
                     request.Capacity,
-                    utcNow,
-                    metadata);
+                    utcNow);
             }
             else
             {
                 addTicketResult = @event.AddTicketType(request.Name,
                     moneyResult.Value,
                     request.Capacity,
-                    utcNow,
-                    metadata);
+                    utcNow);
             }
 
             if (addTicketResult.IsFailure)

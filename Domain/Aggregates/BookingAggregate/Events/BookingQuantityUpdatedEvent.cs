@@ -17,8 +17,7 @@ namespace Domain.Aggregates.BookingAggregate.Events
             BookingId bookingId,
             decimal oldTotalAmount,
             decimal newTotalAmount,
-            DateTime occurredOnUtc,
-            EventMetadata metadata) : base(occurredOnUtc, metadata)
+            DateTime occurredOnUtc) : base(occurredOnUtc)
 
         {
             BookingId = bookingId;

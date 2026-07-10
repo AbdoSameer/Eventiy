@@ -14,8 +14,7 @@ namespace Domain.Aggregates.EventAggregate.Events
         public EventCancelledEvent(
             EventId eventId,
             DateTime occurredOnUtc,
-            EventMetadata metadata,
-            string? reason = null) : base(occurredOnUtc, metadata)
+            string? reason = null) : base(occurredOnUtc)
         {
             EventId = eventId;
             CancelledAt = occurredOnUtc;

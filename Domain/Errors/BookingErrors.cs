@@ -161,6 +161,11 @@ namespace Domain.Errors
                 "Booking.CreationFailed",
                 "Failed to create the booking due to an unexpected error.");
 
+        public static Error BookingConfirmationFailed()
+            => Error.Failure(
+                "Booking.ConfirmationFailed",
+                "Failed to confirm the booking due to an unexpected error.");
+
         public static Error ConcurrencyConflict()
             => Error.Conflict(
                 "Booking.CreationFailed",

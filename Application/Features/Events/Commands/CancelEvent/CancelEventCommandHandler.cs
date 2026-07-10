@@ -12,7 +12,6 @@ public sealed class CancelEventCommandHandler(
     IEventRepository eventRepository,
     IUnitOfWork unitOfWork,
     TimeProvider dateTimeProvider,
-    IEventMetadataFactory metadataFactory,
     ICurrentUserService currentUser) : ICommandHandler<CancelEventCommand>
 {
     public async Task<Result> Handle(CancelEventCommand request, CancellationToken cancellationToken)
@@ -25,14 +24,13 @@ public sealed class CancelEventCommandHandler(
         if (@event is null)
             return Result.Failure(EventErrors.EventNotFound(eventIdResult.Value));
 
-        var metadata = metadataFactory.Create();
         var utcNow = dateTimeProvider.GetUtcNow().UtcDateTime;
 
         Result cancelResult;
         if (currentUser.GetCurrentUserRole() == "Admin")
-            cancelResult = @event.AdminCancel(utcNow, metadata);
+            cancelResult = @event.AdminCancel(utcNow);
         else
-            cancelResult = @event.Cancel(utcNow, metadata);
+            cancelResult = @event.Cancel(utcNow);
 
         if (cancelResult.IsFailure)
             return Result.Failure(cancelResult.Errors.ToArray());

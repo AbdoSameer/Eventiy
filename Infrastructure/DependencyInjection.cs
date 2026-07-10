@@ -20,6 +20,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
+using StackExchange.Redis;
 using System.Text;
 
 namespace Infrastructure;
@@ -87,11 +88,9 @@ public static class DependencyInjection
 
         var redisConnectionString = configuration.GetConnectionString("Redis")
             ?? "localhost:6379";
-        services.AddSingleton<ICacheService>(sp =>
-        {
-            var logger = sp.GetRequiredService<ILogger<RedisCacheService>>();
-            return new RedisCacheService(redisConnectionString, logger);
-        });
+        services.AddSingleton<ConnectionMultiplexer>(_ =>
+            ConnectionMultiplexer.Connect(redisConnectionString));
+        services.AddSingleton<ICacheService, RedisCacheService>();
         
         var jwtSettings = configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>()
             ?? throw new InvalidOperationException(

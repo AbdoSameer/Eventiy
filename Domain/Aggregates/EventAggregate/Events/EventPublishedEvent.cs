@@ -14,8 +14,7 @@ namespace Domain.Aggregates.EventAggregate.Events
         public EventPublishedEvent(
             EventId eventId,
             int totalTicketTypes,
-            DateTime occurredOnUtc,
-            EventMetadata metadata) : base(occurredOnUtc, metadata)
+            DateTime occurredOnUtc) : base(occurredOnUtc)
         {
             EventId = eventId;
             PublishedAt = occurredOnUtc;

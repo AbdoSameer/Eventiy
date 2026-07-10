@@ -14,7 +14,6 @@ public sealed class UpdateEventCommandHandler(
     IEventRepository eventRepository,
     IUnitOfWork unitOfWork,
     TimeProvider dateTimeProvider,
-    IEventMetadataFactory metadataFactory,
     ICacheService cache,
     ICurrentUserService currentUser) : ICommandHandler<UpdateEventCommand>
 {
@@ -41,7 +40,6 @@ public sealed class UpdateEventCommandHandler(
         if (locationResult.IsFailure)
             return Result.Failure(locationResult.Errors.ToArray());
 
-        var metadata = metadataFactory.Create();
         var utcNow = dateTimeProvider.GetUtcNow().UtcDateTime;
 
         if (isAdmin)
@@ -50,7 +48,7 @@ public sealed class UpdateEventCommandHandler(
             if (updateNameResult.IsFailure)
                 return Result.Failure(updateNameResult.Errors.ToArray());
 
-            var updateCapacityResult = @event.AdminUpdateCapacity(request.Capacity, utcNow, metadata);
+            var updateCapacityResult = @event.AdminUpdateCapacity(request.Capacity, utcNow);
             if (updateCapacityResult.IsFailure)
                 return Result.Failure(updateCapacityResult.Errors.ToArray());
 
@@ -72,7 +70,7 @@ public sealed class UpdateEventCommandHandler(
             if (updateNameResult.IsFailure)
                 return Result.Failure(updateNameResult.Errors.ToArray());
 
-            var updateCapacityResult = @event.UpdateCapacity(request.Capacity, utcNow, metadata);
+            var updateCapacityResult = @event.UpdateCapacity(request.Capacity, utcNow);
             if (updateCapacityResult.IsFailure)
                 return Result.Failure(updateCapacityResult.Errors.ToArray());
 

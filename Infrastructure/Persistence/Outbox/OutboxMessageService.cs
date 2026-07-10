@@ -1,23 +1,28 @@
-﻿using Application.Abstractions.Outbox;
+﻿using Application.Abstractions.Messaging;
+using Application.Abstractions.Outbox;
 using Domain.Common;
 using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
 using System.Text;
 
 namespace Infrastructure.Persistence.Outbox;
+
 public sealed class OutboxMessageService : IOutboxMessageService
 {
     private readonly IOutboxRepository _outboxRepository;
     private readonly IEventSerializer _serializer;
+    private readonly IEventMetadataFactory _metadataFactory;
     private readonly ILogger<OutboxMessageService> _logger;
 
     public OutboxMessageService(
         IOutboxRepository outboxRepository,
         IEventSerializer serializer,
+        IEventMetadataFactory metadataFactory,
         ILogger<OutboxMessageService> logger)
     {
         _outboxRepository = outboxRepository;
         _serializer = serializer;
+        _metadataFactory = metadataFactory;
         _logger = logger;
     }
 
@@ -30,17 +35,19 @@ public sealed class OutboxMessageService : IOutboxMessageService
             return;
         }
 
+        var metadata = _metadataFactory.Create();
+
         var messages = events.Select(de =>
         {
             var payload = _serializer.Serialize(de);
-            var idempotencyKey = ComputeIdempotencyKey(de, payload); 
+            var idempotencyKey = ComputeIdempotencyKey(de, metadata, payload);
             return new OutboxMessageDto(
                 Id: Guid.NewGuid(),
                 EventName: de.Name,
                 Domain: de.Domain,
                 Payload: payload,
                 OccurredOnUtc: de.OccurredOnUtc,
-                IdempotencyKey: idempotencyKey, 
+                IdempotencyKey: idempotencyKey,
                 ProcessedOnUtc: null,
                 NextRetryOnUtc: null,
                 Error: null,
@@ -55,12 +62,11 @@ public sealed class OutboxMessageService : IOutboxMessageService
             string.Join(", ", events.Select(e => e.Name)));
     }
 
-    private static string ComputeIdempotencyKey(IDomainEvent domainEvent, string payload)
+    private static string ComputeIdempotencyKey(IDomainEvent domainEvent, EventMetadata metadata, string payload)
     {
-        if (domainEvent is DomainEvent de &&
-            !string.IsNullOrWhiteSpace(de.Metadata?.CorrelationId))
+        if (!string.IsNullOrWhiteSpace(metadata.CorrelationId))
         {
-            var correlationKey = $"{domainEvent.Name}_{de.Metadata.CorrelationId}";
+            var correlationKey = $"{domainEvent.Name}_{metadata.CorrelationId}";
             return correlationKey.Length <= 100
                 ? correlationKey
                 : correlationKey[..100];
@@ -68,6 +74,6 @@ public sealed class OutboxMessageService : IOutboxMessageService
 
         var raw = $"{domainEvent.Name}_{domainEvent.OccurredOnUtc:O}_{payload}";
         var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(raw));
-        return Convert.ToHexString(hashBytes)[..32]; 
+        return Convert.ToHexString(hashBytes)[..32];
     }
 }

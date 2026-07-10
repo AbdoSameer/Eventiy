@@ -9,37 +9,30 @@ using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Aggregates.UserAggregate.ValueObject;
 using Domain.Common;
 using Domain.Errors;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Application.Features.Bookings.Command.CreateBooking
 {
     public class CreateBookingCommandHandler : ICommandHandler<CreateBookingCommand, Guid>
     {
-        private readonly IBookingRepository _bookingRepository;
-        private readonly IUnitOfWork _unitOfWork;
-        private readonly IEventRepository _eventRepository;
+        private readonly IServiceScopeFactory _scopeFactory;
         private readonly TimeProvider _dateTimeProvider;
         private readonly ICurrentUserService _currentUserService;
-        private readonly IEventMetadataFactory _metadataFactory;
         private readonly ICacheService _cache;
 
+        private const int MAX_CONCURRENCY_RETRIES = 3;
+
         public CreateBookingCommandHandler(
-            IBookingRepository bookingRepository,
-            IUnitOfWork unitOfWork,
-            IEventRepository eventRepository,
+            IServiceScopeFactory scopeFactory,
             TimeProvider dateTimeProvider,
             ICurrentUserService currentUserService,
-            IEventMetadataFactory metadataFactory,
             ICacheService cache)
         {
-            _bookingRepository = bookingRepository;
-            _unitOfWork = unitOfWork;
-            _eventRepository = eventRepository;
+            _scopeFactory = scopeFactory;
             _dateTimeProvider = dateTimeProvider;
             _currentUserService = currentUserService;
-            _metadataFactory = metadataFactory;
             _cache = cache;
         }
-        private const int MAX_CONCURRENCY_RETRIES = 3;
 
         public async Task<Result<Guid>> Handle(CreateBookingCommand request, CancellationToken cancellationToken)
         {
@@ -68,7 +61,6 @@ namespace Application.Features.Bookings.Command.CreateBooking
                 }
                 catch (ConcurrencyException) when (attempt < MAX_CONCURRENCY_RETRIES)
                 {
-                    // Re-read fresh data and retry
                 }
             }
 
@@ -82,7 +74,12 @@ namespace Application.Features.Bookings.Command.CreateBooking
             CreateBookingCommand request,
             CancellationToken cancellationToken)
         {
-            var eventResult = await _eventRepository.GetByIdAsync(eventId, cancellationToken);
+            using var scope = _scopeFactory.CreateScope();
+            var bookingRepo = scope.ServiceProvider.GetRequiredService<IBookingRepository>();
+            var eventRepo = scope.ServiceProvider.GetRequiredService<IEventRepository>();
+            var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+
+            var eventResult = await eventRepo.GetByIdAsync(eventId, cancellationToken);
             if (eventResult is null)
                 return Result<Guid>.Failure(EventErrors.EventNotFound(eventId));
 
@@ -90,10 +87,10 @@ namespace Application.Features.Bookings.Command.CreateBooking
             if (ticketType is null)
                 return Result<Guid>.Failure(EventErrors.TicketTypeNotFound(request.TicketTypeId));
 
-            var metadata = _metadataFactory.Create();
+            var utcNow = _dateTimeProvider.GetUtcNow().UtcDateTime;
 
             var reservationResult = eventResult.ReserveSeats(
-                ticketTypeId, request.Quantity, _dateTimeProvider.GetUtcNow().UtcDateTime, metadata);
+                ticketTypeId, request.Quantity, utcNow);
             if (reservationResult.IsFailure)
                 return Result<Guid>.Failure(reservationResult.Errors.ToArray());
 
@@ -103,15 +100,14 @@ namespace Application.Features.Bookings.Command.CreateBooking
                 request.Quantity,
                 ticketType.Price,
                 request.PaymentMethod,
-                _dateTimeProvider.GetUtcNow().UtcDateTime,
-                metadata);
+                utcNow);
 
             if (booking.IsFailure)
                 return Result<Guid>.Failure(booking.Errors.ToArray());
 
-            await _bookingRepository.AddBookingAsync(booking.Value, cancellationToken);
+            await bookingRepo.AddBookingAsync(booking.Value, cancellationToken);
 
-            var rowsAffected = await _unitOfWork.CommitAsync(cancellationToken);
+            var rowsAffected = await uow.CommitAsync(cancellationToken);
 
             if (rowsAffected <= 0)
                 return Result<Guid>.Failure(BookingErrors.BookingCreationFailed());

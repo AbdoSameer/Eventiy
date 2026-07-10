@@ -13,7 +13,6 @@ public sealed class PublishEventCommandHandler(
     IEventRepository eventRepository,
     IUnitOfWork unitOfWork,
     TimeProvider dateTimeProvider,
-    IEventMetadataFactory metadataFactory,
     ICacheService cache) : ICommandHandler<PublishEventCommand>
 {
     public async Task<Result> Handle(PublishEventCommand request, CancellationToken cancellationToken)
@@ -26,10 +25,9 @@ public sealed class PublishEventCommandHandler(
         if (@event is null)
             return Result.Failure(EventErrors.EventNotFound(eventIdResult.Value));
 
-        var metadata = metadataFactory.Create();
         var utcNow = dateTimeProvider.GetUtcNow().UtcDateTime;
 
-        var publishResult = @event.Publish(utcNow, metadata);
+        var publishResult = @event.Publish(utcNow);
         if (publishResult.IsFailure)
             return publishResult;
 

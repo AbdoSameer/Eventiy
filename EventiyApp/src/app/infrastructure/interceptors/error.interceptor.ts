@@ -1,6 +1,5 @@
 import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
-import { Router } from '@angular/router';
 import { catchError, throwError } from 'rxjs';
 import { AuthApplicationService } from '../../application/services/auth-application.service';
 import { ToastService } from '../services/toast.service';
@@ -8,7 +7,6 @@ import { ToastService } from '../services/toast.service';
 export const errorInterceptor: HttpInterceptorFn = (req, next) => {
   const toastService = inject(ToastService);
   const authService = inject(AuthApplicationService);
-  const router = inject(Router);
 
   return next(req).pipe(
     catchError((error: HttpErrorResponse) => {
@@ -29,12 +27,11 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
         case 401: {
           toastService.showError('Your session has expired. Please log in again.');
           authService.logout();
-          router.navigateByUrl('/login');
           break;
         }
         case 403: {
           toastService.showError('You are not authorized to perform this action.');
-          router.navigateByUrl('/unauthorized');
+          authService.navigateToUnauthorized();
           break;
         }
         case 404: {

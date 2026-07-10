@@ -3,6 +3,7 @@ using Application.Abstractions.Messaging;
 using Application.Abstractions.Persistence;
 using Domain.Aggregates.EventAggregate;
 using Domain.Common;
+using System.Globalization;
 
 namespace Application.Features.Events.Queries.GetEvents;
 
@@ -28,7 +29,10 @@ public class GetEventsHandler
         GetEventsQuery request,
         CancellationToken cancellationToken)
     {
-        var cacheKey = $"events:list:{request.Page}:{request.PageSize}:{request.Type}:{request.UserLatitude}:{request.UserLongitude}:{request.DistanceInKm}";
+        var lat = request.UserLatitude?.ToString("F5", CultureInfo.InvariantCulture) ?? "null";
+        var lng = request.UserLongitude?.ToString("F5", CultureInfo.InvariantCulture) ?? "null";
+        var dist = request.DistanceInKm.ToString("F2", CultureInfo.InvariantCulture);
+        var cacheKey = $"events:list:{request.Page}:{request.PageSize}:{request.Type}:{lat}:{lng}:{dist}";
 
         var cached = await _cache.GetAsync<PaginatedEventResponse>(cacheKey, cancellationToken);
         if (cached is not null)
@@ -45,17 +49,24 @@ public class GetEventsHandler
         if (request.Type.HasValue)
             baseQuery = baseQuery.Where(e => e.Type == request.Type.Value);
 
-        if (request.UserLatitude.HasValue && request.UserLongitude.HasValue)
+        if (request.UserLatitude.HasValue && request.UserLongitude.HasValue && request.DistanceInKm > 0)
         {
             var approxDegrees = request.DistanceInKm / 111.0;
+            var minLat = request.UserLatitude.Value - approxDegrees;
+            var maxLat = request.UserLatitude.Value + approxDegrees;
+            var minLng = request.UserLongitude.Value - approxDegrees;
+            var maxLng = request.UserLongitude.Value + approxDegrees;
             baseQuery = baseQuery.Where(e =>
-                e.Location.Latitude >= request.UserLatitude.Value - approxDegrees &&
-                e.Location.Latitude <= request.UserLatitude.Value + approxDegrees &&
-                e.Location.Longitude >= request.UserLongitude.Value - approxDegrees &&
-                e.Location.Longitude <= request.UserLongitude.Value + approxDegrees);
+                e.Location.Latitude >= minLat &&
+                e.Location.Latitude <= maxLat &&
+                e.Location.Longitude >= minLng &&
+                e.Location.Longitude <= maxLng);
         }
 
         var totalCount = await _context.CountAsync(baseQuery, cancellationToken);
+
+        // Note: count + list are separate queries (read-model, AsNoTracking).
+        // Snapshot isolation level would be needed for strict read consistency.
 
         var selectQuery = baseQuery
             .OrderBy(e => e.Date)
@@ -87,6 +98,34 @@ public class GetEventsHandler
             ));
 
         var items = await _context.ToListAsync(selectQuery, cancellationToken);
+
+        // Haversine post-filter: bounding box includes corners outside the true radius
+        if (request.UserLatitude.HasValue && request.UserLongitude.HasValue && request.DistanceInKm > 0)
+        {
+            var centerLat = request.UserLatitude.Value * (Math.PI / 180.0);
+            var centerLng = request.UserLongitude.Value * (Math.PI / 180.0);
+            var maxDistanceKm = request.DistanceInKm;
+
+            items = items.Where(e =>
+            {
+                if (!e.Latitude.HasValue || !e.Longitude.HasValue)
+                    return false;
+
+                var latRad = e.Latitude.Value * (Math.PI / 180.0);
+                var lngRad = e.Longitude.Value * (Math.PI / 180.0);
+
+                var dlat = latRad - centerLat;
+                var dlng = lngRad - centerLng;
+                var a = Math.Sin(dlat / 2) * Math.Sin(dlat / 2) +
+                        Math.Cos(centerLat) * Math.Cos(latRad) *
+                        Math.Sin(dlng / 2) * Math.Sin(dlng / 2);
+                var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+                var distanceKm = 6371 * c;
+
+                return distanceKm <= maxDistanceKm;
+            }).ToList();
+        }
+
         var totalPages = (int)Math.Ceiling((double)totalCount / pageSize);
 
         var response = new PaginatedEventResponse(

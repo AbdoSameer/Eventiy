@@ -8,6 +8,7 @@ import { RouterLink } from '@angular/router';
  * Multi-column link layout with brand info, event categories, company links,
  * and social icons. Collapses to stacked layout on mobile.
  */
+
 @Component({
   selector: 'app-footer',
   standalone: true,
@@ -16,9 +17,8 @@ import { RouterLink } from '@angular/router';
   template: `
     <footer class="footer">
       <div class="footer-inner">
-        <!-- Brand column -->
         <div class="footer-brand">
-          <img src="logo.png" alt="Eventiy" class="footer-logo">
+          <img src="/logo.png" alt="Eventiy" class="footer-logo">
           <p class="footer-tagline">
             The people platform — Where interests become friendships.
           </p>
@@ -103,12 +103,11 @@ import { RouterLink } from '@angular/router';
       max-width: 280px;
     }
 
-    .footer-logo {
-      height: 2rem;
-      width: auto;
-      filter: brightness(0) invert(1);
-      opacity: 0.9;
-    }
+   .footer-logo {
+  height: 2rem;
+  width: auto;
+  opacity: 1;
+}
 
     .footer-tagline {
       margin-top: 1rem;

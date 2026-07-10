@@ -13,20 +13,17 @@ internal sealed class SetCoverPhotoCommandHandler
     private readonly IEventRepository _eventRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly TimeProvider _dateTimeProvider;
-    private readonly IEventMetadataFactory _metadataFactory;
     private readonly ICacheService _cache;
 
     public SetCoverPhotoCommandHandler(
         IEventRepository eventRepository,
         IUnitOfWork unitOfWork,
         TimeProvider dateTimeProvider,
-        IEventMetadataFactory metadataFactory,
         ICacheService cache)
     {
         _eventRepository = eventRepository;
         _unitOfWork = unitOfWork;
         _dateTimeProvider = dateTimeProvider;
-        _metadataFactory = metadataFactory;
         _cache = cache;
     }
 
@@ -44,9 +41,8 @@ internal sealed class SetCoverPhotoCommandHandler
         if (photoIdResult.IsFailure)
             return Result.Failure(photoIdResult.Errors.ToArray());
 
-        var metadata = _metadataFactory.Create();
         var utcNow = _dateTimeProvider.GetUtcNow().UtcDateTime;
-        var result = @event.SetCoverPhoto(photoIdResult.Value, utcNow, metadata);
+        var result = @event.SetCoverPhoto(photoIdResult.Value, utcNow);
         if (result.IsFailure)
             return result;
 
