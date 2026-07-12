@@ -1,7 +1,7 @@
 ﻿using Domain.Aggregates.UserAggregate.ValueObject;
 
 namespace Domain.Common;
-public class Result
+public class Result : IValidationResult<Result>
 {
     protected Result(bool isSuccess, IReadOnlyList<Error> errors)
     {
@@ -22,9 +22,11 @@ public class Result
     public static Result Success() => new(true, [Error.None]);
 
     public static Result Failure(params Error[] errors) => new(false, errors);
+
+    public static Result CreateFailure(Error[] errors) => new(false, errors);
 }
 
-public class Result<TValue> : Result
+public class Result<TValue> : Result, IValidationResult<Result<TValue>>
 {
     private readonly TValue? _value;
 
@@ -44,5 +46,7 @@ public class Result<TValue> : Result
     public static Result<TValue> Success(TValue value) => new(true, value, [Error.None]);
 
     public new static Result<TValue> Failure(params Error[] errors) => new(false, default, errors);
+
+    public new static Result<TValue> CreateFailure(Error[] errors) => new(false, default, errors);
 
 }

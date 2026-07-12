@@ -11,7 +11,7 @@ public static class ResultExtensions
         if (result.IsSuccess)
             return new OkResult();
 
-        var errorType = result.Errors.FirstOrDefault()?.Type ?? ErrorType.Failure;
+        var errorType = result.Errors.MaxBy(e => e.Type)?.Type ?? ErrorType.Failure;
 
         return errorType switch
         {
@@ -38,6 +38,15 @@ public static class ResultExtensions
                 Status = StatusCodes.Status409Conflict,
                 Extensions = { ["errors"] = result.Errors.Select(e => new { e.Code, e.Message, e.Type }) }
             }),
+
+            ErrorType.Unauthorized => new ObjectResult(new ProblemDetails
+            {
+                Title = "Unauthorized",
+                Detail = string.Join("; ", result.Errors.Select(e => e.Message)),
+                Status = StatusCodes.Status401Unauthorized,
+                Extensions = { ["errors"] = result.Errors.Select(e => new { e.Code, e.Message, e.Type }) }
+            })
+            { StatusCode = StatusCodes.Status401Unauthorized },
 
             _ => new ObjectResult(new ProblemDetails
             {
