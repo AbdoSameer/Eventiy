@@ -1,0 +1,511 @@
+/* ── Design Token Architecture ─────────────────────────────
+ * All structural colors are exposed as CSS Custom Properties
+ * so the renderer can consume them via var(--token).
+ * The renderer never sets background-color on a div; only
+ * SVG fill / stroke / fill-opacity are manipulated.
+ * ─────────────────────────────────────────────────────────── */
+:host {
+  /* Venue zone / area tokens */
+  --color-sport-pitch: #4caf50;
+  --color-concert-stage: #1f2937;
+  --color-vvip-pit: #5b21b6;
+  --color-floor-pit: #2563eb;
+  --color-vip-zone: #f59e0b;
+  --color-side-bowl: #94a3b8;
+
+  /* Seat status tokens (consumed by the renderer for fill) */
+  --seat-available: #10b981;
+  --seat-reserved: #ef4444;
+  --seat-fast-selling: #f59e0b;
+  --seat-selected: #8b5cf6;
+
+  --color-badge-text: #1f2937;
+  --transition-morph-duration: 400ms;
+
+  --bg-page: #f8fafc;
+  --bg-card: #ffffff;
+  --border-soft: #e5e7eb;
+  --text-muted: #6b7280;
+  --text-main: #1f2937;
+  --brand-accent: #f6544c;
+
+  display: block;
+  min-height: 100vh;
+  background: var(--bg-page);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  color: var(--text-main);
+}
+
+.seating-chart-shell {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+}
+
+/* ── Header ────────────────────────────────────────────── */
+.sc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 2rem;
+}
+
+.sc-back-link {
+  display: inline-block;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+  transition: color 0.2s ease;
+}
+.sc-back-link:hover {
+  color: var(--brand-accent);
+}
+
+.sc-title {
+  font-size: 2.25rem;
+  font-weight: 800;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+.sc-subtitle {
+  margin: 0.25rem 0 0;
+  color: var(--text-muted);
+  font-size: 1rem;
+}
+
+.sc-mode-toggle {
+  display: inline-flex;
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: 9999px;
+  padding: 0.35rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+.sc-mode-toggle button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1.1rem;
+  border: none;
+  background: transparent;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 9999px;
+  transition: all 200ms ease;
+}
+.sc-mode-toggle button.is-active {
+  background: var(--text-main);
+  color: #ffffff;
+  box-shadow: 0 4px 10px -2px rgba(0, 0, 0, 0.2);
+}
+.dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 9999px;
+  display: inline-block;
+}
+.dot-sport { background: var(--color-sport-pitch); }
+.dot-concert { background: var(--color-concert-stage); }
+
+/* ── Body layout ──────────────────────────────────────── */
+.sc-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 1.5rem;
+}
+
+/* ── Canvas ───────────────────────────────────────────── */
+.sc-canvas-wrap {
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: 1.25rem;
+  padding: 1.25rem;
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+}
+
+.sc-canvas {
+  position: relative;
+  width: 100%;
+  height: 640px;
+  border-radius: 0.75rem;
+  background: linear-gradient(180deg, #fafbfc 0%, #f1f5f9 100%);
+  overflow: hidden;
+  user-select: none;
+  touch-action: none;
+}
+
+.sc-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+  /* Promote the SVG to its own GPU layer so 60fps is preserved
+     during heavy pan / zoom operations over 50k nodes. */
+  will-change: transform;
+  contain: layout paint;
+  transform: translateZ(0);
+}
+.sc-svg:active { cursor: grabbing; }
+
+/* ── Floating Confirmation Pill ───────────────────────── */
+.sc-canvas-wrap {
+  position: relative;
+}
+
+.floating-checkout-pill {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  gap: 0.75rem;
+  margin: 0.75rem 0 0;
+  padding: 0.75rem 1.5rem;
+  background: #111827;
+  color: #ffffff;
+  border-radius: 9999px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  z-index: 50;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+  will-change: transform;
+}
+
+.floating-checkout-pill:hover {
+  transform: scale(1.05);
+  box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.4);
+}
+
+.floating-checkout-pill.is-loading {
+  opacity: 0.7;
+  cursor: wait;
+  pointer-events: none;
+  transform: none;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+}
+
+.checkout-count {
+  font-size: 0.9rem;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.checkout-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.checkout-pulse-dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  animation: pulse-crimson 1.5s infinite;
+}
+
+.checkout-total {
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.checkout-spinner {
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: checkout-spin 0.6s linear infinite;
+}
+
+@keyframes checkout-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse-crimson {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+/* Status-based seat fills are driven by the data-status attribute
+   so a single classList flip is enough to repaint. */
+::ng-deep .seat-node { will-change: fill, r, transform; }
+::ng-deep .seat-node.status-available     { fill: var(--seat-available); }
+::ng-deep .seat-node.status-reserved      { fill: var(--seat-reserved); pointer-events: none; }
+::ng-deep .seat-node.status-fast_selling  { fill: var(--seat-fast-selling); }
+::ng-deep .seat-node.status-selected      { fill: var(--seat-selected); }
+
+/* Block Boundary native styling */
+::ng-deep .block-boundary {
+  fill-opacity: 0.05;
+  stroke-opacity: 0.4;
+  transition: fill-opacity 200ms ease, stroke-opacity 200ms ease;
+}
+::ng-deep .block-boundary.is-highlighted {
+  fill-opacity: 0.2;
+  stroke-opacity: 1;
+}
+
+/* ── Collision flash animation ────────────────────────
+   Triggered when a server delta evicts a seat from the
+   optimistic cart. Hardware-accelerated via opacity +
+   transform so it stays at 60fps on low-tier mobile.
+   ──────────────────────────────────────────────────── */
+@keyframes seat-collision-flash {
+  0%   { fill: var(--seat-selected); transform-box: fill-box; transform-origin: center; transform: scale(2); }
+  40%  { fill: var(--seat-reserved); }
+  100% { fill: var(--seat-reserved); transform: scale(1); }
+}
+::ng-deep .seat-node.seat-collision {
+  animation: seat-collision-flash 800ms ease-out forwards;
+}
+
+/* ── Live-sync indicator ──────────────────────────── */
+.sync-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: #f3f4f6;
+  border: 1px solid var(--border-soft);
+}
+.sync-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 9999px;
+  background: #9ca3af;
+  box-shadow: 0 0 0 0 currentColor;
+}
+.sync-connecting .sync-dot,
+.sync-reconnecting .sync-dot {
+  background: #f59e0b;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+.sync-connected .sync-dot {
+  background: #10b981;
+  animation: pulse 2s ease-in-out infinite;
+}
+.sync-error .sync-dot,
+.sync-idle .sync-dot {
+  background: #ef4444;
+}
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
+  50%      { box-shadow: 0 0 0 6px transparent; opacity: 0.6; }
+}
+.pending-badge {
+  margin-left: 0.25rem;
+  color: #b45309;
+  font-weight: 700;
+}
+
+/* ── Toast stack ──────────────────────────────────── */
+.sc-toast-stack {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  z-index: 100;
+  pointer-events: none;
+}
+.sc-toast {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  border: 1px solid var(--border-soft);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15);
+  min-width: 280px;
+  max-width: 380px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-main);
+  cursor: pointer;
+  pointer-events: auto;
+  animation: toast-in 240ms ease-out;
+  will-change: transform, opacity;
+}
+@keyframes toast-in {
+  from { transform: translateX(20px); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+.sc-toast.toast-warn {
+  border-left: 4px solid #f59e0b;
+}
+.sc-toast.toast-error {
+  border-left: 4px solid #ef4444;
+  background: #fef2f2;
+}
+.sc-toast.toast-success {
+  border-left: 4px solid #10b981;
+}
+.sc-toast.toast-info {
+  border-left: 4px solid #6366f1;
+}
+.toast-message { flex: 1; }
+.toast-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0 0.25rem;
+  transition: color 200ms ease;
+}
+.toast-close:hover { color: var(--text-main); }
+
+/* ── Canvas footer ───────────────────────────────────── */
+.sc-canvas-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+.sc-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.legend-item { display: inline-flex; align-items: center; gap: 0.4rem; }
+
+.swatch {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 9999px;
+  display: inline-block;
+}
+.swatch-available { background: #10b981; }
+.swatch-fast       { background: #f59e0b; }
+.swatch-reserved   { background: #ef4444; }
+.swatch-selected   { background: #8b5cf6; }
+
+.sc-zoom-controls { display: flex; gap: 0.5rem; }
+.sc-zoom-controls button {
+  padding: 0.45rem 0.9rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border-soft);
+  background: var(--bg-card);
+  color: var(--text-main);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 200ms ease;
+}
+.sc-zoom-controls button:hover {
+  border-color: var(--text-main);
+  transform: translateY(-1px);
+}
+
+/* ── Sidebar ──────────────────────────────────────────── */
+.sc-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.sc-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: 1rem;
+  padding: 1.25rem;
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.04);
+}
+
+.sc-card-title {
+  margin: 0 0 1rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.sc-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.4rem 0;
+  font-size: 0.9rem;
+}
+.sc-stat-label { color: var(--text-muted); display: inline-flex; align-items: center; gap: 0.4rem; }
+.sc-stat-value { font-weight: 700; color: var(--text-main); }
+.sc-stat-price { color: var(--brand-accent); font-size: 1.1rem; }
+
+.sc-clear-btn {
+  width: 100%;
+  margin-top: 0.75rem;
+  padding: 0.6rem 1rem;
+  background: transparent;
+  border: 1px solid var(--border-soft);
+  border-radius: 0.5rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--text-main);
+  cursor: pointer;
+  transition: all 200ms ease;
+}
+.sc-clear-btn:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: var(--text-main);
+}
+.sc-clear-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sc-card-tokens ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-family: 'Menlo', 'Monaco', monospace;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.sc-card-tokens li { display: flex; align-items: center; gap: 0.5rem; }
+
+.token { width: 0.8rem; height: 0.8rem; border-radius: 4px; display: inline-block; }
+.token-pitch { background: var(--color-sport-pitch); }
+.token-stage { background: var(--color-concert-stage); }
+.token-vvip  { background: var(--color-vvip-pit); }
+.token-vip   { background: var(--color-vip-zone); }
+
+/* ── Responsive ──────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .sc-body {
+    grid-template-columns: 1fr;
+  }
+  .sc-canvas { height: 480px; }
+}
+
+@media (max-width: 640px) {
+  .seating-chart-shell { padding: 1.5rem 1rem 3rem; }
+  .sc-title { font-size: 1.75rem; }
+  .sc-mode-toggle button { padding: 0.5rem 0.9rem; font-size: 0.8rem; }
+  .sc-canvas { height: 380px; }
+}

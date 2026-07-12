@@ -77,6 +77,41 @@ Complete code quality improvements, flash-sale performance optimization, and sec
 - **Fixed dead handler bug**: OutboxProcessor now resolves `IDomainEventHandler<T>` via `IServiceProvider.MakeGenericType` instead of broken MediatR `IPublisher` dispatch
 - **DomainEventHandlerException**: new exception class for handler failure propagation
 
+### Seating Chart Reactive Gap Fix
+- **Problem**: `checkoutSelection()` called `lockOrchestrator.acquire()` per seat, which short-circuited (`return true`) if the seat was already selected in store — meaning **no LOCK was ever sent** over WebSocket
+- **`executeFinalBooking()`**: new async method that directly dispatches LOCK messages via `liveSync.send()` for all selected seats, bypassing the `acquire()` short-circuit
+- **Submitting signal**: `submitting` signal guards `handleSeatClick` (prevents map clicks during in-flight), and drives `.is-loading` CSS class on the floating pill
+- **Floating pill restyled**: moved outside `.sc-canvas` to avoid `overflow: hidden` clipping; uses flex-flow natural positioning with `align-self: center`; shows seat count, total price, and a CSS-only spinner during submission
+- **`SeatLockOrchestratorService.acquire()`** kept for per-click optimistic flow; `executeFinalBooking()` is the checkout-level dispatch
+
+### Booking API Integration
+- **Problem**: `executeFinalBooking()` only sent WebSocket LOCK messages (no backend WS handler existed) and never called `POST /api/booking` — no booking was ever created in the database
+- **Fix**: `executeFinalBooking()` now:
+  1. Fetches real event data via `EventApplicationService` to get `ticketTypes`
+  2. Uses the first ticket type's ID (auto-selected, stored in `selectedTicketTypeId` signal)
+  3. Sends LOCK messages (best-effort over WebSocket)
+  4. Calls `POST /api/booking` via `BookingApplicationService.createBooking()` with `{ eventId, ticketTypeId, quantity: selectedSeats.length, paymentMethod }`
+  5. Navigates to `/bookings/{bookingId}` on success showing booking detail page
+- Also changed `liveSync.connect(eventId, { simulate: true })` since the backend WebSocket middleware doesn't exist yet
+
+### Booking Total Mismatch Fix
+- **Problem**: Seating chart displayed `sum(SeatNode.price)` from mock D3 data, while backend charged `ticketType.Price * quantity`. If mock seat prices differed from the real ticket type price, the two totals didn't match.
+- **Fix**: Added `bookingTotal` computed signal that derives from `eventData.ticketTypes[ticketTypeId].price * store.totalSelected()` — the same formula the backend uses. Floating pill and sidebar now render `bookingTotal()` instead of `store.totalCartPrice()` / `store.totalPrice()`.
+
+### Booking Lifecycle Fix
+- Inventory reservation with atomic `ReserveSeats()`, deferred persistence via `ReferenceCode`/`HoldExpiresAt`/`PaymentMethod`, mock `StripePaymentGateway` returning `null` URL for dev, admin booking endpoints, attendee self-cancel for Pending only
+- **`BookingDetailComponent`**: created `features/bookings/booking-detail/` with route `bookings/:id`; shows all fields + Cancel/View Event; removed "Confirm Payment" button (security — user must not self-confirm deferred payment)
+
+### Real-time WebSocket Infrastructure
+- **Backend**: `WebSocketConnectionManager`, `RedisPubSubBroadcaster` (channel `seats:event:{eventId}`), `WebSocketMiddleware` at `/ws/venues/{eventId}` with JWT auth via query param, 15s PING/PONG heartbeat, LOCK handler calls `Event.ReserveSeats()` atomically, broadcasts DELTA or sends COLLISION to loser
+- **Frontend**: `LiveStateSyncService` connects to real backend WS, handles DELTA/COLLISION/PING/ACK/CONNECTED; `SeatLockOrchestratorService` sends LOCK/UNLOCK over WS instead of mocked `setTimeout`
+
+### Organizer Dashboard Fix
+- Removed `.slice(0, 5)` limit on `loadBookingsForEvents()` to show all bookings; changed `statusFilter` from plain string to `signal('')` so computed `filteredBookings` reactively filters
+
+### Seating Chart TypeScript Build Errors
+- Added missing `onBlockClick` handler to `renderVenue()` call; added `BlockGroup` import and `handleBlockClick()` method; fixed `handleHover` parameter types for `BlockGroup`; cleaned unused imports in `seat-lock-orchestrator.service.ts` and `live-state-sync.service.ts`
+
 ### Previous Work
 - **DomainEventFactory deletion**: Deleted static factory, inlined 26 direct `new XxxEvent(…)` calls, fixed 3 pre-existing parameter bugs
 - **User.cs Id shadowing**: Removed `public UserId Id` that shadowed base property
@@ -108,14 +143,16 @@ Complete code quality improvements, flash-sale performance optimization, and sec
 - `git filter-branch` replaced old secret with `REVOKED_JWT_SECRET` across all 62 commits — collaborators must `git rebase` on force-push
 - Domain has zero framework dependencies — no MediatR, no EF, no ASP.NET, no `TimeProvider`
 - Seat lifecycle: `ReserveSeats` (Reserved++) → `ConfirmReservation` (Reserved--, Sold++) → `ReleaseSeats` (Reserved--) / `RefundSeats` (Sold--)
+- `executeFinalBooking()` bypasses `acquire()` short-circuit by sending LOCK directly via `liveSync.send()` — `acquire()` is kept for per-click optimistic flow; `executeFinalBooking()` is the checkout-level dispatch
+- Floating pill uses flex-flow natural positioning (`align-self: center`) instead of `position: absolute` to avoid `overflow: hidden` clipping; shows CSS-only spinner during submission
+- `executeFinalBooking()` now integrates with the REST API: after sending LOCKs (best-effort), it calls `POST /api/booking` and navigates to `/bookings/{bookingId}` on success
 
 ## Next Steps
 1. Force push rewritten git history to remote (`git push --force --all`)
 2. Run `dotnet ef database update` against dev database to apply all 3 pending migrations
 3. Add `ConnectionStrings:Redis` to `appsettings.Development.json` or User Secrets for local Redis
 4. Add `Jwt:Secret` to staging/production environment variables or Azure Key Vault
-5. Verify Angular build (`ng build`) still produces no errors
-6. Inform collaborators to `git rebase` their feature branches after force-push
+5. Inform collaborators to `git rebase` their feature branches after force-push
 
 ## Critical Context
 - Backend port: `https://localhost:7001`; Angular dev port: `:57354`
@@ -129,6 +166,7 @@ Complete code quality improvements, flash-sale performance optimization, and sec
 - All cache invalidation runs *after* successful `UnitOfWork.CommitAsync()` — no eviction before tx success
 - JWT secret loaded from User Secrets (dev) / env vars (prod); appsettings.json has `Issuer`, `Audience`, `ExpiryMinutes` only
 - Git history rewritten: old secret replaced with `REVOKED_JWT_SECRET` across all 62 commits; backup refs deleted; repo fully gc'd
+- **Seat lock flow**: `executeFinalBooking()` snapshots `selectedSeatsMetadata()`, sends LOCK for each via `liveSync.send()`, uses `submitting` signal to lock UI; `acquire()` kept for per-click optimistic flow
 
 ## Relevant Files
 - **JWT security**: `Eventy.WebApi/appsettings.json` (secret removed), `.gitignore` (local.json pattern), `Infrastructure/DependencyInjection.cs` (startup validation), `Properties/secrets.json` (generated, excluded from git)
@@ -140,5 +178,7 @@ Complete code quality improvements, flash-sale performance optimization, and sec
 - **Dead-letter — updated**: `IOutboxRepository.cs`, `OutboxRepository.cs`, `OutboxProcessor.cs`, `ApplicationDbContext.cs`
 - **Idempotency**: `ProcessedEvent.cs`, `IIdempotencyStore.cs`, `IdempotencyStore.cs`, `BookingCreatedEventHandler.cs`, `BookingCancelledEventHandler.cs`, `OutboxProcessor.cs`, `DomainEventHandlerException.cs`
 - **Domain refactoring**: `Event.cs`, `Booking.cs`, `TicketType.cs`, `EventPhoto.cs`, `User.cs`
+- **Seating chart (updated)**: `seating-chart.component.ts` (executeFinalBooking, submitting signal), `seating-chart.component.html` (pill restyled outside canvas), `seating-chart.component.scss` (spinner, loading state)
+- **Seating chart services**: `seat-lock-orchestrator.service.ts`, `live-state-sync.service.ts` (real WS integration), `venue-graph-renderer.service.ts` (BlockClick handler)
 - **Frontend (updated)**: `event.model.ts`, `event.mapper.ts`, `event.http-service.ts`, `event-application.service.ts`, `event-list.component.ts`, `event-create.component.ts`
 - **Migrations**: `AddProcessedEventsAndDeadLetters.cs`, `AddEventTypeAndCoordinates.cs`

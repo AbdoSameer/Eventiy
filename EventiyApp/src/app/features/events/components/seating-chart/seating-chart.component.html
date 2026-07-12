@@ -1,0 +1,163 @@
+<section class="seating-chart-shell">
+  <!-- ── Header / mode toggle ── -->
+  <header class="sc-header">
+    <div class="sc-title-block">
+      <a [routerLink]="['/events', id()]" class="sc-back-link">← Back to event</a>
+      <h1 class="sc-title">Select Your Seats</h1>
+      <p class="sc-subtitle">{{ store.venueData()?.venueName }}</p>
+    </div>
+
+    <div class="sc-mode-toggle" role="tablist" aria-label="Venue mode">
+      <button
+        type="button"
+        role="tab"
+        [attr.aria-selected]="store.mode() === 'SPORT'"
+        [class.is-active]="store.mode() === 'SPORT'"
+        (click)="setMode('SPORT')"
+      >
+        <span class="dot dot-sport"></span>
+        Sport Mode
+      </button>
+      <button
+        type="button"
+        role="tab"
+        [attr.aria-selected]="store.mode() === 'CONCERT'"
+        [class.is-active]="store.mode() === 'CONCERT'"
+        (click)="setMode('CONCERT')"
+      >
+        <span class="dot dot-concert"></span>
+        Concert Mode
+      </button>
+    </div>
+  </header>
+
+  <div class="sc-body">
+    <!-- ── Left: SVG canvas with badges + tooltip overlay ── -->
+    <div class="sc-canvas-wrap">
+      <div class="sc-canvas">
+        <svg
+          #svgRoot
+          xmlns="http://www.w3.org/2000/svg"
+          class="sc-svg"
+          [attr.viewBox]="'0 0 ' + viewWidth + ' ' + viewHeight"
+          preserveAspectRatio="xMidYMid meet"
+        ></svg>
+
+        @for (badge of store.blockSummaries(); track badge.blockId) {
+          <app-price-badge
+            [price]="badge.price"
+            [status]="badge.status"
+            [positionTransform]="badgeTransform(badge.x, badge.y)"
+            (hover)="handleBadgeHover(badge.blockId)"
+            (leave)="handleBadgeLeave(badge.blockId)"
+            (click)="handleBadgeClick(badge.blockId)"
+          />
+        }
+
+        <app-seating-tooltip
+          [payload]="tooltipPayload()"
+          [kind]="tooltipKind()"
+          [positionTransform]="tooltipTransform()"
+        />
+      </div>
+
+      <!-- Floating Confirmation Pill (outside .sc-canvas so overflow: hidden never clips it) -->
+      @if (store.totalSelected() > 0) {
+        <div
+          class="floating-checkout-pill"
+          [class.is-loading]="submitting()"
+          (click)="executeFinalBooking()"
+        >
+            @if (submitting()) {
+              <span class="checkout-spinner"></span>
+              <span class="checkout-total">Booking...</span>
+            } @else {
+              <span class="checkout-count">{{ store.totalSelected() }} seat{{ store.totalSelected() > 1 ? 's' : '' }}</span>
+              <span class="checkout-dot"></span>
+              <span class="checkout-total">\${{ bookingTotal() | number: '1.0-0' }}</span>
+            }
+        </div>
+      }
+
+      <footer class="sc-canvas-footer">
+        <div class="sc-legend">
+          <span class="legend-item"><i class="swatch swatch-available"></i>Available</span>
+          <span class="legend-item"><i class="swatch swatch-fast"></i>Fast Selling</span>
+          <span class="legend-item"><i class="swatch swatch-reserved"></i>Reserved</span>
+          <span class="legend-item"><i class="swatch swatch-selected"></i>Selected</span>
+        </div>
+        <div class="sc-zoom-controls">
+          <span class="sync-indicator" [class]="'sync-' + syncStatus().toLowerCase()">
+            <span class="sync-dot"></span>
+            Live: {{ syncStatus() }}
+            @if (pendingLockCount() > 0) {
+              <span class="pending-badge">· {{ pendingLockCount() }} pending</span>
+            }
+          </span>
+          <button type="button" (click)="resetZoom()">Reset view</button>
+          <button type="button" (click)="flattenVenue()">Save layout</button>
+        </div>
+      </footer>
+    </div>
+
+    <!-- ── Right: summary sidebar ── -->
+    <aside class="sc-sidebar">
+      <div class="sc-card">
+        <h2 class="sc-card-title">Selection</h2>
+        <div class="sc-stat-row">
+          <span class="sc-stat-label">Seats</span>
+          <span class="sc-stat-value">{{ store.totalSelected() }}</span>
+        </div>
+        <div class="sc-stat-row">
+          <span class="sc-stat-label">Total</span>
+          <span class="sc-stat-value sc-stat-price">${{ bookingTotal() | number: '1.0-0' }}</span>
+        </div>
+        <button
+          type="button"
+          class="sc-clear-btn"
+          [disabled]="store.totalSelected() === 0"
+          (click)="clearSelection()"
+        >
+          Clear selection
+        </button>
+      </div>
+
+      <div class="sc-card">
+        <h2 class="sc-card-title">Status breakdown</h2>
+        @for (row of statusBreakdown(); track row.status) {
+          <div class="sc-stat-row">
+            <span class="sc-stat-label">
+              <i class="swatch" [class]="'swatch-' + row.status.toLowerCase()"></i>
+              {{ row.status.replace('_', ' ') }}
+            </span>
+            <span class="sc-stat-value">{{ row.count }}</span>
+          </div>
+        }
+      </div>
+
+      <div class="sc-card sc-card-tokens">
+        <h2 class="sc-card-title">Design tokens</h2>
+        <ul>
+          <li><i class="token token-pitch"></i>--color-sport-pitch</li>
+          <li><i class="token token-stage"></i>--color-concert-stage</li>
+          <li><i class="token token-vvip"></i>--color-vvip-pit</li>
+          <li><i class="token token-vip"></i>--color-vip-zone</li>
+        </ul>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ── Toast stack (collision / lock / mode events) ── -->
+  <div class="sc-toast-stack" role="status" aria-live="polite">
+    @for (toast of toasts(); track toast.id) {
+      <div
+        class="sc-toast"
+        [class]="'toast-' + toast.kind"
+        (click)="dismissToast(toast.id)"
+      >
+        <span class="toast-message">{{ toast.message }}</span>
+        <button type="button" class="toast-close" aria-label="Dismiss">×</button>
+      </div>
+    }
+  </div>
+</section>
