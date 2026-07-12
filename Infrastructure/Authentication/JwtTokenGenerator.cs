@@ -1,10 +1,10 @@
 using Application.Abstractions.Security;
 using Domain.Aggregates.UserAggregate;
-using Domain.Common;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace Infrastructure.Authentication
@@ -45,6 +45,18 @@ namespace Infrastructure.Authentication
                 signingCredentials: credentials);
 
             return (new JwtSecurityTokenHandler().WriteToken(token), expiresAt);
+        }
+
+        public string GenerateRefreshToken()
+        {
+            var randomBytes = RandomNumberGenerator.GetBytes(64);
+            return Convert.ToBase64String(randomBytes);
+        }
+
+        public string HashToken(string token)
+        {
+            var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(token));
+            return Convert.ToBase64String(bytes);
         }
     }
 }

@@ -7,7 +7,8 @@ namespace Application.Features.Authentication.Responses
         string Role,
         string? Token,
         DateTime? ExpiresAt,
-        bool RequiresApproval = false
+        bool RequiresApproval = false,
+        string? RefreshToken = null
     );
 
 }

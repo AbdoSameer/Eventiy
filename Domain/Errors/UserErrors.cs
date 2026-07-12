@@ -47,5 +47,20 @@ namespace Domain.Errors
 
         public static  Error NotFound ()
             => Error.NotFound("User.NotFound", "User was not found.");
+
+        public static Error RefreshTokenNotFoundOrInactive()
+            => Error.Unauthorized(
+                "User.RefreshTokenNotFoundOrInactive",
+                "The refresh token was not found or is no longer active.");
+
+        public static Error RefreshTokenExpired()
+            => Error.Unauthorized(
+                "User.RefreshTokenExpired",
+                "The refresh token has expired. Please log in again.");
+
+        public static Error RefreshTokenReused()
+            => Error.Unauthorized(
+                "User.RefreshTokenReused",
+                "Refresh token reuse detected. All active sessions have been revoked for security.");
     }
 }

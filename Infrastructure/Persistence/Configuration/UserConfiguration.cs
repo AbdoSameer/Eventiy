@@ -58,6 +58,19 @@ namespace Infrastructure.Persistence.Configuration
                    .IsRequired();
 
             builder.Property<byte[]>("RowVersion").IsRowVersion();
+
+            builder.OwnsMany(u => u.RefreshTokens, rt =>
+            {
+                rt.ToTable("RefreshTokens");
+                rt.WithOwner().HasForeignKey("UserId");
+                rt.HasKey("Id");
+                rt.Property(r => r.TokenHash).HasMaxLength(128).IsRequired();
+                rt.Property(r => r.ExpiresOnUtc).IsRequired();
+                rt.Property(r => r.CreatedOnUtc).IsRequired();
+                rt.Property(r => r.RevokedOnUtc);
+                rt.Property(r => r.ReplacedByTokenHash).HasMaxLength(128);
+                rt.HasIndex(r => r.TokenHash).IsUnique();
+            });
         }
     }
 
