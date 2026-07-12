@@ -4,6 +4,7 @@ using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260711185202_AddSectionCodeAndVenueType")]
+    partial class AddSectionCodeAndVenueType
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -60,20 +63,9 @@ namespace Infrastructure.Migrations
                     b.Property<DateTime?>("HoldExpiresAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("PaymentMethod")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasColumnName("PaymentMethod");
-
                     b.Property<int>("Quantity")
                         .HasColumnType("int")
                         .HasColumnName("Quantity");
-
-                    b.Property<string>("ReferenceCode")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasColumnName("ReferenceCode");
 
                     b.Property<DateTime?>("RefundDate")
                         .HasColumnType("datetime2")
@@ -111,11 +103,6 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("EventId")
                         .HasDatabaseName("IX_Bookings_EventId");
-
-                    b.HasIndex("ReferenceCode")
-                        .IsUnique()
-                        .HasDatabaseName("IX_Bookings_ReferenceCode")
-                        .HasFilter("[ReferenceCode] IS NOT NULL");
 
                     b.HasIndex("Status")
                         .HasDatabaseName("IX_Bookings_Status");
