@@ -1,4 +1,5 @@
-﻿using Domain.Aggregates.EventAggregate.ValueObject;
+﻿using Domain.Aggregates.EventAggregate.Enums;
+using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Common;
 
 namespace Domain.Errors;
@@ -232,6 +233,11 @@ public static class EventErrors
     //    => Error.Unauthorized(
     //        "Event.UserNotAuthorized",
     //        $"User {userId} is not authorized to modify event {eventId.Value}.");
+
+    public static Error InvalidSectionCode(string code, EventType eventType)
+        => Error.Validation(
+            "Event.InvalidSectionCode",
+            $"Section code '{code}' is not a valid section for {eventType} events.");
 
     // ===== Concurrency Errors ==============
 

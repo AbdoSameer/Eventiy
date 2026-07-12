@@ -66,6 +66,11 @@ namespace Eventy.WebApi
             }
 
             app.UseMiddleware<CorrelationIdMiddleware>();
+            app.UseWebSockets(new WebSocketOptions
+            {
+                KeepAliveInterval = TimeSpan.FromSeconds(30),
+            });
+            app.UseMiddleware<WebSocketMiddleware>();
             app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
 
             app.UseStaticFiles();

@@ -111,6 +111,24 @@ namespace Infrastructure.Persistence.Configuration
                    .IsRequired(false)
                    .HasMaxLength(500);
 
+            // PaymentMethod (Enum stored as string)
+            builder.Property(b => b.PaymentMethod)
+                   .HasColumnName("PaymentMethod")
+                   .HasConversion<string>()
+                   .IsRequired()
+                   .HasMaxLength(20);
+
+            // ReferenceCode (for deferred/Fawry payments)
+            builder.Property(b => b.ReferenceCode)
+                   .HasColumnName("ReferenceCode")
+                   .HasMaxLength(20)
+                   .IsRequired(false);
+
+            builder.HasIndex(b => b.ReferenceCode)
+                   .HasDatabaseName("IX_Bookings_ReferenceCode")
+                   .IsUnique()
+                   .HasFilter("[ReferenceCode] IS NOT NULL");
+
             // ===== Indexes ============
             builder.HasIndex(b => b.UserId)
                    .HasDatabaseName("IX_Bookings_UserId");

@@ -65,12 +65,22 @@ namespace Application.Features.Bookings.Command.CancelBooking
                 return Result<bool>.Failure(UserErrors.NotFound());
             }
 
-            if (UserResult.Role != Domain.Aggregates.UserAggregate.ValueObject.Role.Admin
-                && UserResult.Role != Domain.Aggregates.UserAggregate.ValueObject.Role.Organizer)
+            var isAdminOrOrg = UserResult.Role == Domain.Aggregates.UserAggregate.ValueObject.Role.Admin
+                            || UserResult.Role == Domain.Aggregates.UserAggregate.ValueObject.Role.Organizer;
+
+            var isOwnBooking = booking.UserId == CurrentUserIdResult.Value;
+
+            if (!isAdminOrOrg && !isOwnBooking)
             {
                 return Result<bool>.Failure(Error.Unauthorized(
                     "Booking.UnauthorizedCancel",
-                    "Only admins and organizers can cancel bookings."));
+                    "You can only cancel your own bookings."));
+            }
+
+            if (!isAdminOrOrg && isOwnBooking && booking.Status != BookingStatusEnum.Pending)
+            {
+                return Result<bool>.Failure(BookingErrors.CannotCancelBooking(
+                    bookingIdResult.Value, booking.Status));
             }
 
             var utcNow = _dateTimeProvider.GetUtcNow().UtcDateTime;

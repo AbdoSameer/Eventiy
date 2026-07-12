@@ -17,4 +17,8 @@ public interface IBookingRepository
         DateTime utcNow,
         int batchSize,
         CancellationToken ct = default);
+
+    Task<Booking?> GetByReferenceCodeAsync(
+        string referenceCode,
+        CancellationToken ct = default);
 }

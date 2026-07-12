@@ -241,13 +241,18 @@ namespace Domain.Aggregates.EventAggregate
             string name,
             Money price,
             int capacity,
-            DateTime dateTime)
+            DateTime dateTime,
+            string? sectionCode = null,
+            string? venueType = null)
         {
             if (Status != EventStatus.Draft)
                 return Result.Failure(EventErrors.CannotModifyTicketTypesAfterDraft());
 
             if (_ticketTypes.Count >= MAX_TICKET_TYPES)
                 return Result.Failure(EventErrors.MaxTicketTypesReached(MAX_TICKET_TYPES));
+
+            if (_ticketTypes.Any(t => t.TicketTypeName.Equals(name.Trim(), StringComparison.OrdinalIgnoreCase)))
+                return Result.Failure(TicketTypeErrors.DuplicateTicketTypeName(name));
 
             var remainingCapacity = Capacity - _ticketTypes.Sum(t => t.Capacity);
 
@@ -257,7 +262,9 @@ namespace Domain.Aggregates.EventAggregate
                 price,
                 capacity,
                 dateTime,
-                remainingCapacity);
+                remainingCapacity,
+                sectionCode,
+                venueType);
 
             if (ticketResult.IsFailure)
                 return Result.Failure(ticketResult.Errors.ToArray());
@@ -646,15 +653,20 @@ namespace Domain.Aggregates.EventAggregate
             string name,
             Money price,
             int capacity,
-            DateTime dateTime)
+            DateTime dateTime,
+            string? sectionCode = null,
+            string? venueType = null)
         {
             if (_ticketTypes.Count >= MAX_TICKET_TYPES)
                 return Result.Failure(EventErrors.MaxTicketTypesReached(MAX_TICKET_TYPES));
 
+            if (_ticketTypes.Any(t => t.TicketTypeName.Equals(name.Trim(), StringComparison.OrdinalIgnoreCase)))
+                return Result.Failure(TicketTypeErrors.DuplicateTicketTypeName(name));
+
             var remainingCapacity = Capacity - _ticketTypes.Sum(t => t.Capacity);
 
             var ticketResult = TicketType.Create(
-                Id, name, price, capacity, dateTime, remainingCapacity);
+                Id, name, price, capacity, dateTime, remainingCapacity, sectionCode, venueType);
 
             if (ticketResult.IsFailure)
                 return Result.Failure(ticketResult.Errors.ToArray());

@@ -76,6 +76,18 @@ namespace Infrastructure.Persistence.Configuration
                    .IsRequired()
                    .HasDefaultValueSql("GETUTCDATE()");
 
+            // SectionCode — maps to SVG zone id (e.g. "124L", "C129", "VVIP1")
+            builder.Property(x => x.SectionCode)
+                   .HasColumnName("SectionCode")
+                   .HasMaxLength(20)
+                   .IsRequired(false);
+
+            // VenueType — determines which SVG venue layout to render
+            builder.Property(x => x.VenueType)
+                   .HasColumnName("VenueType")
+                   .HasMaxLength(20)
+                   .IsRequired(false);
+
             // LastModifiedAt
             builder.Property(x => x.LastModifiedAt)
                    .HasColumnName("LastModifiedAt")

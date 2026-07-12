@@ -3,7 +3,7 @@ using Domain.Aggregates.BookingAggregate.Enums;
 
 namespace Application.Features.Bookings.Command.CreateBooking
 {
-    public sealed record CreateBookingCommand : ICommand<Guid>
+    public sealed record CreateBookingCommand : ICommand<CreateBookingResponse>
     {
         public Guid EventId { get; init; }
         public Guid TicketTypeId { get; init; }

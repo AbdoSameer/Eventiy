@@ -1,5 +1,6 @@
 ﻿using Application.Abstractions.Outbox;
 using Domain.Common;
+using Infrastructure.Persistence.Outbox.Converters;
 using System.Reflection;
 using System.Text.Json;
 
@@ -19,6 +20,10 @@ public sealed class EventSerializer : IEventSerializer
 
     static EventSerializer()
     {
+        _options.Converters.Add(new BookingIdJsonConverter());
+        _options.Converters.Add(new UserIdJsonConverter());
+        _options.Converters.Add(new EventIdJsonConverter());
+        _options.Converters.Add(new TicketTypeIdJsonConverter());
         _eventTypes = new Dictionary<string, Type>();
         _eventDomains = new Dictionary<string, string>();
         _eventNamesByType = new Dictionary<Type, string>();

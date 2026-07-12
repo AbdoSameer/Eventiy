@@ -33,7 +33,8 @@ public class GetBookingByEventQueryHandler
                 b.UserId.Value,
                 b.BookingDate,
                 b.Quantity,
-                b.TotalAmount
+                b.TotalAmount,
+                b.Status.ToString()
             ));
 
         var bookings = await _context.ToListAsync(query, cancellationToken);

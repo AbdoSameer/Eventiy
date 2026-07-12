@@ -37,7 +37,10 @@ namespace Application.Features.Bookings.Query.GetBookingsByUser
                     b.TotalAmount,
                     tt.Price.Currency,
                     b.Status.ToString(),
-                    b.BookingDate);
+                    b.BookingDate,
+                    b.PaymentMethod.ToString(),
+                    b.ReferenceCode,
+                    b.HoldExpiresAt);
 
             var bookings = await _context.ToListAsync(bookingsQuery, ct);
 

@@ -1,4 +1,5 @@
 ﻿using Application.Abstractions.Behaviors;
+using Application.Features.Bookings.Events.BookingCancelled;
 using Application.Features.Bookings.Events.BookingCreated;
 using Domain.Aggregates.BookingAggregate.Events;
 using Application.Abstractions.Persistence;
@@ -18,6 +19,9 @@ public static class DependencyInjection
         services.AddValidatorsFromAssembly(assembly, includeInternalTypes: true);
 
         services.AddScoped<IEventValidator<BookingCreatedEvent>, BookingCreatedValidator>();
+
+        services.AddScoped<IDomainEventHandler<BookingCreatedEvent>, BookingCreatedEventHandler>();
+        services.AddScoped<IDomainEventHandler<BookingCancelledEvent>, BookingCancelledEventHandler>();
 
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingPipelineBehavior<,>));
 

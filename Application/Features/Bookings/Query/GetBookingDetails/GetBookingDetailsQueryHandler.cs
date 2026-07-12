@@ -38,7 +38,10 @@ public class GetBookingDetailsQueryHandler
                 x.BookingDate,
                 x.Status.ToString(),
                 x.TotalAmount,
-                x.Money.Currency
+                x.Money.Currency,
+                x.PaymentMethod.ToString(),
+                x.ReferenceCode,
+                x.HoldExpiresAt
             ));
 
         var booking = await _context.FirstOrDefaultAsync(query, cancellationToken);

@@ -18,6 +18,8 @@ namespace Domain.Aggregates.EventAggregate.Entities
         public int Capacity { get; private set; }
         public int SoldCount { get; private set; }
         public int ReservedCount { get; private set; }
+        public string? SectionCode { get; private set; }
+        public string? VenueType { get; private set; }
         public byte[] RowVersion { get; private set; } = Array.Empty<byte>();
         public DateTime CreatedAt { get; private set; }
         public DateTime? LastModifiedAt { get; private set; }
@@ -48,7 +50,9 @@ namespace Domain.Aggregates.EventAggregate.Entities
             string name,
             Money price,
             int capacity,
-            DateTime createdAt) : base(ticketTypeId)
+            DateTime createdAt,
+            string? sectionCode = null,
+            string? venueType = null) : base(ticketTypeId)
         {
             EventId = eventId;
             TicketTypeName = name;
@@ -56,6 +60,8 @@ namespace Domain.Aggregates.EventAggregate.Entities
             Capacity = capacity;
             SoldCount = 0;
             ReservedCount = 0;
+            SectionCode = sectionCode;
+            VenueType = venueType;
             CreatedAt = createdAt;
             RowVersion = Array.Empty<byte>();
         }
@@ -66,7 +72,9 @@ namespace Domain.Aggregates.EventAggregate.Entities
             Money price,
             int capacity,
             DateTime utcNow,
-            int? remainingEventCapacity = null)
+            int? remainingEventCapacity = null,
+            string? sectionCode = null,
+            string? venueType = null)
         {
             // Validate EventId
             if (eventId is null)
@@ -113,7 +121,9 @@ namespace Domain.Aggregates.EventAggregate.Entities
                 name.Trim(),
                 priceResult.Value!,
                 capacity,
-                utcNow); 
+                utcNow,
+                sectionCode,
+                venueType); 
 
             return Result<TicketType>.Success(ticketType);
         }

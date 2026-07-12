@@ -6,7 +6,7 @@
         Guid UserId,
         DateTime BookingDate,
         int Quantity,
-        decimal TotalAmount
-        );
-    
+        decimal TotalAmount,
+        string Status
+    );
 }

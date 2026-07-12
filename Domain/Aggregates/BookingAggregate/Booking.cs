@@ -6,6 +6,7 @@ using Domain.Errors;
 using Domain.Primitives;
 using Domain.Aggregates.BookingAggregate.Enums;
 using Domain.Aggregates.UserAggregate.ValueObject;
+using System.Security.Cryptography;
 
 namespace Domain.Aggregates.BookingAggregate
 {
@@ -28,6 +29,8 @@ namespace Domain.Aggregates.BookingAggregate
         public DateTime? CancellationDate { get; private set; }
         public DateTime? RefundDate { get; private set; }
         public string? CancellationReason { get; private set; }
+        public PaymentMethod PaymentMethod { get; private set; }
+        public string? ReferenceCode { get; private set; }
 
         private Booking() : base(default!) { }
 
@@ -53,9 +56,24 @@ namespace Domain.Aggregates.BookingAggregate
             Money = money;
             TotalAmount = money.Amount * quantity;
             BookingDate = utcNow;
+            PaymentMethod = paymentMethod;
 
-            var holdMinutes = paymentMethod == PaymentMethod.Instant ? 2 : 10;  
-            HoldExpiresAt = utcNow.AddMinutes(holdMinutes);      
+            if (paymentMethod == PaymentMethod.Deferred)
+            {
+                ReferenceCode = GenerateReferenceCode();
+                HoldExpiresAt = utcNow.AddMinutes(30);
+            }
+            else
+            {
+                HoldExpiresAt = utcNow.AddMinutes(2);
+            }
+        }
+
+        private static string GenerateReferenceCode()
+        {
+            Span<byte> bytes = stackalloc byte[4];
+            RandomNumberGenerator.Fill(bytes);
+            return $"FAW-{Convert.ToHexString(bytes)}";
         }
 
         public static Result<Booking> Create(

@@ -176,6 +176,59 @@ public static class DatabaseSeeder
             return result.Value;
         }
 
+        // ─── Venue zone definitions — maps TicketType → SVG section ─────
+        static void AddVenueTicketTypes(
+            Event evt,
+            (string name, string sectionCode, decimal price, int capacity)[] zones,
+            string venueType,
+            DateTime utcNow)
+        {
+            foreach (var (name, sectionCode, price, capacity) in zones)
+            {
+                var money = GetValue(Money.Create(price, "USD"), $"money for {name}");
+                evt.AddTicketType(name, money, capacity, utcNow, sectionCode, venueType);
+            }
+        }
+
+        var ConcertZones = new[]
+        {
+            ("Front Pit", "FP1", 1250m, 300),
+            ("Front Pit (Side)", "FP2", 1100m, 240),
+            ("Main Floor", "MF1", 750m, 600),
+            ("Main Floor (Rear)", "MF2", 600m, 540),
+            ("Side Bowl", "SB1", 350m, 900),
+            ("Side Bowl (Upper)", "SB2", 280m, 820),
+            ("Rear Bowl", "REAR", 220m, 700),
+            ("VIP Suite", "VIP1", 2500m, 40),
+            ("VIP Balcony", "VIP2", 1850m, 32),
+        };
+
+        var SportZones = new[]
+        {
+            ("Standard Bowl", "116", 2123m, 1200),
+            ("Standard Bowl", "124L", 2294m, 980),
+            ("Standard Corner", "234", 3395m, 760),
+            ("Standard Side", "S105", 2540m, 1100),
+            ("Standard Side", "S118", 2675m, 1040),
+            ("Premium Club", "S180", 4700m, 420),
+            ("Premium Lounge", "C129", 6850m, 260),
+            ("Premium Corner Suite", "GC19", 7956m, 180),
+            ("VVIP Premium Box", "VVIP1", 81758m, 24),
+            ("VVIP Sideline Suite", "VVIP2", 54300m, 16),
+        };
+
+        var TheaterZones = new[]
+        {
+            ("Orchestra Center", "ORCH", 480m, 500),
+            ("Orchestra Left", "ORCHL", 380m, 320),
+            ("Orchestra Right", "ORCHR", 380m, 320),
+            ("Mezzanine", "MEZZ", 280m, 280),
+            ("Balcony", "BALC", 180m, 240),
+            ("Box Suite (Left)", "BOXL", 950m, 12),
+            ("Box Suite (Right)", "BOXR", 950m, 12),
+            ("Front Row", "FRONT", 650m, 30),
+        };
+
         try
         {
             // ─── Music ──────────────────────────────────────────────
@@ -188,12 +241,7 @@ public static class DatabaseSeeder
                     addrMusic1, "Three nights of world-class performances at the historic Cairo Stadium, featuring international and Arab artists.",
                     EventType.Music, utcNow),
                 "Cairo Music Festival");
-            music1.AddTicketType("VIP Golden Circle",
-                GetValue(Money.Create(350, "USD"), "VIP"), 3000, utcNow);
-            music1.AddTicketType("Premium Seated",
-                GetValue(Money.Create(150, "USD"), "Premium"), 12000, utcNow);
-            music1.AddTicketType("General Admission",
-                GetValue(Money.Create(50, "USD"), "GA"), 30000, utcNow);
+            AddVenueTicketTypes(music1, ConcertZones, "Concert", utcNow);
             music1.Publish(utcNow);
             events.Add(music1);
 
@@ -206,12 +254,7 @@ public static class DatabaseSeeder
                     addrMusic2, "World-renowned jazz musicians converge at the iconic Accor Arena for a week-long celebration of improvisation and rhythm.",
                     EventType.Music, utcNow),
                 "Paris Jazz Festival");
-            music2.AddTicketType("VIP Backstage Pass",
-                GetValue(Money.Create(400, "USD"), "VIP"), 1000, utcNow);
-            music2.AddTicketType("Orchestre Central",
-                GetValue(Money.Create(180, "USD"), "Central"), 5000, utcNow);
-            music2.AddTicketType("Latérale",
-                GetValue(Money.Create(80, "USD"), "Side"), 8000, utcNow);
+            AddVenueTicketTypes(music2, ConcertZones, "Concert", utcNow);
             music2.Publish(utcNow);
             events.Add(music2);
 
@@ -262,14 +305,7 @@ public static class DatabaseSeeder
                     addrSport1, "Run along the iconic beaches of Copacabana and Ipanema in one of South America's biggest sporting events.",
                     EventType.Sports, utcNow),
                 "Rio Marathon 2027");
-            sport1.AddTicketType("Elite Runner Entry",
-                GetValue(Money.Create(300, "USD"), "Elite"), 500, utcNow);
-            sport1.AddTicketType("Standard Runner",
-                GetValue(Money.Create(120, "USD"), "Standard"), 15000, utcNow);
-            sport1.AddTicketType("Charity Runner",
-                GetValue(Money.Create(200, "USD"), "Charity"), 5000, utcNow);
-            sport1.AddTicketType("Spectator Pass",
-                GetValue(Money.Create(40, "USD"), "Spectator"), 10000, utcNow);
+            AddVenueTicketTypes(sport1, SportZones, "Sport", utcNow);
             sport1.Publish(utcNow);
             events.Add(sport1);
 
@@ -282,16 +318,7 @@ public static class DatabaseSeeder
                     addrSport2, "The grand finale of the FIFA World Cup 2027. Two South American giants battle for football's ultimate prize at MetLife Stadium.",
                     EventType.Sports, utcNow),
                 "World Cup Final 2027");
-            sport2.AddTicketType("VIP Hospitality Suite",
-                GetValue(Money.Create(3500, "USD"), "VIP Suite"), 500, utcNow);
-            sport2.AddTicketType("Premium Sideline",
-                GetValue(Money.Create(1200, "USD"), "Premium"), 3000, utcNow);
-            sport2.AddTicketType("Category 1",
-                GetValue(Money.Create(600, "USD"), "Cat 1"), 8000, utcNow);
-            sport2.AddTicketType("Category 2",
-                GetValue(Money.Create(350, "USD"), "Cat 2"), 12000, utcNow);
-            sport2.AddTicketType("Category 3",
-                GetValue(Money.Create(180, "USD"), "Cat 3"), 25000, utcNow);
+            AddVenueTicketTypes(sport2, SportZones, "Sport", utcNow);
             sport2.Publish(utcNow);
             events.Add(sport2);
 
@@ -304,14 +331,7 @@ public static class DatabaseSeeder
                     addrSport3, "A European classic in the semi-final: Germany take on France at the iconic Rose Bowl with a place in the final on the line.",
                     EventType.Sports, utcNow),
                 "World Cup Semi-Final 1");
-            sport3.AddTicketType("Premium Sideline",
-                GetValue(Money.Create(900, "USD"), "Premium"), 4000, utcNow);
-            sport3.AddTicketType("Category 1",
-                GetValue(Money.Create(450, "USD"), "Cat 1"), 10000, utcNow);
-            sport3.AddTicketType("Category 2",
-                GetValue(Money.Create(250, "USD"), "Cat 2"), 20000, utcNow);
-            sport3.AddTicketType("General Admission",
-                GetValue(Money.Create(120, "USD"), "GA"), 30000, utcNow);
+            AddVenueTicketTypes(sport3, SportZones, "Sport", utcNow);
             sport3.Publish(utcNow);
             events.Add(sport3);
 
@@ -324,14 +344,7 @@ public static class DatabaseSeeder
                     addrSport4, "The second semi-final at the legendary Estadio Azteca. Portugal's golden generation faces England's rising stars.",
                     EventType.Sports, utcNow),
                 "World Cup Semi-Final 2");
-            sport4.AddTicketType("VIP Hospitality",
-                GetValue(Money.Create(1200, "USD"), "VIP"), 1000, utcNow);
-            sport4.AddTicketType("Premium",
-                GetValue(Money.Create(600, "USD"), "Premium"), 8000, utcNow);
-            sport4.AddTicketType("Stand",
-                GetValue(Money.Create(200, "USD"), "Stand"), 30000, utcNow);
-            sport4.AddTicketType("General Admission",
-                GetValue(Money.Create(90, "USD"), "GA"), 35000, utcNow);
+            AddVenueTicketTypes(sport4, SportZones, "Sport", utcNow);
             sport4.Publish(utcNow);
             events.Add(sport4);
 
@@ -344,12 +357,7 @@ public static class DatabaseSeeder
                     addrSport5, "A Mediterranean derby in the quarter-finals. Italy vs Spain at Mercedes-Benz Stadium for a place in the semi-finals.",
                     EventType.Sports, utcNow),
                 "World Cup Quarter-Final Italy vs Spain");
-            sport5.AddTicketType("Premium",
-                GetValue(Money.Create(500, "USD"), "Premium"), 5000, utcNow);
-            sport5.AddTicketType("Category 1",
-                GetValue(Money.Create(280, "USD"), "Cat 1"), 15000, utcNow);
-            sport5.AddTicketType("General Admission",
-                GetValue(Money.Create(100, "USD"), "GA"), 30000, utcNow);
+            AddVenueTicketTypes(sport5, SportZones, "Sport", utcNow);
             sport5.Publish(utcNow);
             events.Add(sport5);
 
@@ -362,12 +370,7 @@ public static class DatabaseSeeder
                     addrSport6, "A Low Countries showdown in Dallas. Netherlands vs Belgium — bragging rights and a semi-final spot at stake.",
                     EventType.Sports, utcNow),
                 "World Cup Quarter-Final Netherlands vs Belgium");
-            sport6.AddTicketType("Premium",
-                GetValue(Money.Create(450, "USD"), "Premium"), 6000, utcNow);
-            sport6.AddTicketType("Category 1",
-                GetValue(Money.Create(250, "USD"), "Cat 1"), 18000, utcNow);
-            sport6.AddTicketType("General Admission",
-                GetValue(Money.Create(90, "USD"), "GA"), 35000, utcNow);
+            AddVenueTicketTypes(sport6, SportZones, "Sport", utcNow);
             sport6.Publish(utcNow);
             events.Add(sport6);
 
@@ -380,12 +383,7 @@ public static class DatabaseSeeder
                     addrSport7, "A knockout clash between two nations who've punched above their weight. Uruguay vs Croatia at Hard Rock Stadium.",
                     EventType.Sports, utcNow),
                 "World Cup Round of 16 Uruguay vs Croatia");
-            sport7.AddTicketType("Premium",
-                GetValue(Money.Create(350, "USD"), "Premium"), 4000, utcNow);
-            sport7.AddTicketType("Standard",
-                GetValue(Money.Create(180, "USD"), "Standard"), 20000, utcNow);
-            sport7.AddTicketType("General Admission",
-                GetValue(Money.Create(75, "USD"), "GA"), 25000, utcNow);
+            AddVenueTicketTypes(sport7, SportZones, "Sport", utcNow);
             sport7.Publish(utcNow);
             events.Add(sport7);
 
@@ -504,12 +502,7 @@ public static class DatabaseSeeder
                     addrTheatre1, "Verdi's timeless opera performed by the Cairo Symphony Orchestra at the stunning Cairo Opera House.",
                     EventType.Theater, utcNow),
                 "Cairo Opera Aida");
-            theatre1.AddTicketType("Presidential Box",
-                GetValue(Money.Create(350, "USD"), "Presidential Box"), 50, utcNow);
-            theatre1.AddTicketType("Orchestra Seats",
-                GetValue(Money.Create(180, "USD"), "Orchestra"), 400, utcNow);
-            theatre1.AddTicketType("Balcony",
-                GetValue(Money.Create(80, "USD"), "Balcony"), 500, utcNow);
+            AddVenueTicketTypes(theatre1, TheaterZones, "Theater", utcNow);
             theatre1.Publish(utcNow);
             events.Add(theatre1);
 
@@ -522,12 +515,7 @@ public static class DatabaseSeeder
                     addrTheatre2, "Tchaikovsky's Swan Lake performed by the world-famous Paris Opera Ballet at the Palais Garnier.",
                     EventType.Theater, utcNow),
                 "Paris Opera Ballet");
-            theatre2.AddTicketType("Premium Loge",
-                GetValue(Money.Create(450, "USD"), "Premium Loge"), 100, utcNow);
-            theatre2.AddTicketType("Grand Circle",
-                GetValue(Money.Create(220, "USD"), "Grand Circle"), 400, utcNow);
-            theatre2.AddTicketType("Balcony",
-                GetValue(Money.Create(90, "USD"), "Balcony"), 600, utcNow);
+            AddVenueTicketTypes(theatre2, TheaterZones, "Theater", utcNow);
             theatre2.Publish(utcNow);
             events.Add(theatre2);
 

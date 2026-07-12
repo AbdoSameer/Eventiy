@@ -1,6 +1,8 @@
+using Application.Abstractions;
 using Application.Abstractions.Caching;
 using Application.Abstractions.Messaging;
 using Application.Abstractions.Outbox;
+using Application.Abstractions.Payments;
 using Application.Abstractions.Persistence;
 using Application.Abstractions.Security;
 using Domain.Abstractions.Persistence;
@@ -9,9 +11,12 @@ using Domain.Common;
 using Infrastructure.Authentication;
 using Infrastructure.BackgroundJobs;
 using Infrastructure.Caching;
+using Infrastructure.Payments;
 using Infrastructure.Persistence;
+using Infrastructure.RealTime;
 using Infrastructure.Persistence.Outbox;
 using Infrastructure.Persistence.Repositories;
+using Infrastructure.Services;
 using Infrastructure.Storage;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -84,6 +89,8 @@ public static class DependencyInjection
 
         services.AddScoped<IEventMetadataFactory, Messaging.EventMetadataFactory>();
         services.AddScoped<IIdempotencyStore, IdempotencyStore>();
+        services.AddScoped<IVenueLayoutValidator, VenueLayoutValidator>();
+        services.AddScoped<IPaymentService, StripePaymentGateway>();
         services.AddHttpContextAccessor();
 
         var redisConnectionString = configuration.GetConnectionString("Redis")
@@ -91,6 +98,10 @@ public static class DependencyInjection
         services.AddSingleton<ConnectionMultiplexer>(_ =>
             ConnectionMultiplexer.Connect(redisConnectionString));
         services.AddSingleton<ICacheService, RedisCacheService>();
+
+        // Real-time seat sync
+        services.AddSingleton<IWebSocketConnectionManager, WebSocketConnectionManager>();
+        services.AddSingleton<IRedisPubSubBroadcaster, RedisPubSubBroadcaster>();
         
         var jwtSettings = configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>()
             ?? throw new InvalidOperationException(

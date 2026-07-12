@@ -42,5 +42,11 @@ namespace Infrastructure.Persistence.Repositories
                 .Take(batchSize)
                 .ToListAsync(ct);
         }
+
+        public Task<Booking?> GetByReferenceCodeAsync(string referenceCode, CancellationToken ct = default)
+        {
+            return _applicationDbContext.Bookings
+                .FirstOrDefaultAsync(b => b.ReferenceCode == referenceCode, ct);
+        }
     }
 }

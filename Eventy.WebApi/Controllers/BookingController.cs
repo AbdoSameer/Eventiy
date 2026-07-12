@@ -1,5 +1,6 @@
 ﻿using Application.Features.Bookings.Command.CancelBooking;
 using Application.Features.Bookings.Command.ConfirmBooking;
+using Application.Features.Bookings.Command.ConfirmDeferredPayment;
 using Application.Features.Bookings.Command.CreateBooking;
 using Application.Features.Bookings.Query.GetBookingsByUser;
 using Application.Features.Bookings.Query.GetBookingByEvent;
@@ -40,7 +41,7 @@ namespace Eventy.WebApi.Controllers
             var result = await _sender.Send(command, ct);
 
             return result.IsSuccess
-                ? CreatedAtRoute(nameof(GetBookingDetails), new { id = result.Value }, result.Value)
+                ? CreatedAtRoute(nameof(GetBookingDetails), new { id = result.Value.BookingId }, result.Value)
                 : result.ToActionResult();
         }
 
@@ -62,6 +63,14 @@ namespace Eventy.WebApi.Controllers
         public async Task<IActionResult> GetMyBookings(CancellationToken ct)
         {
             var result = await _sender.Send(new GetBookingsByUserQuery(), ct);
+            return result.ToActionResult();
+        }
+
+        [HttpPost("confirm-deferred")]
+        public async Task<IActionResult> ConfirmDeferredPayment(
+            [FromBody] ConfirmDeferredPaymentCommand command, CancellationToken ct)
+        {
+            var result = await _sender.Send(command, ct);
             return result.ToActionResult();
         }
     }

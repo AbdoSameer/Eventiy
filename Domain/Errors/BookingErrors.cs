@@ -138,6 +138,16 @@ namespace Domain.Errors
                 "Booking.TicketTypeNotFound",
                 $"Ticket type not found: {ticketTypeId}");
 
+        public static Error ReferenceCodeNotFound(string referenceCode)
+            => Error.NotFound(
+                "Booking.ReferenceCodeNotFound",
+                $"No booking found with reference code '{referenceCode}'.");
+
+        public static Error NotADeferredBooking(Guid bookingId)
+            => Error.Validation(
+                "Booking.NotDeferred",
+                $"Booking {bookingId} is not a deferred payment booking.");
+
         // ===== Authorization Errors ======
         //public static Error UserNotAuthorized(Guid userId, Guid bookingId)
         //    => Error.Unauthorized(

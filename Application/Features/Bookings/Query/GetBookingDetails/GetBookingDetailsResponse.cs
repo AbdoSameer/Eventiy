@@ -10,6 +10,9 @@
         DateTime BookingDate,
         string Status,
         decimal TotalAmount,
-        string Currency
+        string Currency,
+        string PaymentMethod,
+        string? ReferenceCode,
+        DateTime? HoldExpiresAt
     );
 }
