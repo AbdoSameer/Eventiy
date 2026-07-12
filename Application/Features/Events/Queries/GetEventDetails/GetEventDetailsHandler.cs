@@ -65,7 +65,9 @@ public class GetEventDetailsHandler
                         t.Price.Amount,
                         t.Price.Currency,
                         t.TicketTypeName,
-                        t.Capacity))
+                        t.Capacity,
+                        t.SectionCode,
+                        t.VenueType))
                     .ToList(),
                 Photos = e.Photos
                     .OrderBy(p => p.DisplayOrder)

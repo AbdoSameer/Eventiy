@@ -9,7 +9,8 @@ namespace Application.Features.Events.Commands.AddTicketType
             string Name,
             decimal Amount,
             string Currency,
-            int Capacity
+            int Capacity,
+            string? SectionCode = null
         ) :ICommand;
     
 }

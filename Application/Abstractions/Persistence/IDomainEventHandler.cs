@@ -1,6 +1,6 @@
 using Domain.Common;
 
-namespace Domain.Common;
+namespace Application.Abstractions.Persistence;
 
 public interface IDomainEventHandler<TEvent> where TEvent : IDomainEvent
 {
