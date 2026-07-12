@@ -106,7 +106,8 @@ type Tab = 'events' | 'bookings' | 'analytics';
             <label for="statusFilter" class="text-sm text-text-secondary">Filter by status:</label>
             <select
               id="statusFilter"
-              [(ngModel)]="statusFilter"
+              [ngModel]="statusFilter()"
+              (ngModelChange)="statusFilter.set($event)"
               class="rounded-lg border border-gray-300 px-3 py-2 text-text-primary focus:border-primary focus:ring-primary"
             >
               <option value="">All</option>
@@ -210,7 +211,7 @@ export class OrganizerDashboardComponent implements OnInit {
   readonly events = signal<Event[]>([]);
   readonly bookings = signal<Booking[]>([]);
   readonly loading = signal(false);
-  statusFilter = '';
+  readonly statusFilter = signal('');
 
   readonly totalAttendees = computed(() => this.events().reduce((sum, e) => sum + (e.attendeeCount ?? 0), 0));
   readonly totalCapacity = computed(() => this.events().reduce((sum, e) => sum + (e.capacity ?? 0), 0));
@@ -223,7 +224,7 @@ export class OrganizerDashboardComponent implements OnInit {
   });
 
   readonly filteredBookings = computed(() => {
-    const filter = this.statusFilter;
+    const filter = this.statusFilter();
     if (!filter) {
       return this.bookings();
     }
@@ -262,7 +263,7 @@ export class OrganizerDashboardComponent implements OnInit {
       return;
     }
     const eventMap = new Map(events.map((e) => [e.id, e]));
-    const bookingRequests = events.slice(0, 5).map((event) =>
+    const bookingRequests = events.map((event) =>
       this.bookingApp.getBookingsByEvent(event.id).pipe(
         map((result) => (result.isSuccess && result.value ? result.value : [])),
         catchError(() => of([])),
@@ -279,7 +280,7 @@ export class OrganizerDashboardComponent implements OnInit {
           ticketTypeName: '',
           quantity: b.quantity,
           totalAmount: b.totalAmount,
-          status: 'Pending' as BookingStatus,
+          status: (b.status as BookingStatus) ?? 'Pending',
           createdAt: b.bookingDate,
         };
       });
@@ -291,7 +292,7 @@ export class OrganizerDashboardComponent implements OnInit {
     if (!confirm(`Cancel "${event.title}"? This will remove it from the listings.`)) {
       return;
     }
-    this.eventApp.deleteEvent(event.id).subscribe((result) => {
+    this.eventApp.cancelEvent(event.id).subscribe((result) => {
       if (result.isSuccess) {
         this.toast.showSuccess('Event cancelled.');
         this.events.update((list) => list.filter((e) => e.id !== event.id));

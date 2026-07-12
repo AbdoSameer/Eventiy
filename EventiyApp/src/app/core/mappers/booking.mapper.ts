@@ -12,5 +12,8 @@ export function bookingByUserToBooking(dto: BackendBookingByUser): Booking {
     totalAmount: dto.totalAmount,
     status: dto.status as BookingStatus,
     createdAt: dto.bookingDate,
+    paymentMethod: dto.paymentMethod,
+    referenceCode: dto.referenceCode,
+    holdExpiresAt: dto.holdExpiresAt,
   };
 }

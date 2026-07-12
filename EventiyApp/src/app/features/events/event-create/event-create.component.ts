@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, UntypedFormArray, UntypedFormBuilder, UntypedFormGroup, Validators } from '@angular/forms';
@@ -10,6 +10,12 @@ import { EventApplicationService } from '../../../application/services/event-app
 import { ToastService } from '../../../infrastructure/services/toast.service';
 import { PhotoUploaderComponent } from '../../../shared/components/photo-uploader/photo-uploader.component';
 import { AddTicketTypeRequest, EventPhotoResponse, EVENT_CATEGORIES } from '../../../core/models/event.model';
+
+const VENUE_SECTIONS: Record<string, string[]> = {
+  Music: ['FP1', 'FP2', 'MF1', 'MF2', 'SB1', 'SB2', 'REAR', 'VIP1', 'VIP2'],
+  Sports: ['116', '124L', '234', 'S105', 'S118', 'S180', 'C129', 'GC19', 'VVIP1', 'VVIP2'],
+  Theater: ['ORCH', 'ORCHL', 'ORCHR', 'MEZZ', 'BALC', 'BOXL', 'BOXR', 'FRONT'],
+};
 
 @Component({
   selector: 'app-event-create',
@@ -195,7 +201,7 @@ import { AddTicketTypeRequest, EventPhotoResponse, EVENT_CATEGORIES } from '../.
               <div [formGroup]="ticketTypesForm">
                 <div formArrayName="tickets" class="space-y-4 mb-6">
                   @for (ticket of ticketTypes.controls; track $index; let i = $index) {
-                    <div [formGroupName]="i" class="grid grid-cols-1 sm:grid-cols-[1fr_120px_100px_120px_auto] gap-3 items-end bg-background-alt rounded-xl p-4">
+                    <div [formGroupName]="i" class="grid grid-cols-1 sm:grid-cols-[1fr_120px_100px_120px_120px_auto] gap-3 items-end bg-background-alt rounded-xl p-4">
                       <div>
                         <label class="block text-xs font-semibold text-text-primary mb-1">Name</label>
                         <input type="text" formControlName="name" class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-primary focus:ring-primary" placeholder="VIP" />
@@ -212,6 +218,16 @@ import { AddTicketTypeRequest, EventPhotoResponse, EVENT_CATEGORIES } from '../.
                         <label class="block text-xs font-semibold text-text-primary mb-1">Capacity</label>
                         <input type="number" min="1" formControlName="capacity" class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-primary focus:ring-primary" />
                       </div>
+                      @if (hasVenueSections()) {
+                        <div>
+                          <label class="block text-xs font-semibold text-text-primary mb-1">Section</label>
+                          <select formControlName="sectionCode" class="w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:border-primary focus:ring-primary">
+                            @for (code of categorySections(); track code) {
+                              <option [value]="code">{{ code }}</option>
+                            }
+                          </select>
+                        </div>
+                      }
                       <button
                         type="button"
                         (click)="removeTicket(i)"
@@ -327,6 +343,14 @@ export class EventCreateComponent {
 
   protected readonly categories = EVENT_CATEGORIES;
 
+  /** Valid venue sections for the currently selected event category. */
+  readonly categorySections = computed(() => {
+    const cat = this.form.get('category')?.value ?? '';
+    return VENUE_SECTIONS[cat] ?? null;
+  });
+
+  readonly hasVenueSections = computed(() => this.categorySections() !== null);
+
   readonly form: UntypedFormGroup = this.fb.group({
     name: ['', [Validators.required, Validators.maxLength(100)]],
     category: ['Music', [Validators.required]],
@@ -384,12 +408,14 @@ export class EventCreateComponent {
   }
 
   addTicket(): void {
+    const sections = this.categorySections();
     this.ticketTypes.push(
       this.fb.group({
         name: ['', [Validators.required]],
         amount: [10, [Validators.required, Validators.min(1)]],
         currency: ['USD', [Validators.required]],
         capacity: [1, [Validators.required, Validators.min(1)]],
+        sectionCode: [sections?.[0] ?? ''],
       }),
     );
   }

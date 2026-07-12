@@ -6,6 +6,17 @@ export interface CreateBookingRequest {
   eventId: string;
   ticketTypeId: string;
   quantity: number;
+  paymentMethod: 'Instant' | 'Deferred';
+}
+
+export interface ConfirmDeferredPaymentRequest {
+  referenceCode: string;
+}
+
+export interface CreateBookingResponse {
+  bookingId: string;
+  paymentUrl: string | null;
+  clientSecret: string | null;
 }
 
 export interface BackendBookingDetails {
@@ -19,6 +30,9 @@ export interface BackendBookingDetails {
   status: string;
   totalAmount: number;
   currency: string;
+  paymentMethod: string;
+  referenceCode: string | null;
+  holdExpiresAt: string | null;
 }
 
 export interface BookingByEventResponse {
@@ -28,6 +42,7 @@ export interface BookingByEventResponse {
   bookingDate: string;
   quantity: number;
   totalAmount: number;
+  status: string;
 }
 
 export interface BackendBookingByUser {
@@ -42,6 +57,9 @@ export interface BackendBookingByUser {
   currency: string;
   status: string;
   bookingDate: string;
+  paymentMethod: string;
+  referenceCode: string | null;
+  holdExpiresAt: string | null;
 }
 
 export interface Booking {
@@ -57,4 +75,7 @@ export interface Booking {
   status: BookingStatus;
   createdAt: string;
   attendeeName?: string;
+  paymentMethod?: string;
+  referenceCode?: string | null;
+  holdExpiresAt?: string | null;
 }

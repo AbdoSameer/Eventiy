@@ -16,6 +16,8 @@ export interface TicketDetailsDto {
   currency: string;
   name: string;
   capacity: number;
+  sectionCode?: string;
+  venueType?: string;
 }
 
 export interface EventPhotoResponse {
@@ -97,6 +99,7 @@ export interface AddTicketTypeRequest {
   amount: number;
   currency: string;
   capacity: number;
+  sectionCode?: string;
 }
 
 export interface Event {

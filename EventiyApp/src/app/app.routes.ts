@@ -52,6 +52,11 @@ export const routes: Routes = [
     title: 'Edit Event — Eventiy',
   },
   {
+    path: 'events/:id/seats',
+    loadComponent: () => import('./features/events/components/seating-chart/seating-chart.component').then((m) => m.SeatingChartComponent),
+    title: 'Select Seats — Eventiy',
+  },
+  {
     path: 'dashboard/organizer',
     canActivate: [authGuard, roleGuard(['Organizer', 'Admin'])],
     loadComponent: () => import('./features/dashboard/organizer-dashboard/organizer-dashboard.component').then((m) => m.OrganizerDashboardComponent),
@@ -62,6 +67,12 @@ export const routes: Routes = [
     canActivate: [authGuard, roleGuard(['Attendee'])],
     loadComponent: () => import('./features/dashboard/attendee-dashboard/attendee-dashboard.component').then((m) => m.AttendeeDashboardComponent),
     title: 'My Bookings — Eventiy',
+  },
+  {
+    path: 'bookings/:id',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/bookings/booking-detail/booking-detail.component').then((m) => m.BookingDetailComponent),
+    title: 'Booking Details — Eventiy',
   },
   {
     path: 'unauthorized',

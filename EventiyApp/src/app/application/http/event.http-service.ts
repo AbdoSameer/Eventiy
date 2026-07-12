@@ -55,8 +55,8 @@ export class EventHttpService extends HttpClientBase {
     );
   }
 
-  deleteEvent(id: string): Observable<Result<boolean>> {
-    return this.http.delete<void>(`${this.baseUrl}/${id}`).pipe(
+  cancelEvent(id: string): Observable<Result<boolean>> {
+    return this.http.put<void>(`${this.baseUrl}/${id}/cancel`, {}).pipe(
       map((): Result<boolean> => ({ isSuccess: true, isFailure: false, value: true })),
       catchError((err) => this.toErrorResult(err)),
     );

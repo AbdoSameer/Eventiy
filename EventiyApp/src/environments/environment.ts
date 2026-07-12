@@ -6,9 +6,6 @@
  */
 export const environment = {
   production: false,
-  /**
-   * Base URL of the ASP.NET Core backend.
-   * Auth interceptor strips Bearer token only for paths starting with `/auth/`.
-   */
   apiUrl: 'https://localhost:7001/api',
+  wsUrl: 'wss://localhost:7001',
 };

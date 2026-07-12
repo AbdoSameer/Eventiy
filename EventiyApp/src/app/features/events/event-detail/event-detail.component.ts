@@ -13,12 +13,15 @@ import { SkeletonLoaderComponent } from '../../../shared/components/skeleton-loa
 import { EventCardComponent } from '../../../shared/components/event-card/event-card.component';
 import { PhotoUploaderComponent } from '../../../shared/components/photo-uploader/photo-uploader.component';
 import { LightboxComponent } from '../../../shared/components/lightbox/lightbox.component';
+import { EventSeatingChartComponent } from '../../../shared/components/event-seating-chart/event-seating-chart.component';
+import { VenueZone } from '../../../core/models/ticket.model';
 import { ImgFallbackDirective } from '../../../infrastructure/directives/img-fallback.directive';
+import { interval } from 'rxjs';
 
 @Component({
   selector: 'app-event-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, DateFormatPipe, SkeletonLoaderComponent, EventCardComponent, PhotoUploaderComponent, LightboxComponent, ImgFallbackDirective],
+  imports: [CommonModule, FormsModule, RouterLink, DateFormatPipe, SkeletonLoaderComponent, EventCardComponent, PhotoUploaderComponent, LightboxComponent, EventSeatingChartComponent, ImgFallbackDirective],
   templateUrl: './event-detail.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -52,13 +55,37 @@ export class EventDetailComponent implements OnInit {
   readonly quantity = signal(1);
   selectedTicketTypeId = '';
 
+  readonly paymentMethod = signal<'Instant' | 'Deferred'>('Instant');
+
+  readonly deferredResult = signal<{ bookingId: string; referenceCode: string; holdExpiresAt: string } | null>(null);
+  readonly countdown = signal('');
+
   ngOnInit(): void {
+    this.restoreDeferredResult();
     const id = this.route.snapshot.paramMap.get('id');
     if (!id) {
       this.loading.set(false);
       return;
     }
     this.loadEvent(id);
+  }
+
+  private restoreDeferredResult(): void {
+    try {
+      const saved = sessionStorage.getItem('deferredBooking');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const expiry = new Date(parsed.holdExpiresAt).getTime();
+        if (expiry > Date.now()) {
+          this.deferredResult.set(parsed);
+          this.startCountdown(parsed.holdExpiresAt);
+        } else {
+          sessionStorage.removeItem('deferredBooking');
+        }
+      }
+    } catch {
+      sessionStorage.removeItem('deferredBooking');
+    }
   }
 
   private loadEvent(id: string): void {
@@ -132,16 +159,106 @@ export class EventDetailComponent implements OnInit {
         eventId: evt.id,
         ticketTypeId: this.selectedTicketTypeId,
         quantity: this.quantity(),
+        paymentMethod: this.paymentMethod(),
       })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (result) => {
           this.booking.set(false);
           if (result.isSuccess && result.value) {
-            this.toast.showSuccess('Booking confirmed! Find it in My Bookings.');
-            this.router.navigateByUrl('/dashboard/attendee');
+            if (this.paymentMethod() === 'Instant') {
+              const { bookingId, paymentUrl } = result.value;
+              if (paymentUrl) {
+                this.toast.showInfo('Redirecting to payment gateway...');
+                window.open(paymentUrl, '_blank');
+                this.toast.showSuccess('Booking created! Complete payment in the new tab.');
+                this.router.navigateByUrl('/dashboard/attendee');
+              } else {
+                // Dev mock: confirm booking synchronously
+                this.bookingApp.confirmBooking(bookingId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+                  next: (confirmResult) => {
+                    if (confirmResult.isSuccess) {
+                      this.toast.showSuccess('Payment successful! Booking confirmed.');
+                    } else {
+                      this.toast.showInfo('Booking created. Confirmation pending.');
+                    }
+                    this.router.navigateByUrl('/dashboard/attendee');
+                  },
+                  error: () => {
+                    this.toast.showInfo('Booking created. Confirmation pending.');
+                    this.router.navigateByUrl('/dashboard/attendee');
+                  },
+                });
+              }
+            } else {
+              this.loadDeferredBooking(result.value.bookingId);
+            }
           } else if (result.isFailure) {
             this.toast.showError(result.errors?.[0]?.message ?? 'Booking failed.');
+          }
+        },
+        error: () => this.booking.set(false),
+      });
+  }
+
+  private loadDeferredBooking(bookingId: string): void {
+    this.bookingApp.getBooking(bookingId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (result) => {
+          if (result.isSuccess && result.value) {
+            const d = result.value;
+            if (d.referenceCode && d.holdExpiresAt) {
+              const dr = {
+                bookingId: d.id,
+                referenceCode: d.referenceCode,
+                holdExpiresAt: d.holdExpiresAt,
+              };
+              this.deferredResult.set(dr);
+              this.startCountdown(d.holdExpiresAt);
+              sessionStorage.setItem('deferredBooking', JSON.stringify(dr));
+            }
+          }
+        },
+      });
+  }
+
+  private startCountdown(expiresAt: string): void {
+    const expiry = new Date(expiresAt).getTime();
+    interval(1000)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        const now = Date.now();
+        const diff = expiry - now;
+        if (diff <= 0) {
+          this.countdown.set('Expired');
+          this.deferredResult.set(null);
+          sessionStorage.removeItem('deferredBooking');
+          return;
+        }
+        const m = Math.floor(diff / 60000);
+        const s = Math.floor((diff % 60000) / 1000);
+        this.countdown.set(`${m}:${s.toString().padStart(2, '0')}`);
+      });
+  }
+
+  confirmDeferred(): void {
+    const dr = this.deferredResult();
+    if (!dr) return;
+
+    this.booking.set(true);
+    this.bookingApp.confirmDeferredPayment(dr.referenceCode)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (result) => {
+          this.booking.set(false);
+          if (result.isSuccess) {
+            this.toast.showSuccess('Deferred payment confirmed! Your booking is complete.');
+            this.deferredResult.set(null);
+            sessionStorage.removeItem('deferredBooking');
+            this.router.navigateByUrl('/dashboard/attendee');
+          } else {
+            this.toast.showError(result.errors?.[0]?.message ?? 'Confirmation failed.');
           }
         },
         error: () => this.booking.set(false),
@@ -152,6 +269,19 @@ export class EventDetailComponent implements OnInit {
     const evt = this.event();
     if (!evt || !evt.capacity) return 0;
     return Math.min(100, Math.round((evt.attendeeCount / evt.capacity) * 100));
+  }
+
+  onZoneSelected(zone: VenueZone): void {
+    const evt = this.event();
+    if (!evt?.ticketTypes || evt.ticketTypes.length === 0) return;
+    const byCode = evt.ticketTypes.find((t) => t.sectionCode === zone.id);
+    if (byCode) { this.selectedTicketTypeId = byCode.id; return; }
+    const byName = evt.ticketTypes.find((t) => t.name === zone.ticketType);
+    if (byName) { this.selectedTicketTypeId = byName.id; return; }
+    const byPrice = evt.ticketTypes.reduce((best, t) =>
+      Math.abs(t.price - zone.price) < Math.abs(best.price - zone.price) ? t : best,
+    );
+    this.selectedTicketTypeId = byPrice.id;
   }
 
   // ===== Photo helpers =====

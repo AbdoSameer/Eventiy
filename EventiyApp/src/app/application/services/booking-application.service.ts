@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { BookingHttpService } from '../http/booking.http-service';
-import { Booking, BackendBookingDetails, BackendBookingByUser, BookingByEventResponse, CreateBookingRequest } from '../../core/models/booking.model';
+import { Booking, BackendBookingDetails, BackendBookingByUser, BookingByEventResponse, CreateBookingRequest, CreateBookingResponse } from '../../core/models/booking.model';
 import { bookingByUserToBooking } from '../../core/mappers/booking.mapper';
 import { Result } from '../../core/models/result.model';
 
@@ -10,7 +10,7 @@ import { Result } from '../../core/models/result.model';
 export class BookingApplicationService {
   constructor(private readonly bookingHttp: BookingHttpService) {}
 
-  createBooking(data: CreateBookingRequest): Observable<Result<string>> {
+  createBooking(data: CreateBookingRequest): Observable<Result<CreateBookingResponse>> {
     return this.bookingHttp.createBooking(data);
   }
 
@@ -37,5 +37,9 @@ export class BookingApplicationService {
 
   cancelBooking(id: string): Observable<Result<boolean>> {
     return this.bookingHttp.cancelBooking(id);
+  }
+
+  confirmDeferredPayment(referenceCode: string): Observable<Result<boolean>> {
+    return this.bookingHttp.confirmDeferredPayment({ referenceCode });
   }
 }

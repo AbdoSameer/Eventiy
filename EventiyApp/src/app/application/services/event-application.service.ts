@@ -125,9 +125,9 @@ export class EventApplicationService {
     });
   }
 
-  deleteEvent(id: string): Observable<Result<boolean>> {
+  cancelEvent(id: string): Observable<Result<boolean>> {
     this.invalidateCache();
-    return this.eventHttp.deleteEvent(id);
+    return this.eventHttp.cancelEvent(id);
   }
 
   uploadPhotos(eventId: string, files: File[]): Observable<Result<EventPhotoResponse[]>> {

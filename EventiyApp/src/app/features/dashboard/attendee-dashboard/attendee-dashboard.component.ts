@@ -47,6 +47,9 @@ import { CATEGORY_META } from '../../../core/models/event.model';
                     <div class="flex items-center gap-3 flex-wrap">
                       <h3 class="text-lg font-semibold text-text-primary">{{ booking.eventTitle }}</h3>
                       <span class="rounded-full px-3 py-1 text-xs font-semibold" [class]="statusClass(booking.status)">{{ booking.status }}</span>
+                      @if (booking.paymentMethod === 'Deferred') {
+                        <span class="rounded-full px-3 py-1 text-xs font-semibold bg-blue-100 text-blue-700">Pay Later</span>
+                      }
                     </div>
                     <dl class="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-text-secondary">
                       <div>
@@ -67,15 +70,40 @@ import { CATEGORY_META } from '../../../core/models/event.model';
                           <dd class="inline ml-1 font-medium text-text-primary">{{ booking.eventDate | dateFormat }}</dd>
                         </div>
                       }
+                      @if (booking.paymentMethod === 'Deferred' && booking.referenceCode) {
+                        <div>
+                          <dt class="inline">Ref.Code:</dt>
+                          <dd class="inline ml-1 font-mono font-bold text-yellow-700">{{ booking.referenceCode }}</dd>
+                        </div>
+                      }
                     </dl>
                   </div>
 
-                  <a
-                    [routerLink]="['/events', booking.eventId]"
-                    class="self-start sm:self-center rounded-full border-2 border-primary text-primary px-5 py-2 font-semibold hover:bg-primary hover:text-white transition-colors"
-                  >
-                    View Event
-                  </a>
+                  <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                    <a
+                      [routerLink]="['/events', booking.eventId]"
+                      class="rounded-full border-2 border-primary text-primary px-5 py-2 font-semibold hover:bg-primary hover:text-white transition-colors"
+                    >
+                      View Event
+                    </a>
+                    @if (booking.status === 'Pending' || booking.status === 'Confirmed') {
+                      <a
+                        [routerLink]="['/bookings', booking.id]"
+                        class="rounded-full border-2 border-gray-300 text-gray-600 px-5 py-2 font-semibold hover:bg-gray-100 transition-colors"
+                      >
+                        View Details
+                      </a>
+                    }
+                    @if (booking.status === 'Pending') {
+                      <button
+                        (click)="cancelBooking(booking)"
+                        [disabled]="cancelling()"
+                        class="rounded-full border-2 border-red-400 text-red-500 px-5 py-2 font-semibold hover:bg-red-500 hover:text-white transition-colors disabled:opacity-60"
+                      >
+                        {{ cancelling() ? 'Cancelling...' : 'Cancel' }}
+                      </button>
+                    }
+                  </div>
                 </div>
               </article>
             }
@@ -91,6 +119,7 @@ export class AttendeeDashboardComponent implements OnInit {
 
   readonly bookings = signal<Booking[]>([]);
   readonly loading = signal(false);
+  readonly cancelling = signal(false);
 
   ngOnInit(): void {
     this.loadBookings();
@@ -110,6 +139,26 @@ export class AttendeeDashboardComponent implements OnInit {
       error: () => {
         this.toast.showError('Could not reach the server.');
         this.loading.set(false);
+      },
+    });
+  }
+
+  cancelBooking(booking: Booking): void {
+    if (!confirm(`Cancel your booking for "${booking.eventTitle}"? This will release your seats.`)) return;
+    this.cancelling.set(true);
+    this.bookingApp.cancelBooking(booking.id).subscribe({
+      next: (result) => {
+        this.cancelling.set(false);
+        if (result.isSuccess) {
+          this.toast.showSuccess('Booking cancelled.');
+          this.bookings.update((list) => list.filter((b) => b.id !== booking.id));
+        } else {
+          this.toast.showError(result.errors?.[0]?.message ?? 'Could not cancel booking.');
+        }
+      },
+      error: () => {
+        this.cancelling.set(false);
+        this.toast.showError('Could not reach the server.');
       },
     });
   }

@@ -6,7 +6,9 @@ import {
   BackendBookingDetails,
   BackendBookingByUser,
   BookingByEventResponse,
+  ConfirmDeferredPaymentRequest,
   CreateBookingRequest,
+  CreateBookingResponse,
 } from '../../core/models/booking.model';
 import { Result } from '../../core/models/result.model';
 import { HttpClientBase } from './http-client-base';
@@ -15,9 +17,9 @@ import { HttpClientBase } from './http-client-base';
 export class BookingHttpService extends HttpClientBase {
   private readonly baseUrl = `${this.apiUrl}/booking`;
 
-  createBooking(data: CreateBookingRequest): Observable<Result<string>> {
-    return this.http.post<string>(this.baseUrl, data).pipe(
-      map((value): Result<string> => ({ isSuccess: true, isFailure: false, value })),
+  createBooking(data: CreateBookingRequest): Observable<Result<CreateBookingResponse>> {
+    return this.http.post<CreateBookingResponse>(this.baseUrl, data).pipe(
+      map((value): Result<CreateBookingResponse> => ({ isSuccess: true, isFailure: false, value })),
       catchError((err) => this.toErrorResult(err)),
     );
   }
@@ -52,6 +54,13 @@ export class BookingHttpService extends HttpClientBase {
 
   cancelBooking(id: string): Observable<Result<boolean>> {
     return this.http.put<void>(`${this.baseUrl}/${id}/cancel`, {}).pipe(
+      map((): Result<boolean> => ({ isSuccess: true, isFailure: false, value: true })),
+      catchError((err) => this.toErrorResult(err)),
+    );
+  }
+
+  confirmDeferredPayment(data: ConfirmDeferredPaymentRequest): Observable<Result<boolean>> {
+    return this.http.post<void>(`${this.baseUrl}/confirm-deferred`, data).pipe(
       map((): Result<boolean> => ({ isSuccess: true, isFailure: false, value: true })),
       catchError((err) => this.toErrorResult(err)),
     );
