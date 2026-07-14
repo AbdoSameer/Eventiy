@@ -146,6 +146,7 @@ public class BookingFlowTests : IAsyncLifetime
         bookingBefore!.Status.Should().Be(BookingStatusEnum.Pending);
 
         var eventBefore = await dbBefore.Db.Events
+            .Include(e => e.TicketTypes)
             .FirstOrDefaultAsync(e => e.Id == EventId.FromDatabase(eventId));
         var ticketTypeBefore = eventBefore!.TicketTypes.First();
         ticketTypeBefore.ReservedCount.Should().Be(3);
@@ -178,6 +179,7 @@ public class BookingFlowTests : IAsyncLifetime
         bookingAfter!.Status.Should().Be(BookingStatusEnum.Expired);
 
         var eventAfter = await dbAfter.Db.Events
+            .Include(e => e.TicketTypes)
             .FirstOrDefaultAsync(e => e.Id == EventId.FromDatabase(eventId));
         var ticketTypeAfter = eventAfter!.TicketTypes.First();
         ticketTypeAfter.ReservedCount.Should().Be(0, "seats should be released after expiration");
