@@ -70,6 +70,26 @@ import type { EventStatus } from '../../../core/models/event.model';
               </div>
             </div>
 
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label for="latitude" class="block text-sm font-semibold text-text-primary mb-1.5">Latitude</label>
+                <input id="latitude" type="number" step="any" formControlName="latitude" class="w-full rounded-lg border border-gray-300 px-4 py-3" [disabled]="!canEdit" />
+              </div>
+              <div>
+                <label for="longitude" class="block text-sm font-semibold text-text-primary mb-1.5">Longitude</label>
+                <input id="longitude" type="number" step="any" formControlName="longitude" class="w-full rounded-lg border border-gray-300 px-4 py-3" [disabled]="!canEdit" />
+              </div>
+            </div>
+
+            <div>
+              <label for="category" class="block text-sm font-semibold text-text-primary mb-1.5">Category *</label>
+              <select id="category" formControlName="category" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:ring-primary" [disabled]="!canEdit">
+                @for (cat of categories; track cat) {
+                  <option [value]="cat">{{ cat }}</option>
+                }
+              </select>
+            </div>
+
             <div>
               <label for="capacity" class="block text-sm font-semibold text-text-primary mb-1.5">Capacity</label>
               <input id="capacity" type="number" min="1" formControlName="capacity" class="w-full rounded-lg border border-gray-300 px-4 py-3" [disabled]="!canEdit" />
@@ -198,6 +218,9 @@ export class EventEditComponent implements OnInit {
     city: [''],
     country: [''],
     street: [''],
+    latitude: [null],
+    longitude: [null],
+    category: ['Music', [Validators.required]],
     capacity: [0, [Validators.min(1)]],
   });
 
@@ -229,6 +252,9 @@ export class EventEditComponent implements OnInit {
             city: result.value.location.city,
             country: result.value.location.country,
             street: result.value.location.street,
+            latitude: result.value.location.latitude ?? null,
+            longitude: result.value.location.longitude ?? null,
+            category: result.value.type || 'Music',
             capacity: result.value.capacity,
           });
         } else {
@@ -243,13 +269,16 @@ export class EventEditComponent implements OnInit {
     if (this.form.invalid) return;
     this.saving.set(true);
 
-    const { name, description, city, country, street, capacity } = this.form.value;
+    const { name, description, city, country, street, latitude, longitude, category, capacity } = this.form.value;
     const data = {
       name,
       capacity,
       date: this.eventDate,
-      location: { country, city, street: street || this.eventStreet },
+      location: { country, city, street: street || this.eventStreet, latitude, longitude },
       description,
+      type: category,
+      latitude,
+      longitude,
     };
 
     const request = this.isAdmin

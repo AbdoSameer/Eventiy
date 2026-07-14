@@ -13,6 +13,7 @@ import { SkeletonLoaderComponent } from '../../../shared/components/skeleton-loa
 import { EventCardComponent } from '../../../shared/components/event-card/event-card.component';
 import { PhotoUploaderComponent } from '../../../shared/components/photo-uploader/photo-uploader.component';
 import { LightboxComponent } from '../../../shared/components/lightbox/lightbox.component';
+import { environment } from '../../../../environments/environment';
 import { EventSeatingChartComponent } from '../../../shared/components/event-seating-chart/event-seating-chart.component';
 import { VenueZone } from '../../../core/models/ticket.model';
 import { ImgFallbackDirective } from '../../../infrastructure/directives/img-fallback.directive';
@@ -169,11 +170,12 @@ export class EventDetailComponent implements OnInit {
             if (this.paymentMethod() === 'Instant') {
               const { bookingId, paymentUrl } = result.value;
               if (paymentUrl) {
+                sessionStorage.setItem(`paymentUrl:${bookingId}`, paymentUrl);
                 this.toast.showInfo('Redirecting to payment gateway...');
                 window.open(paymentUrl, '_blank');
                 this.toast.showSuccess('Booking created! Complete payment in the new tab.');
                 this.router.navigateByUrl('/dashboard/attendee');
-              } else {
+              } else if (!environment.production) {
                 // Dev mock: confirm booking synchronously
                 this.bookingApp.confirmBooking(bookingId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
                   next: (confirmResult) => {
@@ -189,6 +191,10 @@ export class EventDetailComponent implements OnInit {
                     this.router.navigateByUrl('/dashboard/attendee');
                   },
                 });
+              } else {
+                // Production: paymentUrl is null — this shouldn't happen, but be safe
+                this.toast.showInfo('Booking created. Awaiting payment confirmation.');
+                this.router.navigateByUrl('/dashboard/attendee');
               }
             } else {
               this.loadDeferredBooking(result.value.bookingId);

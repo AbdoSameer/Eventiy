@@ -75,6 +75,12 @@ export const routes: Routes = [
     title: 'Booking Details — Eventiy',
   },
   {
+    path: 'admin/outbox/dead-letters',
+    canActivate: [authGuard, roleGuard(['Admin'])],
+    loadComponent: () => import('./features/admin/admin-outbox/admin-outbox.component').then((m) => m.AdminOutboxComponent),
+    title: 'Dead Letters — Eventiy',
+  },
+  {
     path: 'unauthorized',
     loadComponent: () => import('./presentation/features/errors/unauthorized/unauthorized.component').then((m) => m.UnauthorizedComponent),
     title: 'Unauthorized — Eventiy',

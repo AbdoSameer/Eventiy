@@ -5,6 +5,12 @@
       <a [routerLink]="['/events', id()]" class="sc-back-link">← Back to event</a>
       <h1 class="sc-title">Select Your Seats</h1>
       <p class="sc-subtitle">{{ store.venueData()?.venueName }}</p>
+      @if (syncStatus() === 'RECONNECTING') {
+        <span class="text-xs text-amber-600">Reconnecting…</span>
+      }
+      @if (syncStatus() === 'ERROR') {
+        <span class="text-xs text-red-600">Connection lost</span>
+      }
     </div>
 
     <div class="sc-mode-toggle" role="tablist" aria-label="Venue mode">

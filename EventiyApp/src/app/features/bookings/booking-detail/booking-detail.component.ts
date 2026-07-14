@@ -54,6 +54,12 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
           </div>
 
           <div class="mt-8 flex flex-wrap gap-3">
+            @if (b.status === 'Pending' && b.paymentMethod === 'Instant' && paymentUrl()) {
+              <a [href]="paymentUrl()" target="_blank" rel="noopener"
+                class="rounded-full bg-indigo-600 text-white px-6 py-2 font-semibold hover:bg-indigo-700 transition-colors">
+                Complete Payment
+              </a>
+            }
             @if (b.status === 'Pending') {
               <button (click)="cancelBooking()" [disabled]="cancelling()"
                 class="rounded-full border-2 border-red-400 text-red-500 px-6 py-2 font-semibold hover:bg-red-500 hover:text-white transition-colors disabled:opacity-60">
@@ -81,6 +87,7 @@ export class BookingDetailComponent implements OnInit {
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
   readonly cancelling = signal(false);
+  readonly paymentUrl = signal<string | null>(null);
 
   get b(): BackendBookingDetails | null { return this.booking(); }
 
@@ -90,6 +97,11 @@ export class BookingDetailComponent implements OnInit {
       this.error.set('No booking ID provided.');
       this.loading.set(false);
       return;
+    }
+
+    const stored = sessionStorage.getItem(`paymentUrl:${id}`);
+    if (stored) {
+      this.paymentUrl.set(stored);
     }
 
     this.bookingApp.getBooking(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({

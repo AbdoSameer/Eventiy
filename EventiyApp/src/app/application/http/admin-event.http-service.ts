@@ -9,8 +9,11 @@ export interface AdminUpdateEventRequest {
   name: string;
   capacity: number;
   date: string;
-  location: { country: string; city: string; street: string };
+  location: { country: string; city: string; street: string; latitude?: number | null; longitude?: number | null };
   description: string;
+  type: string;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 @Injectable({ providedIn: 'root' })

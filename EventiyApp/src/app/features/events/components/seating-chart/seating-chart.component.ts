@@ -22,6 +22,8 @@ import { VenueGraphRendererService } from './renderer/venue-graph-renderer.servi
 import { LiveStateSyncService } from './renderer/live-state-sync.service';
 import { SeatLockOrchestratorService } from './state/seat-lock-orchestrator.service';
 
+import { environment } from '../../../../../environments/environment';
+
 import { EventApplicationService } from '../../../../application/services/event-application.service';
 import { BookingApplicationService } from '../../../../application/services/booking-application.service';
 import { Event } from '../../../../core/models/event.model';
@@ -167,7 +169,7 @@ export class SeatingChartComponent implements AfterViewInit, OnDestroy {
 
     // 3. Open the live-sync channel.
     const eventId = this.id() || this.store.venueData()?.venueId || 'STADIUM_ST_001';
-    this.liveSync.connect(eventId, { simulate: true });
+    this.liveSync.connect(eventId, { simulate: !environment.production });
 
     // 3b. Fetch real event data so we have ticket types for the booking API.
     if (this.id()) {
@@ -306,6 +308,7 @@ export class SeatingChartComponent implements AfterViewInit, OnDestroy {
         if (result.isSuccess && result.value) {
           const { bookingId, paymentUrl } = result.value;
           if (this.paymentMethod() === 'Instant' && paymentUrl) {
+            sessionStorage.setItem(`paymentUrl:${bookingId}`, paymentUrl);
             window.open(paymentUrl, '_blank');
           }
           this.pushToast({
