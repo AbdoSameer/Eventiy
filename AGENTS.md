@@ -72,12 +72,39 @@ Complete code quality improvements, flash-sale performance optimization, and sec
 
 ### Idempotency Pipeline
 - **ProcessedEvents table** (PK: `EventId`, unique index on `IdempotencyKey`)
-- **IIdempotencyStore**: `IsProcessedAsync(Guid eventId)`, `MarkAsProcessedAsync` — changed from `string idempotencyKey`
-- **BookingCreatedEventHandler** + **BookingCancelledEventHandler**: both check `IsProcessedAsync(@event.Id)` then `MarkAsProcessedAsync()`
+- **IIdempotencyStore**: `IsProcessedAsync(Guid eventId)`, `MarkAsProcessedAsync` (synchronous save), `MarkAsProcessed` (track-only — caller must commit separately for atomicity)
+- **BookingCreatedEventHandler**: checks `IsProcessedAsync(bookingId)`, then calls `MarkAsProcessed()` (track-only) BEFORE `CommitAsync` — idempotency marker and booking confirmation commit atomically. Crash between mark and commit means neither persists, so redelivery sees Pending booking and retries confirmation. Crash after commit means marker + confirmation both persisted, so redelivery short-circuits at `IsProcessedAsync`.
+- **BookingCancelledEventHandler**: checks `IsProcessedAsync(bookingId)`, then calls `MarkAsProcessed()` + `CommitWithoutEventsAsync()` (no domain events to extract). Currently log-only; seat release handled by command handler.
+- **Idempotency key semantics**: Uses the booking's `BookingId.Value` (deterministic per outbox message payload) rather than `DomainEvent.Id` (randomly regenerated on each deserialization, useless for idempotency).
 - **Fixed dead handler bug**: OutboxProcessor now resolves `IDomainEventHandler<T>` via `IServiceProvider.MakeGenericType` instead of broken MediatR `IPublisher` dispatch
 - **DomainEventHandlerException**: new exception class for handler failure propagation
 
-### Seating Chart Reactive Gap Fix
+### Payment Initiation After Commit Fix
+- **Problem**: `CreateBookingCommandHandler` persisted booking + reserved seats *before* calling `InitiatePaymentAsync`. If Stripe was down, the booking existed in `Pending` with reserved seats that couldn't be paid for — dead seats until `BookingExpirationJob` released them (2 min for Instant).
+- **Fix**: Moved `InitiatePaymentAsync` *before* `AddBookingAsync` + `CommitAsync`. On payment failure, nothing is persisted. On commit failure (`rowsAffected <= 0` or `ConcurrencyException`), the handler compensates by calling `CancelPaymentAsync` on the orphaned Stripe checkout session.
+- **Files**:
+  - `Application/Abstractions/Payments/IPaymentService.cs` — added `CancelPaymentAsync(Guid bookingId, Ct)`
+  - `Infrastructure/Payments/StripePaymentGateway.cs` — mock `CancelPaymentAsync` (log + no-op)
+  - `tests/Eventy.Testing.Foundation/Fakes/FakePaymentService.cs` — fake `CancelPaymentAsync`
+  - `Application/Features/Bookings/Command/CreateBooking/CreateBookingCommandHandler.cs` — reversed order, added compensation on both `rowsAffected <= 0` and `ConcurrencyException`
+  - `tests/Eventy.Application.UnitTests/Features/Bookings/Commands/CreateBookingHandlerTests.cs` — added `Handle_WhenPaymentInitiationFails_ShouldNotCommit` (3 total tests pass)
+
+### Idempotency Guard Fix (BookingCreated / BookingCancelled Event Handlers)
+- **Problem**: AGENTS.md falsely claimed both handlers had idempotency guards. Neither actually called `IIdempotencyStore.IsProcessedAsync()` or `MarkAsProcessedAsync()`. On outbox redelivery, `BookingCreatedEventHandler` would fail with `AlreadyConfirmed` → retry ×3 → dead letter. `BookingCancelledEventHandler` would log twice but had no side-effects to corrupt.
+- **Root cause**: `DomainEvent.Id` is `Guid.NewGuid()` — regenerated on every deserialization, useless as an idempotency key. The stable key is the domain-specific entity ID (e.g., `BookingId.Value`).
+- **Fix**:
+  - `IIdempotencyStore` — added `MarkAsProcessed(Guid, string, DateTime)` (track without save) for atomic inclusion in handler's own commit
+  - `BookingCreatedEventHandler` — checks `IsProcessedAsync(bookingId)` before processing; calls `MarkAsProcessed()` THEN `CommitAsync` (atomic: crash means neither booked-confirmation nor idempotency-mark persist)
+  - `BookingCancelledEventHandler` — checks `IsProcessedAsync(bookingId)` before logging; calls `MarkAsProcessed()` + `CommitWithoutEventsAsync()`
+  - **Idempotency key**: `"booking-created:{bookingId}"` / `"booking-cancelled:{bookingId}"` — deterministic per outbox payload
+- **Files**:
+  - `Application/Abstractions/Persistence/IIdempotencyStore.cs` — added `MarkAsProcessed`
+  - `Infrastructure/Persistence/Repositories/IdempotencyStore.cs` — added `MarkAsProcessed`
+  - `Application/Features/Bookings/Events/BookingCreated/BookingCreatedEventHandler.cs` — full idempotency flow
+  - `Application/Features/Bookings/Events/BookingCancelled/BookingCancelledEventHandler.cs` — full idempotency flow
+- **AGENTS.md**: Updated lines 74-78 and 162 to reflect actual handler behavior and idempotency key semantics
+
+### Seating Chart Reactive Gap Fix", "oldString": "### Seating Chart Reactive Gap Fix"}
 - **Problem**: `checkoutSelection()` called `lockOrchestrator.acquire()` per seat, which short-circuited (`return true`) if the seat was already selected in store — meaning **no LOCK was ever sent** over WebSocket
 - **`executeFinalBooking()`**: new async method that directly dispatches LOCK messages via `liveSync.send()` for all selected seats, bypassing the `acquire()` short-circuit
 - **Submitting signal**: `submitting` signal guards `handleSeatClick` (prevents map clicks during in-flight), and drives `.is-loading` CSS class on the floating pill
@@ -159,7 +186,7 @@ Complete code quality improvements, flash-sale performance optimization, and sec
 - Project targets `net9.0` — `TimeProvider` is built-in, no extra packages needed
 - DB has 5 migrations total: 2 original + 3 pending (`AddProcessedEventsAndDeadLetters`, `AddEventTypeAndCoordinates`)
 - OutboxProcessor polls every 5s, batch size 50, with UPDLOCK/READPAST and 5min lock timeout
-- Two event handlers (both with idempotency): `BookingCreatedEventHandler` (validation), `BookingCancelledEventHandler` (capacity release)
+- Two event handlers (both with idempotency guards): `BookingCreatedEventHandler` (auto-confirms Instant bookings via `booking.Confirm()` + `event.ConfirmReservation()`), `BookingCancelledEventHandler` (log-only; seat release handled by command handler)
 - `IEventValidator<BookingCreatedEvent>` exists but no others yet
 - Redis connection reads from `ConnectionStrings:Redis` (default `localhost:6379`)
 - **Caching coverage**: 3/6 read queries cached — Events list (30s), Event details (60s), Event photos (120s). Booking queries (`GetBookingsByUser`, `GetBookingDetails`, `GetBookingByEvent`) intentionally uncached — financial/personal data with high mutation rate.
