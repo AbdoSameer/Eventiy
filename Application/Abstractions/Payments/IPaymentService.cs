@@ -14,5 +14,9 @@ namespace Application.Abstractions.Payments
             decimal amount,
             string currency,
             CancellationToken ct = default);
+
+        Task<Result> CancelPaymentAsync(
+            Guid bookingId,
+            CancellationToken ct = default);
     }
 }

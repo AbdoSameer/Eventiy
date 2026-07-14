@@ -1,32 +1,125 @@
 ﻿using Application.Abstractions.Payments;
 using Domain.Common;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Stripe;
+using Stripe.Checkout;
 
 namespace Infrastructure.Payments;
 
 public class StripePaymentGateway : IPaymentService
 {
+    private readonly StripeSettings _settings;
     private readonly ILogger<StripePaymentGateway> _logger;
 
-    public StripePaymentGateway(ILogger<StripePaymentGateway> logger)
+    public StripePaymentGateway(
+        IOptions<StripeSettings> settings,
+        ILogger<StripePaymentGateway> logger)
     {
+        _settings = settings.Value;
         _logger = logger;
+
+        StripeConfiguration.ApiKey = _settings.SecretKey;
     }
 
-    public Task<Result<PaymentInitiationResult>> InitiatePaymentAsync(
+    public async Task<Result<PaymentInitiationResult>> InitiatePaymentAsync(
         Guid bookingId,
         string referenceCode,
         decimal amount,
         string currency,
         CancellationToken ct = default)
     {
-        // In production, call Stripe API to create a Checkout Session or PaymentIntent.
-        // For development, return null — the frontend will simulate payment success.
-        _logger.LogInformation(
-            "Initiating payment for booking {BookingId}, amount {Amount} {Currency} (mock — no real Stripe call)",
-            bookingId, amount, currency);
+        try
+        {
+            var unitAmount = (long)Math.Round(amount * 100);
 
-        return Task.FromResult(Result<PaymentInitiationResult>.Success(
-            new PaymentInitiationResult(null, null)));
+            var options = new SessionCreateOptions
+            {
+                PaymentMethodTypes = ["card"],
+                LineItems =
+                [
+                    new SessionLineItemOptions
+                    {
+                        Quantity = 1,
+                        PriceData = new SessionLineItemPriceDataOptions
+                        {
+                            Currency = currency.ToLowerInvariant(),
+                            UnitAmount = unitAmount,
+                            ProductData = new SessionLineItemPriceDataProductDataOptions
+                            {
+                                Name = $"Booking {referenceCode}",
+                            },
+                        },
+                    },
+                ],
+                Mode = "payment",
+                SuccessUrl = _settings.SuccessUrl,
+                CancelUrl = _settings.CancelUrl,
+                Metadata = new Dictionary<string, string>
+                {
+                    { "bookingId", bookingId.ToString() },
+                },
+            };
+
+            var service = new SessionService();
+            var session = await service.CreateAsync(options, cancellationToken: ct);
+
+            _logger.LogInformation(
+                "Created Stripe Checkout Session {SessionId} for booking {BookingId}, amount {Amount} {Currency}",
+                session.Id, bookingId, amount, currency);
+
+            return Result<PaymentInitiationResult>.Success(
+                new PaymentInitiationResult(session.Url, null));
+        }
+        catch (StripeException ex)
+        {
+            _logger.LogError(ex,
+                "Stripe error creating Checkout Session for booking {BookingId}: {Message}",
+                bookingId, ex.Message);
+
+            return Result<PaymentInitiationResult>.Failure(
+                Error.Failure("Payment.StripeError", ex.Message));
+        }
+    }
+
+    public async Task<Result> CancelPaymentAsync(
+        Guid bookingId,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var service = new SessionService();
+            var sessions = await service.ListAsync(new SessionListOptions
+            {
+                Limit = 10,
+            }, cancellationToken: ct);
+
+            var session = sessions.FirstOrDefault(s =>
+                s.Metadata.TryGetValue("bookingId", out var id) && id == bookingId.ToString());
+
+            if (session is null || session.Status == "complete" || session.Status == "expired")
+            {
+                _logger.LogInformation(
+                    "No active Stripe session found for booking {BookingId} — skipping cancel",
+                    bookingId);
+                return Result.Success();
+            }
+
+            await service.ExpireAsync(session.Id, cancellationToken: ct);
+
+            _logger.LogInformation(
+                "Expired Stripe Checkout Session {SessionId} for booking {BookingId}",
+                session.Id, bookingId);
+
+            return Result.Success();
+        }
+        catch (StripeException ex)
+        {
+            _logger.LogError(ex,
+                "Stripe error cancelling session for booking {BookingId}: {Message}",
+                bookingId, ex.Message);
+
+            return Result.Failure(Error.Failure("Payment.StripeCancelError", ex.Message));
+        }
     }
 }

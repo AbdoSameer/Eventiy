@@ -27,6 +27,8 @@
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.9" />
 	
 	  <FrameworkReference Include="Microsoft.AspNetCore.App" />
+	
+	  <PackageReference Include="Stripe.net" Version="52.1.0" />
 
   </ItemGroup>
 

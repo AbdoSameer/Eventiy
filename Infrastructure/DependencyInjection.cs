@@ -75,9 +75,11 @@ public static class DependencyInjection
         services.AddScoped<IOutboxMessageService, OutboxMessageService>();
         services.AddScoped<IEventSerializer, EventSerializer>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped<IOutboxDispatcher, OutboxDispatcher>();
 
         services.AddHostedService<OutboxProcessor>();
         services.AddHostedService<BookingExpirationJob>();
+        services.AddHostedService<PaymentReconciliationJob>();
         services.AddSingleton(TimeProvider.System);
 
 
@@ -91,6 +93,7 @@ public static class DependencyInjection
         services.AddScoped<IIdempotencyStore, IdempotencyStore>();
         services.AddScoped<IVenueLayoutValidator, VenueLayoutValidator>();
         services.AddScoped<IPaymentService, StripePaymentGateway>();
+        services.Configure<StripeSettings>(configuration.GetSection(StripeSettings.SectionName));
         services.AddHttpContextAccessor();
 
         var redisConnectionString = configuration.GetConnectionString("Redis")
@@ -110,6 +113,19 @@ public static class DependencyInjection
         if (string.IsNullOrWhiteSpace(jwtSettings.Secret) || jwtSettings.Secret.Length < 32)
             throw new InvalidOperationException(
                 "Jwt:Secret must be at least 32 characters. Use User Secrets for development.");
+
+        var stripeSettings = configuration.GetSection(StripeSettings.SectionName).Get<StripeSettings>()
+            ?? throw new InvalidOperationException(
+                "Stripe settings are not configured. Set Stripe:SecretKey and Stripe:WebhookSecret via User Secrets (dev) or environment variables (prod).");
+
+        if (string.IsNullOrWhiteSpace(stripeSettings.SecretKey))
+            throw new InvalidOperationException("Stripe:SecretKey is required. Use User Secrets for development.");
+
+        if (string.IsNullOrWhiteSpace(stripeSettings.WebhookSecret))
+            throw new InvalidOperationException("Stripe:WebhookSecret is required. Use User Secrets for development.");
+
+        if (string.IsNullOrWhiteSpace(stripeSettings.SuccessUrl) || string.IsNullOrWhiteSpace(stripeSettings.CancelUrl))
+            throw new InvalidOperationException("Stripe:SuccessUrl and Stripe:CancelUrl are required.");
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>

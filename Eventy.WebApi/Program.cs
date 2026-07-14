@@ -41,6 +41,9 @@ namespace Eventy.WebApi
 
                     options.JsonSerializerOptions.Converters.Add(
                         new System.Text.Json.Serialization.JsonStringEnumConverter());
+
+                    options.JsonSerializerOptions.Converters.Add(
+                        new Infrastructure.Persistence.Outbox.Converters.ValueObjectJsonConverterFactory());
                 });
 
             builder.Services.AddOpenApi();
