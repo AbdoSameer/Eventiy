@@ -108,7 +108,9 @@ public class WebhookDoubleDeliveryRaceTests
             "booking should be confirmed after webhook delivery");
 
         var eventAfter = await dbAfter.DbContext.Events
+            .Include(e => e.TicketTypes)
             .FirstOrDefaultAsync(e => e.Id == EventId.FromDatabase(eventId));
+        eventAfter.Should().NotBeNull();
         var ticketTypeAfter = eventAfter!.TicketTypes.First();
         ticketTypeAfter.SoldCount.Should().Be(2,
             "SoldCount should be exactly the booking quantity (2), not double (4) — idempotency guard prevents double-confirmation");

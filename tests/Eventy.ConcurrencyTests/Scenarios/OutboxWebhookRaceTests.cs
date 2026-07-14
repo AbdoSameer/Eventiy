@@ -123,7 +123,9 @@ public class OutboxWebhookRaceTests
             "booking should be confirmed by whichever path won the race");
 
         var eventAfter = await dbAfter.DbContext.Events
+            .Include(e => e.TicketTypes)
             .FirstOrDefaultAsync(e => e.Id == EventId.FromDatabase(eventId));
+        eventAfter.Should().NotBeNull();
         var ticketTypeAfter = eventAfter!.TicketTypes.First();
         ticketTypeAfter.SoldCount.Should().Be(2,
             "SoldCount should be exactly 2 (the booking quantity) — not 4 from double-confirmation");

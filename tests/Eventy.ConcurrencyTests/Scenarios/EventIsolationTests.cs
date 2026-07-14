@@ -57,8 +57,10 @@ public class EventIsolationTests
 
         await using var dbScope = _fixture.CreateDbContext();
         var eventA = await dbScope.DbContext.Events
+            .Include(e => e.TicketTypes)
             .FirstOrDefaultAsync(e => e.Id == EventId.FromDatabase(eventAId));
         var eventB = await dbScope.DbContext.Events
+            .Include(e => e.TicketTypes)
             .FirstOrDefaultAsync(e => e.Id == EventId.FromDatabase(eventBId));
 
         var ticketA = eventA!.TicketTypes.First();
