@@ -63,8 +63,13 @@ public class EventIsolationTests
             .Include(e => e.TicketTypes)
             .FirstOrDefaultAsync(e => e.Id == EventId.FromDatabase(eventBId));
 
-        var ticketA = eventA!.TicketTypes.First();
-        var ticketB = eventB!.TicketTypes.First();
+        eventA.Should().NotBeNull("event A was seeded");
+        eventB.Should().NotBeNull("event B was seeded");
+        eventA!.TicketTypes.Should().NotBeEmpty("event A should have ticket types");
+        eventB!.TicketTypes.Should().NotBeEmpty("event B should have ticket types");
+
+        var ticketA = eventA.TicketTypes.First();
+        var ticketB = eventB.TicketTypes.First();
 
         ticketA.SoldCount.Should().BeLessOrEqualTo(5,
             "event A inventory must never exceed its capacity");
