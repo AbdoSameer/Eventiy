@@ -63,7 +63,7 @@ internal sealed class EventPhotoConfiguration : IEntityTypeConfiguration<EventPh
 
         builder.HasOne<Event>()
                .WithMany(e => e.Photos)
-               .HasForeignKey("EventId")
+               .HasForeignKey(p => p.EventId)
                .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasIndex(p => new { p.EventId, p.IsCover })

@@ -112,13 +112,9 @@ namespace Infrastructure.Persistence.Configuration
                    .IsRequired(false);
 
             builder.Property(x => x.RowVersion)
-                   .IsRowVersion()
-                   .HasColumnName("RowVersion");
+                    .IsRowVersion()
+                    .HasColumnName("RowVersion");
 
-            builder.HasMany(e => e.TicketTypes)
-                   .WithOne()
-                   .HasForeignKey("EventId")
-                   .OnDelete(DeleteBehavior.Cascade);
 
             builder.HasIndex(x => x.Date)
                    .HasDatabaseName("IX_Events_Date");
