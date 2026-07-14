@@ -5,7 +5,7 @@ namespace Domain.Aggregates.BookingAggregate.ValueObject
 {
     public class BookingId : ValueObjectBase
     {
-        public Guid Value { get; }
+    public Guid Value { get; }
 
         protected BookingId() { }
 

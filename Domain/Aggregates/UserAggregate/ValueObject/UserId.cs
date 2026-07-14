@@ -4,8 +4,8 @@ namespace Domain.Aggregates.UserAggregate.ValueObject
 {
     public class UserId : ValueObjectBase
     {
-        public Guid Value { get; }
-        protected UserId() { }
+    public Guid Value { get; }
+    protected UserId() { }
 
         private UserId(Guid value)
         {

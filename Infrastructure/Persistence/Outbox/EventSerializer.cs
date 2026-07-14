@@ -20,10 +20,7 @@ public sealed class EventSerializer : IEventSerializer
 
     static EventSerializer()
     {
-        _options.Converters.Add(new BookingIdJsonConverter());
-        _options.Converters.Add(new UserIdJsonConverter());
-        _options.Converters.Add(new EventIdJsonConverter());
-        _options.Converters.Add(new TicketTypeIdJsonConverter());
+        _options.Converters.Add(new ValueObjectJsonConverterFactory());
         _eventTypes = new Dictionary<string, Type>();
         _eventDomains = new Dictionary<string, string>();
         _eventNamesByType = new Dictionary<Type, string>();
@@ -63,7 +60,7 @@ public sealed class EventSerializer : IEventSerializer
 
     public string Serialize<T>(T @event) where T : IDomainEvent
     {
-        return JsonSerializer.Serialize(@event, _options);
+        return JsonSerializer.Serialize(@event, @event.GetType(), _options);
     }
 
     public Result<IDomainEvent> Deserialize(string eventName, string serializedEvent)

@@ -2,6 +2,7 @@
 using Domain.Errors;
 
 namespace Domain.Aggregates.EventAggregate.ValueObject;
+
 public sealed class EventId: ValueObjectBase
 {
     public Guid Value { get; }
