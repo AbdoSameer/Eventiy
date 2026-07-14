@@ -72,23 +72,13 @@ public sealed class OutboxDispatcher : IOutboxDispatcher
                 NextRetryOnUtc: nextRetryOnUtc));
         }
 
-        await using var tx = await context.Database.BeginTransactionAsync(cancellationToken);
-        try
-        {
-            if (processedIds.Count > 0)
-                await outboxRepository.MarkRangeAsProcessedAsync(processedIds, utcNow, cancellationToken);
+        await context.SaveChangesAsync(cancellationToken);
 
-            if (failedMessages.Count > 0)
-                await outboxRepository.MarkRangeAsFailedAsync(failedMessages, cancellationToken);
+        if (processedIds.Count > 0)
+            await outboxRepository.MarkRangeAsProcessedAsync(processedIds, utcNow, cancellationToken);
 
-            await tx.CommitAsync(cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to commit outbox status updates - rolling back");
-            await tx.RollbackAsync(cancellationToken);
-            return new OutboxDispatchResult(false, Array.Empty<Guid>(), Array.Empty<OutboxFailedMessageUpdateDto>());
-        }
+        if (failedMessages.Count > 0)
+            await outboxRepository.MarkRangeAsFailedAsync(failedMessages, cancellationToken);
 
         return new OutboxDispatchResult(true, processedIds, failedMessages);
     }

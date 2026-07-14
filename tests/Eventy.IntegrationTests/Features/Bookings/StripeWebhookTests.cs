@@ -87,8 +87,13 @@ public class StripeWebhookTests : IAsyncLifetime
         webhookRequest.Headers.Add("Stripe-Signature", signature);
 
         var webhookResponse = await _client.SendAsync(webhookRequest);
-        webhookResponse.StatusCode.Should().Be(HttpStatusCode.OK,
-            "webhook should accept a validly-signed checkout.session.completed event");
+        if (webhookResponse.StatusCode != HttpStatusCode.OK)
+        {
+            var body = await webhookResponse.Content.ReadAsStringAsync();
+            webhookResponse.StatusCode.Should().Be(HttpStatusCode.OK,
+                $"webhook should accept a validly-signed checkout.session.completed event. " +
+                $"Response body: {body}");
+        }
 
         await using var dbAfter = _fixture.CreateDbContext();
         var confirmedBooking = await dbAfter.Db.Bookings

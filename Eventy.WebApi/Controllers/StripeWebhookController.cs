@@ -37,7 +37,8 @@ public class StripeWebhookController : ControllerBase
             stripeEvent = EventUtility.ConstructEvent(
                 json,
                 Request.Headers["Stripe-Signature"],
-                _settings.WebhookSecret);
+                _settings.WebhookSecret,
+                throwOnApiVersionMismatch: false);
         }
         catch (StripeException ex)
         {

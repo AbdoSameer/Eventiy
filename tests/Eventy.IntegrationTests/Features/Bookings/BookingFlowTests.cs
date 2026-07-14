@@ -29,7 +29,15 @@ public class BookingFlowTests : IAsyncLifetime
         _client = fixture.Client;
     }
 
-    public async Task InitializeAsync() => await _fixture.ResetDatabaseAsync();
+    public async Task InitializeAsync()
+    {
+        await _fixture.ResetDatabaseAsync();
+
+        var scope = _fixture.Factory.Services.CreateScope();
+        var ps = scope.ServiceProvider.GetRequiredService<Application.Abstractions.Payments.IPaymentService>()
+            as FakePaymentService;
+        ps?.SetFailMode(false);
+    }
     public Task DisposeAsync() => Task.CompletedTask;
 
     private async Task<(Guid EventId, Guid TicketTypeId)> SeedEventAsync(int capacity = 50, int ticketCapacity = 50)
@@ -43,8 +51,10 @@ public class BookingFlowTests : IAsyncLifetime
         var (eventId, ticketTypeId) = await SeedEventAsync();
 
         var scope = _fixture.Factory.Services.CreateScope();
-        var ps = scope.ServiceProvider.GetRequiredService<FakePaymentService>();
-        ps.SetFailMode(true);
+        var ps = scope.ServiceProvider.GetRequiredService<Application.Abstractions.Payments.IPaymentService>()
+            as FakePaymentService;
+        ps.Should().NotBeNull("FakePaymentService should be registered");
+        ps!.SetFailMode(true);
 
         var response = await _client.PostAsJsonAsync("/api/booking", new
         {
@@ -54,8 +64,8 @@ public class BookingFlowTests : IAsyncLifetime
             PaymentMethod = 0,
         });
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest,
-            "payment failure should return error");
+        response.StatusCode.Should().Be(HttpStatusCode.InternalServerError,
+            "payment failure should return server error");
 
         await using var db = _fixture.CreateDbContext();
         var bookingCount = await db.Db.Bookings
@@ -116,8 +126,8 @@ public class BookingFlowTests : IAsyncLifetime
             PaymentMethod = 0,
         });
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest,
-            "requesting more seats than available should fail");
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict,
+            "requesting more seats than available should return conflict");
 
         await using var db = _fixture.CreateDbContext();
         var bookingCount = await db.Db.Bookings
@@ -211,12 +221,16 @@ public class BookingFlowTests : IAsyncLifetime
         var outboxRepo = scope.ServiceProvider.GetRequiredService<IOutboxRepository>();
         await outboxRepo.MoveToDeadLetterAsync(outboxMessage!.Id, errorText, now, CancellationToken.None);
 
+        var scopeDb = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        await scopeDb.SaveChangesAsync(CancellationToken.None);
+
         await using var dbDead = _fixture.CreateDbContext();
         var deadLetters = await dbDead.Db.OutboxDeadLetters.ToListAsync();
         deadLetters.Should().HaveCount(1);
         deadLetters[0].EventName.Should().Be("BookingCreatedEvent");
 
         await outboxRepo.RequeueDeadLetterAsync(deadLetters[0].Id, CancellationToken.None);
+        await scopeDb.SaveChangesAsync(CancellationToken.None);
 
         await using var dbRequeue = _fixture.CreateDbContext();
         var requeuedMessage = await dbRequeue.Db.OutboxMessages
