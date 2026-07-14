@@ -3,6 +3,7 @@ using Domain.Aggregates.BookingAggregate;
 using Domain.Aggregates.BookingAggregate.Enums;
 using Domain.Aggregates.BookingAggregate.ValueObject;
 using Domain.Aggregates.EventAggregate.ValueObject;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence.Repositories
@@ -34,12 +35,48 @@ namespace Infrastructure.Persistence.Repositories
             int batchSize,
             CancellationToken ct = default)
         {
+            var sql = @"
+                SELECT TOP (@BatchSize) b.*
+                FROM Bookings b WITH (UPDLOCK, READPAST, ROWLOCK)
+                WHERE b.Status = 'Pending'
+                  AND b.HoldExpiresAt IS NOT NULL
+                  AND b.HoldExpiresAt <= @Now
+                ORDER BY b.HoldExpiresAt";
+
+            var parameters = new[]
+            {
+                new SqlParameter("@BatchSize", batchSize),
+                new SqlParameter("@Now", utcNow)
+            };
+
             return await _applicationDbContext.Bookings
-                .Where(b => b.Status == BookingStatusEnum.Pending
-                         && b.HoldExpiresAt.HasValue
-                         && b.HoldExpiresAt.Value <= utcNow)
-                .OrderBy(b => b.HoldExpiresAt)
-                .Take(batchSize)
+                .FromSqlRaw(sql, parameters)
+                .ToListAsync(ct);
+        }
+
+        public async Task<IReadOnlyList<Booking>> GetPendingInstantBookingsPastHoldAsync(
+            DateTime utcNow,
+            int batchSize,
+            CancellationToken ct = default)
+        {
+            var sql = @"
+                SELECT TOP (@BatchSize) b.*
+                FROM Bookings b WITH (UPDLOCK, READPAST, ROWLOCK)
+                WHERE b.Status = 'Pending'
+                  AND b.PaymentMethod = 'Instant'
+                  AND b.HoldExpiresAt IS NOT NULL
+                  AND b.HoldExpiresAt <= @Now
+                ORDER BY b.HoldExpiresAt";
+
+            var parameters = new[]
+            {
+                new SqlParameter("@BatchSize", batchSize),
+                new SqlParameter("@Now", utcNow)
+            };
+
+            return await _applicationDbContext.Bookings
+                .FromSqlRaw(sql, parameters)
+                .AsNoTracking()
                 .ToListAsync(ct);
         }
 

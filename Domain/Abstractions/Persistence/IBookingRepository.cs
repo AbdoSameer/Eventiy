@@ -18,6 +18,11 @@ public interface IBookingRepository
         int batchSize,
         CancellationToken ct = default);
 
+    Task<IReadOnlyList<Booking>> GetPendingInstantBookingsPastHoldAsync(
+        DateTime utcNow,
+        int batchSize,
+        CancellationToken ct = default);
+
     Task<Booking?> GetByReferenceCodeAsync(
         string referenceCode,
         CancellationToken ct = default);
