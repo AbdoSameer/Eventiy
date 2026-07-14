@@ -93,7 +93,7 @@ public class EventIsolationTests
     {
         var (eventId, ticketTypeId) = await _fixture.SeedPublishedEventAsync(capacity: 10);
 
-        var userId = Guid.Parse("77777777-7777-7777-77777777777");
+        var userId = Guid.Parse("77777777-7777-7777-7777-777777777777");
 
         var executor = new ConcurrentExecutor();
         var result = await executor.ExecuteAsync(3, async (_) =>
