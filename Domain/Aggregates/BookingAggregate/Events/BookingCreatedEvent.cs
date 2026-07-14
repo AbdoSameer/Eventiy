@@ -17,6 +17,7 @@ namespace Domain.Aggregates.BookingAggregate.Events
         public int Quantity { get; }
         public decimal TotalAmount { get; }
 
+        [System.Text.Json.Serialization.JsonConstructor]
         public BookingCreatedEvent(
             BookingId bookingId,
             UserId userId,

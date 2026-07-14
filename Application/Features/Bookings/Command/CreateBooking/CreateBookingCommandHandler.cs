@@ -110,14 +110,8 @@ namespace Application.Features.Bookings.Command.CreateBooking
             if (booking.IsFailure)
                 return Result<CreateBookingResponse>.Failure(booking.Errors.ToArray());
 
-            await bookingRepo.AddBookingAsync(booking.Value, cancellationToken);
-
-            var rowsAffected = await uow.CommitAsync(cancellationToken);
-
-            if (rowsAffected <= 0)
-                return Result<CreateBookingResponse>.Failure(BookingErrors.BookingCreationFailed());
-
-            await _cache.RemoveAsync($"event:details:{request.EventId}", cancellationToken);
+            string? paymentUrl = null;
+            string? clientSecret = null;
 
             if (request.PaymentMethod == PaymentMethod.Instant)
             {
@@ -131,16 +125,45 @@ namespace Application.Features.Bookings.Command.CreateBooking
                 if (paymentResult.IsFailure)
                     return Result<CreateBookingResponse>.Failure(paymentResult.Errors.ToArray());
 
-                return Result<CreateBookingResponse>.Success(new CreateBookingResponse(
-                    booking.Value.Id.Value,
-                    paymentResult.Value.PaymentUrl,
-                    paymentResult.Value.ClientSecret));
+                paymentUrl = paymentResult.Value.PaymentUrl;
+                clientSecret = paymentResult.Value.ClientSecret;
             }
+
+            await bookingRepo.AddBookingAsync(booking.Value, cancellationToken);
+
+            int rowsAffected;
+            try
+            {
+                rowsAffected = await uow.CommitAsync(cancellationToken);
+            }
+            catch (ConcurrencyException)
+            {
+                if (request.PaymentMethod == PaymentMethod.Instant)
+                {
+                    await _paymentService.CancelPaymentAsync(
+                        booking.Value.Id.Value, CancellationToken.None);
+                }
+
+                throw;
+            }
+
+            if (rowsAffected <= 0)
+            {
+                if (request.PaymentMethod == PaymentMethod.Instant)
+                {
+                    await _paymentService.CancelPaymentAsync(
+                        booking.Value.Id.Value, cancellationToken);
+                }
+
+                return Result<CreateBookingResponse>.Failure(BookingErrors.BookingCreationFailed());
+            }
+
+            await _cache.RemoveAsync($"event:details:{request.EventId}", cancellationToken);
 
             return Result<CreateBookingResponse>.Success(new CreateBookingResponse(
                 booking.Value.Id.Value,
-                null,
-                null));
+                paymentUrl,
+                clientSecret));
         }
     }
 }
