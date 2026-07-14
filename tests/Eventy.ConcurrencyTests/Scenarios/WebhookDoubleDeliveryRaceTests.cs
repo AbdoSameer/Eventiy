@@ -99,7 +99,21 @@ public class WebhookDoubleDeliveryRaceTests
         });
 
         result.SuccessCount.Should().BeGreaterThanOrEqualTo(1,
-            "at least one webhook delivery should succeed");
+            $"at least one webhook delivery should succeed. " +
+            $"Status codes: {string.Join(", ", result.AllResponses.Select(r => $"#{r.WorkerIndex}={r.StatusCode}"))}");
+
+        if (result.SuccessCount == 0)
+        {
+            var webhookRequest = new HttpRequestMessage(HttpMethod.Post, "/api/webhooks/stripe")
+            {
+                Content = new StringContent(sessionPayload, Encoding.UTF8, "application/json")
+            };
+            webhookRequest.Headers.Add("Stripe-Signature", signature);
+            var singleResponse = await _client.SendAsync(webhookRequest);
+            var body = await singleResponse.Content.ReadAsStringAsync();
+            throw new Xunit.Sdk.XunitException(
+                $"All 5 concurrent webhooks failed. Single retry: {singleResponse.StatusCode}, body: {body}");
+        }
 
         await using var dbAfter = _fixture.CreateDbContext();
         var confirmedBooking = await dbAfter.DbContext.Bookings
