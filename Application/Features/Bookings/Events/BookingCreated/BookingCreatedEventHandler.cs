@@ -13,6 +13,7 @@ public class BookingCreatedEventHandler : IDomainEventHandler<BookingCreatedEven
     private readonly IBookingRepository _bookingRepo;
     private readonly IEventRepository _eventRepo;
     private readonly IUnitOfWork _uow;
+    private readonly IIdempotencyStore _idempotencyStore;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<BookingCreatedEventHandler> _logger;
 
@@ -20,12 +21,14 @@ public class BookingCreatedEventHandler : IDomainEventHandler<BookingCreatedEven
         IBookingRepository bookingRepo,
         IEventRepository eventRepo,
         IUnitOfWork uow,
+        IIdempotencyStore idempotencyStore,
         TimeProvider timeProvider,
         ILogger<BookingCreatedEventHandler> logger)
     {
         _bookingRepo = bookingRepo;
         _eventRepo = eventRepo;
         _uow = uow;
+        _idempotencyStore = idempotencyStore;
         _timeProvider = timeProvider;
         _logger = logger;
     }
@@ -58,6 +61,16 @@ public class BookingCreatedEventHandler : IDomainEventHandler<BookingCreatedEven
             return Result.Failure(Error.Failure(
                 "Event.EmptyBookingId",
                 "BookingId Value Object has an empty GUID. Check outbox payload for bookingId."));
+        }
+
+        var idempotencyKey = $"booking-created:{bookingIdValue}";
+
+        if (await _idempotencyStore.IsProcessedAsync(bookingIdValue, cancellationToken))
+        {
+            _logger.LogInformation(
+                "BookingCreatedEvent for {BookingId} already processed — skipping (idempotent)",
+                bookingIdValue);
+            return Result.Success();
         }
 
         var booking = await _bookingRepo.GetByIdAsync(@event.BookingId, cancellationToken);
@@ -101,6 +114,13 @@ public class BookingCreatedEventHandler : IDomainEventHandler<BookingCreatedEven
         var seatResult = evt.ConfirmReservation(@event.TicketTypeId, @event.Quantity, utcNow);
         if (seatResult.IsFailure)
             return seatResult;
+
+        // Track the idempotency record in the same DbContext so the booking confirmation
+        // and the processed-event marker commit atomically. If the commit crashes, neither
+        // is persisted and a redelivery will see an unprocessed event with a Pending booking
+        // and run the confirmation again. If the commit succeeds, the processed-event record
+        // guarantees any subsequent redelivery short-circuits at the IsProcessedAsync check.
+        _idempotencyStore.MarkAsProcessed(bookingIdValue, idempotencyKey, utcNow);
 
         var rows = await _uow.CommitAsync(cancellationToken);
         if (rows <= 0)

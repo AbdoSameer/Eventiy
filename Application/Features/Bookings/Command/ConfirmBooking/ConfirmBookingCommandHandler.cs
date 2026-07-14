@@ -52,20 +52,20 @@ namespace Application.Features.Bookings.Command.ConfirmBooking
                 return Result<bool>.Failure(BookingErrors.BookingNotFound(bookingIdResult.Value));
             }
 
-            var CurrentUserIdResult = _currentUserService.GetCurrentUserId();
-            if (CurrentUserIdResult.IsFailure)
+            var currentUserIdResult = _currentUserService.GetCurrentUserId();
+            if (currentUserIdResult.IsFailure)
             {
-                return Result<bool>.Failure(CurrentUserIdResult.Errors.ToArray());
+                return Result<bool>.Failure(currentUserIdResult.Errors.ToArray());
             }
 
-            var UserResult = await _userRepository.GetByIdAsync(CurrentUserIdResult.Value, cancellationToken);
-            if (UserResult is null)
+            var userResult = await _userRepository.GetByIdAsync(currentUserIdResult.Value, cancellationToken);
+            if (userResult is null)
             {
                 return Result<bool>.Failure(UserErrors.NotFound());
             }
 
-            if (UserResult.Role != Domain.Aggregates.UserAggregate.ValueObject.Role.Admin
-                && UserResult.Role != Domain.Aggregates.UserAggregate.ValueObject.Role.Organizer)
+            if (userResult.Role != Domain.Aggregates.UserAggregate.ValueObject.Role.Admin
+                && userResult.Role != Domain.Aggregates.UserAggregate.ValueObject.Role.Organizer)
             {
                 return Result<bool>.Failure(Error.Unauthorized(
                     "Booking.UnauthorizedConfirm",
@@ -74,10 +74,10 @@ namespace Application.Features.Bookings.Command.ConfirmBooking
 
             var utcNow = _dateTimeProvider.GetUtcNow().UtcDateTime;
 
-            var ConfirmResult = booking.Confirm(utcNow);
-            if (ConfirmResult.IsFailure)
+            var confirmResult = booking.Confirm(utcNow);
+            if (confirmResult.IsFailure)
             {
-                return Result<bool>.Failure(ConfirmResult.Errors.ToArray());
+                return Result<bool>.Failure(confirmResult.Errors.ToArray());
             }
 
             var eventResult = await _eventRepository.GetByIdAsync(booking.EventId, cancellationToken);

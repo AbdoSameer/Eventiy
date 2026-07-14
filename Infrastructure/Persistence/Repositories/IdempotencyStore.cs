@@ -24,13 +24,20 @@ internal sealed class IdempotencyStore : IIdempotencyStore
         DateTime processedAt,
         CancellationToken cancellationToken = default)
     {
+        MarkAsProcessed(eventId, idempotencyKey, processedAt);
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    public void MarkAsProcessed(
+        Guid eventId,
+        string idempotencyKey,
+        DateTime processedAt)
+    {
         _context.ProcessedEvents.Add(new ProcessedEvent
         {
             EventId = eventId,
             IdempotencyKey = idempotencyKey,
             ProcessedAt = processedAt,
         });
-
-        await _context.SaveChangesAsync(cancellationToken);
     }
 }

@@ -53,22 +53,22 @@ namespace Application.Features.Bookings.Command.CancelBooking
 
             }
 
-            var CurrentUserIdResult = _currentUserService.GetCurrentUserId();
-            if (CurrentUserIdResult.IsFailure)
-            {
-                return Result<bool>.Failure(CurrentUserIdResult.Errors.ToArray());
-            }
+        var currentUserIdResult = _currentUserService.GetCurrentUserId();
+        if (currentUserIdResult.IsFailure)
+        {
+            return Result<bool>.Failure(currentUserIdResult.Errors.ToArray());
+        }
 
-            var UserResult = await _userRepository.GetByIdAsync(CurrentUserIdResult.Value, cancellationToken);
-            if (UserResult is null)
-            {
-                return Result<bool>.Failure(UserErrors.NotFound());
-            }
+        var userResult = await _userRepository.GetByIdAsync(currentUserIdResult.Value, cancellationToken);
+        if (userResult is null)
+        {
+            return Result<bool>.Failure(UserErrors.NotFound());
+        }
 
-            var isAdminOrOrg = UserResult.Role == Domain.Aggregates.UserAggregate.ValueObject.Role.Admin
-                            || UserResult.Role == Domain.Aggregates.UserAggregate.ValueObject.Role.Organizer;
+        var isAdminOrOrg = userResult.Role == Domain.Aggregates.UserAggregate.ValueObject.Role.Admin
+                        || userResult.Role == Domain.Aggregates.UserAggregate.ValueObject.Role.Organizer;
 
-            var isOwnBooking = booking.UserId == CurrentUserIdResult.Value;
+        var isOwnBooking = booking.UserId == currentUserIdResult.Value;
 
             if (!isAdminOrOrg && !isOwnBooking)
             {
@@ -86,11 +86,11 @@ namespace Application.Features.Bookings.Command.CancelBooking
             var utcNow = _dateTimeProvider.GetUtcNow().UtcDateTime;
             var wasConfirmed = booking.Status == BookingStatusEnum.Confirmed;
 
-            var CancelResult = booking.Cancel(utcNow);
-            if (CancelResult.IsFailure)
-            {
-                return Result<bool>.Failure(CancelResult.Errors.ToArray());
-            }
+        var cancelResult = booking.Cancel(utcNow);
+        if (cancelResult.IsFailure)
+        {
+            return Result<bool>.Failure(cancelResult.Errors.ToArray());
+        }
 
             var eventResult = await _eventRepository.GetByIdAsync(booking.EventId, cancellationToken);
             if (eventResult is null)
