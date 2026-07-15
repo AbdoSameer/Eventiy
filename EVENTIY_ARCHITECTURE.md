@@ -23,8 +23,9 @@
 9. [Injected Enterprise Components (Forgotten Pieces)](#9-injected-enterprise-components-forgotten-pieces)
 10. [Exhaustive Cross-Layer Pattern Matrix](#10-exhaustive-cross-layer-pattern-matrix)
 11. [End-to-End Workflow Trace: Ticket Booking / حجز التذاكر](#11-end-to-end-workflow-trace-ticket-booking--حجز-التذاكر)
-12. [Security Hardening Posture](#12-security-hardening-posture)
-13. [Key Decisions & Architectural Rationale](#13-key-decisions--architectural-rationale)
+12. [Payment Reliability Posture](#12-payment-reliability-posture)
+13. [Security Hardening Posture](#13-security-hardening-posture)
+14. [Key Decisions & Architectural Rationale](#14-key-decisions--architectural-rationale)
 
 
 ---
@@ -36,9 +37,9 @@ Eventiy is a production-grade event ticketing platform built on Clean Architectu
 ### Core Capabilities
 - **Event Lifecycle:** Draft -> Published -> Cancelled/Completed with admin override paths
 - **Ticket Inventory:** Per-ticket-type capacity tracking with Reserved/Sold/Available accounting, enforced via invariants in the `TicketType` entity
-- **Booking Flow:** Pending -> Confirmed -> Cancelled -> Refunded state machine, with Instant (Stripe) and Deferred (Fawry) payment methods
+- **Booking Flow:** Pending -> PendingPayment -> Confirmed -> Cancelled -> Refunded state machine, with Instant (Stripe) and Deferred (Fawry) payment methods
 - **Real-Time Seat Selection:** WebSocket-based seat locking with Redis Pub/Sub cross-instance broadcasting, D3.js SVG rendering on the frontend
-- **Asynchronous Reliability:** Transactional Outbox with background polling, dead-letter queue, idempotency guards, and 3-attempt retry with exponential backoff
+- **Asynchronous Reliability:** Transactional Outbox with background polling, durable compensation logs, dead-letter queues, idempotency guards, and retry backoff
 - **Caching Layer:** Redis cache-aside for event lists (30s TTL), event details (60s TTL), and event photos (120s TTL) — all with post-commit invalidation
 - **Concurrency Safety:** Row-level optimistic concurrency via SQL Server `rowversion`, 3-attempt retry loop on `ConcurrencyException`, pessimistic locking (`UPDLOCK, READPAST, ROWLOCK`) for background job dequeue
 
@@ -56,15 +57,15 @@ Eventiy is a production-grade event ticketing platform built on Clean Architectu
 
 ```
 Eventiy/
-├── Domain/                          (67 .cs files, 0 NuGet deps)
+├── Domain/                          (68 .cs files, 0 NuGet deps)
 │   ├── Abstractions/                (4 repo interfaces + 1 storage interface)
 │   ├── Aggregates/                   (3 aggregate roots + 3 entities)
 │   ├── Common/                       (11 base types: AggregateRoot, Entity, ValueObjectBase, Result, Error, etc.)
 │   ├── Errors/                       (7 static error factory classes)
 │   └── Primitives/                   (Money, Address value objects)
 │
-├── Application/                      (98 .cs files, deps: Domain + MediatR 14.1 + FluentValidation 12.1)
-│   ├── Abstractions/                (15 interfaces across 8 categories)
+├── Application/                      (100+ .cs files, deps: Domain + MediatR 14.1 + FluentValidation 12.1)
+│   ├── Abstractions/                (16+ interfaces across 8 categories)
 │   ├── Features/
 │   │   ├── Authentication/          (4 commands + AuthResponse)
 │   │   ├── Bookings/                 (5 commands + 4 queries + 2 event handlers + 1 validator)
@@ -73,17 +74,17 @@ Eventiy/
 │
 ├── Infrastructure/                   (deps: Application + Domain + EF Core 9 + Redis + Stripe + BCrypt)
 │   ├── Authentication/              (JwtTokenGenerator, PasswordHasher, CurrentUserService, JwtSettings)
-│   ├── BackgroundJobs/              (OutboxProcessor, BookingExpirationJob, PaymentReconciliationJob, OutboxDispatcher)
+│   ├── BackgroundJobs/              (OutboxProcessor, CompensationProcessor, BookingExpirationJob, PaymentReconciliationJob, OutboxDispatcher)
 │   ├── Caching/                     (RedisCacheService — Singleton, graceful degradation)
 │   ├── Messaging/                   (EventMetadataFactory — correlation/causation)
-│   ├── Migrations/                  (1 consolidated migration, 8 tables, ~35 indexes)
+│   ├── Migrations/                  (schema migrations including CompensationLogs, outbox/dead-letter tables)
 │   ├── Payments/                    (StripePaymentGateway, MockPaymentGateway, StripeSettings)
 │   ├── Persistence/
 │   │   ├── ApplicationDbContext.cs
 │   │   ├── UnitOfWork.cs
-│   │   ├── Configuration/           (8 Fluent API configs)
-│   │   ├── Outbox/                   (OutboxMessage, OutboxDeadLetter, EventSerializer, JSON converters)
-│   │   ├── Repositories/            (6 repos: Event, Booking, User, EventPhoto, Outbox, IdempotencyStore)
+│   │   ├── Configuration/           (9 Fluent API configs)
+│   │   ├── Outbox/                   (OutboxMessage, OutboxDeadLetter, CompensationLog, EventSerializer, JSON converters)
+│   │   ├── Repositories/            (7 repos: Event, Booking, User, EventPhoto, Outbox, CompensationLog, IdempotencyStore)
 │   │   └── SeedData/                (DatabaseSeeder — 18 events, 12 users, ~75 bookings)
 │   ├── RealTime/                    (WebSocketConnectionManager, RedisPubSubBroadcaster, SeatStateDelta)
 │   ├── Services/                    (VenueLayoutValidator)
@@ -103,12 +104,12 @@ Eventiy/
 │   ├── src/app/features/            (15 feature components + D3 seating chart engine)
 │   └── src/app/presentation/        (error pages)
 │
-└── tests/                            (38 .cs files, ~111 test methods)
-    ├── Eventy.Domain.UnitTests/     (7 test files, ~58 tests — pure domain logic)
-    ├── Eventy.Application.UnitTests/ (3 test files, 15 tests — handler isolation with NSubstitute)
-    ├── Eventy.IntegrationTests/     (9 test files, ~28 tests — Testcontainers + Respawn)
+└── tests/                            (44 .cs files, ~149 test methods)
+    ├── Eventy.Domain.UnitTests/     (8 test files, ~74 tests — pure domain logic)
+    ├── Eventy.Application.UnitTests/ (5 test files, ~31 tests — handler isolation with NSubstitute)
+    ├── Eventy.IntegrationTests/     (10 test files, ~34 tests — Testcontainers + Respawn)
     ├── Eventy.ConcurrencyTests/     (5 test files, ~10 tests — barrier-synchronized parallel HTTP)
-    └── Eventy.Testing.Foundation/   (8 shared files — WebApplicationFactory, fakes, builders, container factory)
+    └── Eventy.Testing.Foundation/   (10 shared files — WebApplicationFactory, fakes, builders, container factory)
 ```
 
 ### Dependency Direction (Strict Clean Architecture)
@@ -319,11 +320,13 @@ The Domain layer contains **67 .cs source files** with **zero external NuGet dep
 
 | Method | Precondition | Postcondition | Event Raised |
 |--------|-------------|---------------|--------------|
-| `Confirm(utcNow)` | Pending | Confirmed | `BookingConfirmedEvent` |
-| `Cancel(utcNow, reason?)` | Pending or Confirmed | Cancelled | `BookingCancelledEvent` |
+| `MarkAsPendingPayment(utcNow)` | Pending | PendingPayment | `PaymentInitiatedEvent` |
+| `MarkAsPending(utcNow)` | PendingPayment | Pending | — |
+| `Confirm(utcNow)` | Pending or PendingPayment | Confirmed | `BookingConfirmedEvent` |
+| `Cancel(utcNow, reason?)` | Pending, PendingPayment, or Confirmed | Cancelled | `BookingCancelledEvent` |
 | `RequestCancellation(utcNow, reason?)` | Confirmed -> admin approval; Pending -> delegates to `Cancel()` | (raises `BookingCancellationRequestedEvent` for Confirmed) |
 | `Refund(utcNow)` | Cancelled + within 7-day window | Refunded | `BookingRefundedEvent` |
-| `Expire(utcNow)` | Pending + HoldExpiresAt has passed | Expired | `BookingExpiredEvent` |
+| `Expire(utcNow)` | Pending/PendingPayment + HoldExpiresAt has passed | Expired | `BookingExpiredEvent` |
 | `UpdateQuantity(quantity, utcNow)` | Pending | recalculates TotalAmount | `BookingQuantityUpdatedEvent` |
 
 ### 3.5 User Aggregate (`Domain/Aggregates/UserAggregate/`)
@@ -355,7 +358,7 @@ All ID value objects inherit from `ValueObjectBase` and have a `FromDatabase(Gui
 | `Email` | `UserAggregate/ValueObject/Email.cs` | `string Value` | Regex `^[^@\s]+@[^@\s]+\.[^@\s]+$`, max 256, lowercased |
 | `Role` | `UserAggregate/ValueObject/Role.cs` | Smart Enum | `Attendee`, `Organizer`, `Admin`; `FromString(string)` returns `Result<Role>` |
 
-### 3.7 Domain Events (20 total)
+### 3.7 Domain Events (21 total)
 
 All events inherit from `DomainEvent` (abstract) and implement `IDomainEvent`. Each sets `Domain` to its aggregate name and `Name` to its type name.
 
@@ -376,11 +379,12 @@ All events inherit from `DomainEvent` (abstract) and implement `IDomainEvent`. E
 | `TicketTypeSeatsReservedEvent` | TicketTypeId, EventId, QuantityReserved, TotalSold, AvailableRemaining | `Event.ReserveSeats()` AND `Event.ConfirmReservation()` |
 | `TicketTypeSeatsReleasedEvent` | TicketTypeId, EventId, QuantityReleased, TotalSold, AvailableRemaining | `Event.ReleaseSeats()` AND `Event.RefundSeats()` |
 
-**Booking Aggregate Events (8):**
+**Booking Aggregate Events (9):**
 
 | Event | Payload | Raised By |
 |-------|---------|-----------|
 | `BookingCreatedEvent` | BookingId, UserId, EventId, TicketTypeId, Quantity, TotalAmount | `Booking.Create()` — has `[JsonConstructor]` for outbox deserialization |
+| `PaymentInitiatedEvent` | BookingId, UserId, EventId, TicketTypeId, InitiatedAt | `Booking.MarkAsPendingPayment()` |
 | `BookingConfirmedEvent` | BookingId, UserId, EventId, TicketTypeId, Quantity, ConfirmedAt | `Booking.Confirm()` |
 | `BookingCancelledEvent` | BookingId, UserId, EventId, TicketTypeId, Quantity, Reason? | `Booking.Cancel()` |
 | `BookingCancellationRequestedEvent` | BookingId, UserId, EventId, Reason? | `Booking.RequestCancellation()` (confirmed bookings) |
@@ -401,7 +405,7 @@ All events inherit from `DomainEvent` (abstract) and implement `IDomainEvent`. E
 |------|------|--------|
 | `EventStatus` | `EventAggregate/Enums/EventStatus.cs` | `Draft`, `Published`, `Cancelled`, `Completed` |
 | `EventType` | `EventAggregate/Enums/EventType.cs` | `Music`, `Tech`, `Sports`, `Art`, `Food`, `Education`, `Theater`, `Outdoors` |
-| `BookingStatusEnum` | `BookingAggregate/Enums/BookingStatusEnum.cs` | `Pending=0`, `Confirmed=1`, `Cancelled=2`, `Expired=3`, `Refunded=4` |
+| `BookingStatusEnum` | `BookingAggregate/Enums/BookingStatusEnum.cs` | `Pending=0`, `Confirmed=1`, `Cancelled=2`, `Expired=3`, `Refunded=4`, `PendingPayment=5` |
 | `PaymentMethod` | `BookingAggregate/Enums/PaymentMethodEnum.cs` | `Instant=0`, `Deferred=1` |
 
 ### 3.9 Repository Interfaces (`Domain/Abstractions/Persistence/`)
@@ -409,7 +413,7 @@ All events inherit from `DomainEvent` (abstract) and implement `IDomainEvent`. E
 | Interface | File | Key Methods |
 |-----------|------|-------------|
 | `IEventRepository` | `IEventRepository.cs` | `AddEventAsync(Event, ct)`, `GetByIdAsync(EventId, ct)` |
-| `IBookingRepository` | `IBookingRepository.cs` | `AddBookingAsync(Booking, ct)`, `GetByIdAsync(BookingId, ct)`, `GetExpiredPendingBookingsAsync(utcNow, batchSize, ct)`, `GetPendingInstantBookingsPastHoldAsync(utcNow, batchSize, ct)`, `GetByReferenceCodeAsync(string, ct)` |
+| `IBookingRepository` | `IBookingRepository.cs` | `AddBookingAsync(Booking, ct)`, `GetByIdAsync(BookingId, ct)`, `GetExpiredPendingBookingsAsync(utcNow, batchSize, ct) [Pending/PendingPayment]`, `GetPendingInstantBookingsPastHoldAsync(utcNow, batchSize, ct)`, `GetByReferenceCodeAsync(string, ct)` |
 | `IEventPhotoRepository` | `IEventPhotoRepository.cs` | `GetByEventIdAsync(EventId, ct)`, `GetByIdAsync(EventPhotoId, ct)`, `Add(EventPhoto)`, `Update(EventPhoto)`, `Delete(EventPhoto)` |
 | `IUserRepository` | `IUserRepository.cs` | `GetByEmailAsync(Email, ct)`, `GetByIdAsync(UserId, ct)`, `GetByRefreshTokenHashAsync(string, ct)`, `AddAsync(User, ct)` |
 
@@ -437,7 +441,7 @@ All events inherit from `DomainEvent` (abstract) and implement `IDomainEvent`. E
 
 ## 4. Application Layer — CQRS, MediatR, Pipelines & Result Pattern
 
-The Application layer contains **98 .cs source files** and depends only on Domain + MediatR 14.1.0 + FluentValidation 12.1.1. No EF Core, no ASP.NET, no Redis packages — all infrastructure is abstracted behind interfaces.
+The Application layer contains **100+ .cs source files** and depends only on Domain + MediatR 14.1.0 + FluentValidation 12.1.1. No EF Core, no ASP.NET, no Redis packages — all infrastructure is abstracted behind interfaces.
 
 ### 4.1 CQRS Contracts (`Abstractions/Messaging/`)
 
@@ -479,7 +483,9 @@ The Application layer contains **98 .cs source files** and depends only on Domai
 - `IApplicationReadDbContext` — `Query<T>()`, `ToListAsync`, `FirstOrDefaultAsync`, `AnyAsync`, `CountAsync` — read-side optimized (AsNoTracking)
 
 #### Payment Abstraction
-- `IPaymentService` — `InitiatePaymentAsync(bookingId, referenceCode, amount, currency, ct)`, `CancelPaymentAsync(bookingId, ct)` — returns `Result<PaymentInitiationResult>` / `Result`
+- `IPaymentService` — `InitiatePaymentAsync(bookingId, referenceCode, amount, currency, idempotencyKey, ct)`, `CancelPaymentAsync(bookingId, ct)` — returns `Result<PaymentInitiationResult>` / `Result`
+- `CompensationLogDto` — Application-layer DTO for durable external cleanup records without referencing Infrastructure entities
+- `ICompensationLogRepository` — lock, retry, mark-processed/failed, release-lock, and dead-letter operations for compensation records
 
 #### Outbox Abstractions
 - `IOutboxMessageService` — `AddFromDomainEvents(IEnumerable<IDomainEvent>)` — converts domain events into outbox messages
@@ -547,11 +553,14 @@ The Application layer contains **98 .cs source files** and depends only on Domai
 1. Get current user ID
 2. Validate TicketTypeId and EventId value objects
 3. Retry loop (max 3 attempts for `ConcurrencyException`)
-4. **AttemptBooking:** creates scope, gets repos. Loads event, finds ticket type. Calls `event.ReserveSeats(...)`. Creates `Booking.Create(...)`. For `Instant` payment, calls `IPaymentService.InitiatePaymentAsync` BEFORE persisting. Adds booking to repo. Commits. On `ConcurrencyException`, compensates by calling `CancelPaymentAsync` on orphaned Stripe session, then re-throws for retry. On `rowsAffected <= 0`, also compensates. On success, invalidates `event:details:{id}`. Returns `CreateBookingResponse(BookingId, PaymentUrl, ClientSecret)`.
+4. **AttemptBooking:** creates scope, gets repos. Loads event, finds ticket type. Calls `event.ReserveSeats(...)`. Creates `Booking.Create(...)`. Adds booking to repo and commits the booking, reserved seats, and outbox messages atomically.
+5. For `Instant` payment, calls `IPaymentService.InitiatePaymentAsync(..., idempotencyKey)` only after the local commit succeeds. The idempotency key uses `payment-initiate:{bookingId}`.
+6. If payment initiation fails or throws after the local commit, stages a `CompensationLogDto` and commits it with `CommitWithoutEventsAsync()` so `CompensationProcessor` can retry external cleanup.
+7. On success, invalidates `event:details:{id}` and returns `CreateBookingResponse(BookingId, PaymentUrl, ClientSecret)`.
 
 **ConfirmBookingFromWebhookCommandHandler** — Idempotency-guarded. Uses deterministic GUID from `StripeEventId` (MD5 hash) as idempotency key. If already processed, returns success. If booking already Confirmed, returns success. Calls `booking.Confirm()` + `event.ConfirmReservation()`. Marks as processed (track-only, atomic with commit). Commits. Invalidates `event:details:{id}`.
 
-**CancelBookingCommandHandler** — Admin/Organizer can cancel any booking; regular users can only cancel their own Pending bookings. For Confirmed bookings, calls `event.RefundSeats()` (Sold--); for Pending, calls `event.ReleaseSeats()` (Reserved--). Calls `booking.Cancel()`. Commits. Invalidates `event:details:{id}`.
+**CancelBookingCommandHandler** — Admin/Organizer can cancel any booking; regular users can only cancel their own Pending/PendingPayment bookings. For Confirmed bookings, calls `event.RefundSeats()` (Sold--); for Pending/PendingPayment, calls `event.ReleaseSeats()` (Reserved--). Calls `booking.Cancel()`. Commits. Invalidates `event:details:{id}`.
 
 ### 4.5 CQRS Queries (7 total)
 
@@ -579,17 +588,15 @@ The Application layer contains **98 .cs source files** and depends only on Domai
 #### BookingCreatedEventHandler
 - **File:** `Features/Bookings/Events/BookingCreated/BookingCreatedEventHandler.cs`
 - **Implements:** `IDomainEventHandler<BookingCreatedEvent>`
-- **Purpose:** Auto-confirms Instant bookings when the outbox delivers the `BookingCreatedEvent`. Deferred bookings are skipped (await external payment callback).
+- **Purpose:** Marks the creation event as processed and leaves confirmation to the signed Stripe webhook or deferred-payment confirmation path.
 
 **Flow:**
 1. Null/empty BookingId guard
 2. Idempotency check: `IsProcessedAsync(bookingIdValue)` — if already processed, skip
-3. Load booking. If not found or not Pending, skip
-4. If `PaymentMethod == Deferred`, skip
-5. Load event. Call `booking.Confirm(utcNow)` + `event.ConfirmReservation(ticketTypeId, quantity, utcNow)`
-6. `MarkAsProcessed(bookingIdValue, "booking-created:{bookingIdValue}", utcNow)` — track-only, atomic with commit
-7. `CommitAsync()` — if 0 rows, return failure
-8. Logs "Booking confirmed (Instant) — N seat(s) moved from Reserved to Sold"
+3. Load booking. If not found or already terminal, skip
+4. Log that the booking is awaiting external confirmation
+5. `MarkAsProcessed(bookingIdValue, "booking-created:{bookingIdValue}", utcNow)` — track-only
+6. `CommitWithoutEventsAsync()` — no booking confirmation event is generated from this handler
 
 #### BookingCancelledEventHandler
 - **File:** `Features/Bookings/Events/BookingCancelled/BookingCancelledEventHandler.cs`
@@ -618,7 +625,7 @@ The Application layer contains **98 .cs source files** and depends only on Domai
 | `UploadEventPhotosCommandValidator` | `UploadEventPhotosCommand` | EventId: NotEmpty. Photos: NotEmpty, count <= 10. Each file: length > 0, <= 5MB, content type in [image/jpeg, image/png, image/webp]. |
 | `CreateBookingCommandValidator` | `CreateBookingCommand` | EventId: NotEmpty. TicketTypeId: NotEmpty. Quantity: GreaterThan(0). |
 | `ConfirmDeferredPaymentCommandValidator` | `ConfirmDeferredPaymentCommand` | ReferenceCode: NotEmpty, matches `^FAW-[A-F0-9]{8}$`. |
-| `BookingCreatedEventValidator` | `BookingCreatedEvent` | Custom `IEventValidator`: checks booking exists and status == Pending. |
+| `BookingCreatedEventValidator` | `BookingCreatedEvent` | Custom `IEventValidator`: checks booking exists and is in an active awaiting-confirmation state. |
 
 ### 4.8 DTOs / Response Models (20+)
 
@@ -671,9 +678,11 @@ The Application layer contains **98 .cs source files** and depends only on Domai
 | `IEventSerializer -> EventSerializer` | Scoped | JSON serialization of domain events |
 | `IUnitOfWork -> UnitOfWork` | Scoped | Transactional commit + outbox staging |
 | `IOutboxDispatcher -> OutboxDispatcher` | Scoped | Dispatches outbox messages to handlers |
+| `ICompensationLogRepository -> CompensationLogRepository` | Scoped | Durable payment cleanup record persistence and locking |
 | `OutboxProcessor` | HostedService | Background outbox polling (every 5s) |
-| `BookingExpirationJob` | HostedService | Expires pending bookings (every 1 min) |
+| `BookingExpirationJob` | HostedService | Expires pending/pending-payment bookings (every 1 min) |
 | `PaymentReconciliationJob` | HostedService | Cancels orphaned Stripe sessions (every 2 min) |
+| `CompensationProcessor` | HostedService | Retries durable payment cleanup records (every 10s) |
 | `TimeProvider.System` | Singleton | Built-in .NET 9 time abstraction |
 | `JwtSettings` | Options | Bound from `"Jwt"` config section |
 | `IJwtTokenGenerator -> JwtTokenGenerator` | Scoped | JWT token creation |
@@ -855,15 +864,36 @@ All repositories are in `Persistence/Repositories/`.
 
 #### StripePaymentGateway
 - **File:** `Payments/StripePaymentGateway.cs`
-- `InitiatePaymentAsync` — creates Stripe Checkout Session with card payment, single line item, unit amount in cents, success/cancel URLs, bookingId in metadata
+- `InitiatePaymentAsync` — creates Stripe Checkout Session with card payment, single line item, unit amount in cents, success/cancel URLs, bookingId in metadata, and provider idempotency key
 - `CancelPaymentAsync` — lists recent sessions (limit 10), finds matching bookingId metadata. If found and active, calls `ExpireAsync`. If not found or already complete/expired -> no-op success.
 
 #### MockPaymentGateway
 - **File:** `Payments/MockPaymentGateway.cs`
-- `InitiatePaymentAsync` — returns fake `mock://payment/{bookingId}` URL
+- `InitiatePaymentAsync` — accepts the same idempotency key and returns fake `mock://payment/{bookingId}` URL
 - `CancelPaymentAsync` — logs and returns success
 
-### 5.9 Real-Time Infrastructure
+### 5.9 Durable Payment Compensation
+
+#### CompensationLog
+- **File:** `Persistence/Outbox/CompensationLog.cs`
+- Durable record for external payment cleanup when Stripe initiation fails after a local booking commit.
+- Fields include `BookingId`, `CompensationType`, `Payload`, `OccurredOnUtc`, `IdempotencyKey`, `ProcessedOnUtc?`, `Error?`, `RetryCount`, `NextRetryOnUtc?`, `ProcessingLock?`, and `ProcessingLockedAt?`.
+- Uses a unique `IdempotencyKey` index to avoid duplicate compensation records.
+
+#### CompensationLogRepository
+- **File:** `Persistence/Repositories/CompensationLogRepository.cs`
+- Uses `UPDATE TOP(n) ... WITH (UPDLOCK, READPAST, ROWLOCK) ... OUTPUT INSERTED.*` to atomically lock and fetch ready records.
+- Supports batch processed/failed marking, stale lock release, and moving exhausted records to `OutboxDeadLetters`.
+- Lock release uses the explicit `ExecuteSqlRawAsync(..., parameters: ..., cancellationToken: ...)` overload so the `CancellationToken` is not interpreted as a SQL parameter.
+
+#### CompensationProcessor
+- **File:** `BackgroundJobs/CompensationProcessor.cs`
+- Polls every 10 seconds with batch size 50 after a startup delay.
+- Executes `CancelPaymentAsync` for payment-cancellation compensation records.
+- Retry backoff: 5s -> 30s -> 1m -> 5m -> 15m; after 5 failed attempts, moves the record to dead letter.
+- Releases owned locks on graceful shutdown and relies on a 5-minute stale-lock timeout for crash recovery.
+
+### 5.10 Real-Time Infrastructure
 
 #### WebSocketConnectionManager
 - **File:** `RealTime/WebSocketConnectionManager.cs`
@@ -884,19 +914,20 @@ All repositories are in `Persistence/Repositories/`.
 - DTO: `Type` ("DELTA"/"COLLISION"), `SeatId`, `Status`, `Ts`
 - Factory methods: `Delta(seatId, status, ts)`, `Collision(seatId, reason, ts)`
 
-### 5.10 Background Jobs (3)
+### 5.11 Background Jobs (4)
 
 | Job | File | Interval | Batch Size | Purpose |
 |-----|------|----------|-----------|---------|
 | `OutboxProcessor` | `BackgroundJobs/OutboxProcessor.cs` | 5s | 50 | Polls outbox table, dispatches to handlers |
-| `BookingExpirationJob` | `BackgroundJobs/BookingExpirationJob.cs` | 1 min | 100 | Expires pending bookings past hold, releases seats |
+| `BookingExpirationJob` | `BackgroundJobs/BookingExpirationJob.cs` | 1 min | 100 | Expires pending/pending-payment bookings past hold, releases seats |
 | `PaymentReconciliationJob` | `BackgroundJobs/PaymentReconciliationJob.cs` | 2 min | 50 | Cancels orphaned Stripe checkout sessions for expired Instant bookings |
+| `CompensationProcessor` | `BackgroundJobs/CompensationProcessor.cs` | 10s | 50 | Retries durable external cleanup records and dead-letters exhausted entries |
 
-**BookingExpirationJob** — Calls `GetExpiredPendingBookingsAsync` (raw SQL with `UPDLOCK, READPAST, ROWLOCK`). For each expired booking: `booking.Expire(now)` + `evt.ReleaseSeats(...)`. Commits (stages any domain events to outbox).
+**BookingExpirationJob** — Calls `GetExpiredPendingBookingsAsync` for `Pending` and `PendingPayment` bookings (raw SQL with `UPDLOCK, READPAST, ROWLOCK`). For each expired booking: `booking.Expire(now)` + `evt.ReleaseSeats(...)`. Commits (stages any domain events to outbox).
 
 **PaymentReconciliationJob** — Calls `GetPendingInstantBookingsPastHoldAsync` (AsNoTracking, read-only). For each: calls `paymentService.CancelPaymentAsync`. Log-only on failure (does not modify booking state).
 
-### 5.11 Authentication Infrastructure
+### 5.12 Authentication Infrastructure
 
 | Component | File | Purpose |
 |-----------|------|---------|
@@ -905,7 +936,7 @@ All repositories are in `Persistence/Repositories/`.
 | `CurrentUserService` | `Authentication/CurrentUserService.cs` | Extracts user ID and role from `HttpContext.User` claims |
 | `PasswordHasher` | `Authentication/PasswordHasher.cs` | BCrypt with work factor 12 |
 
-### 5.12 Other Infrastructure
+### 5.13 Other Infrastructure
 
 | Component | File | Purpose |
 |-----------|------|---------|
@@ -1161,18 +1192,18 @@ The project uses Angular Signals exclusively — no NgRx. Key signal containers:
                    /  Real SQL Server, concurrent HTTP, race conditions
                   /   Testcontainers + ConcurrentExecutor (async barrier)
                  /
-    Integration Tests (9 classes, ~28 tests)
+    Integration Tests (10 classes, ~34 tests)
    /  Full HTTP pipeline, real DB, fakes for Redis/Payments
   /   Testcontainers + Respawn + WebApplicationFactory
  /
-Application Unit Tests (3 classes, 15 tests)
+Application Unit Tests (5 classes, ~31 tests)
   Mocked repos via NSubstitute, TimeProvider.System
 /
-Domain Unit Tests (7 classes, ~58 tests)
+Domain Unit Tests (8 classes, ~74 tests)
    Pure domain logic, no mocks, no infrastructure
 ```
 
-**Total:** ~111 test methods across 38 C# files in 5 test projects.
+**Total:** ~149 test methods across 44 C# files in 5 test projects.
 
 ### 8.2 Testing Libraries
 
@@ -1194,12 +1225,12 @@ Domain Unit Tests (7 classes, ~58 tests)
 | `TestAuthenticationHandler` | `Web/TestAuthenticationHandler.cs` | Reads `X-Test-UserId` and `X-Test-Role` headers — no real JWT needed |
 | `SqlServerContainerFactory` | `Containers/SqlServerContainerFactory.cs` | `mcr.microsoft.com/mssql/server:2022-latest` |
 | `DatabaseResetService` | `Database/DatabaseResetService.cs` | Respawn — wipes data, keeps schema |
-| `FakePaymentService` | `Fakes/FakePaymentService.cs` | `SetFailMode(bool)` toggle for testing payment failures |
+| `FakePaymentService` | `Fakes/FakePaymentService.cs` | Payment failure toggle, idempotency key tracking, cancel retry controls |
 | `FakeCacheService` | `Fakes/FakeCacheService.cs` | `ConcurrentDictionary`-based, no Redis dependency |
 | `EventBuilder` | `Builders/EventBuilder.cs` | Fluent builder for Event aggregates |
 | `BookingBuilder` | `Builders/BookingBuilder.cs` | Fluent builder for Booking aggregates |
 
-### 8.4 Domain Unit Tests (~58 tests)
+### 8.4 Domain Unit Tests (~58+ tests)
 
 | File | Tests | Coverage |
 |------|-------|---------|
@@ -1210,16 +1241,19 @@ Domain Unit Tests (7 classes, ~58 tests)
 | `EventPhotoTests.cs` | 18 | EventPhoto entity validation, cover lifecycle |
 | `EventPhotoManagementTests.cs` | 16 | Photo management through Event aggregate (add, remove, cover, caption, reorder, events) |
 | `BookingTests.cs` | 14 | Booking aggregate state machine (pending -> confirmed -> cancelled -> refunded -> expired) |
+| `BookingPendingPaymentTests.cs` | 16 | Pending-payment transition, confirmation, cancellation, expiration, active/modifiable checks |
 
-### 8.5 Application Unit Tests (15 tests)
+### 8.5 Application Unit Tests (30+ tests)
 
 | File | Tests | Coverage |
 |------|-------|---------|
-| `CreateBookingHandlerTests.cs` | 3 | CreateBooking happy path, auth failure, payment-before-commit ordering |
+| `CreateBookingHandlerTests.cs` | 3 | CreateBooking happy path, auth failure, local-commit-before-payment ordering |
+| `CreateBookingPendingFirstTests.cs` | 8 | Commit-before-payment invariant, idempotency key, deferred skip, durable compensation staging |
+| `CompensationProcessorTests.cs` | 8 | Retry backoff, cancellation dispatch, unknown compensation type, max-retry boundary |
 | `ConfirmDeferredPaymentHandlerTests.cs` | 5 | Deferred payment by reference code — all guard clauses, success + cache invalidation |
 | `CancelBookingHandlerTests.cs` | 7 | Cancel authorization (attendee vs admin), state guards, seat release, commit failure |
 
-### 8.6 Integration Tests (~28 tests)
+### 8.6 Integration Tests (~30+ tests)
 
 | File | Tests | Coverage |
 |------|-------|---------|
@@ -1228,6 +1262,7 @@ Domain Unit Tests (7 classes, ~58 tests)
 | `PaymentReconciliationTests.cs` | 1 | Orphaned booking detection, payment cancellation |
 | `CreateBookingTests.cs` | 2 | HTTP booking creation happy path + 404 |
 | `BookingFlowTests.cs` | 5 | Payment failure, deferred confirmation, capacity conflict, expiration + seat release, dead-letter requeue |
+| `PendingFirstBookingTests.cs` | 6 | Local-commit-first payment path, durable compensation, retry/dead-letter flow, duplicate webhook idempotency |
 | `GetEventTests.cs` | 3 | Event list + detail endpoints |
 | `EventPhotoTests.cs` | 9 | Photo CRUD via HTTP (upload, cover, delete, auth) |
 
@@ -1324,7 +1359,8 @@ These are critical architectural components that are typically omitted in standa
 
 #### Concurrency Retry (Application Layer)
 - `CreateBookingCommandHandler` implements a **3-attempt retry loop** for `ConcurrencyException`. On each retry, it creates a fresh DI scope (via `IServiceScopeFactory`) to get new repository instances and re-read the aggregate. If all 3 attempts fail, the error propagates.
-- On each retry failure, compensates by calling `CancelPaymentAsync` on the orphaned Stripe checkout session (payment-before-commit ordering ensures no orphaned booking exists).
+- Payment initiation uses a local-commit-first sequence: commit booking + reserved seats + outbox atomically, then call Stripe with `payment-initiate:{bookingId}`.
+- If the external call fails or throws after the local commit, the handler stages a `CompensationLogDto` and commits it with `CommitWithoutEventsAsync`; `CompensationProcessor` performs the eventual `CancelPaymentAsync` retry path.
 
 #### Outbox Retry (Infrastructure)
 - `OutboxDispatcher` implements a **3-attempt retry with exponential backoff**: Attempt 1 -> retry after 5s, Attempt 2 -> retry after 1min, Attempt 3 -> dead letter.
@@ -1478,12 +1514,12 @@ For flash-sale scenarios where thousands of users query ticket availability simu
 | **MediatR Pipeline Behavior** | `Abstractions/Behaviors/LoggingPipelineBehavior.cs` | Pre/post-handler logging with elapsed time |
 | **FluentValidation** | `Features/*/Commands/*/XxxValidator.cs` (7 validators) | Declarative validation rules (NotEmpty, MaxLength, EmailAddress, regex) |
 | **Event Validator** | `Features/Bookings/Events/BookingCreated/BookingCreatedEventValidator.cs` | Pre-processing validation for domain events before handler runs |
-| **Domain Event Handler** | `Features/Bookings/Events/BookingCreated/BookingCreatedEventHandler.cs` | Auto-confirms Instant bookings via outbox dispatch. Implements `IDomainEventHandler<T>` |
+| **Domain Event Handler** | `Features/Bookings/Events/BookingCreated/BookingCreatedEventHandler.cs` | Marks creation event as processed and waits for webhook/deferred confirmation. Implements `IDomainEventHandler<T>` |
 | **Domain Event Handler** | `Features/Bookings/Events/BookingCancelled/BookingCancelledEventHandler.cs` | Log-only handler. Marks idempotency. Implements `IDomainEventHandler<T>` |
 | **Result Pattern Wrapper** | All handlers return `Result<T>` or `Result` | Never throw exceptions for expected failures. Errors carry typed `ErrorType` |
 | **Idempotency Guard** | `BookingCreatedEventHandler`, `BookingCancelledEventHandler`, `ConfirmBookingFromWebhookCommandHandler` | `IsProcessedAsync` check before processing. `MarkAsProcessed` (track-only) for atomic commit |
 | **Retry Pattern** | `CreateBookingCommandHandler` (3-attempt loop) | Retries on `ConcurrencyException`. Creates fresh DI scope per attempt |
-| **Compensation Pattern** | `CreateBookingCommandHandler` | On commit failure after payment initiation, calls `CancelPaymentAsync` to compensate orphaned Stripe session |
+| **Durable Compensation Pattern** | `CreateBookingCommandHandler` + `CompensationProcessor` | Stages payment cleanup records after external failure and retries cancellation with backoff/dead-letter fallback |
 | **Cache-Aside Pattern** | `GetEventsHandler`, `GetEventDetailsHandler`, `GetEventPhotosQueryHandler` | Check cache -> DB on miss -> populate cache -> return. Post-commit invalidation |
 | **Dependency Injection** | `DependencyInjection.cs` | Registers validators, event handlers, pipeline behaviors, MediatR |
 | **Dependency Inversion** | All abstractions in `Abstractions/` (15 interfaces) | Handlers depend on interfaces, not concrete implementations |
@@ -1496,16 +1532,16 @@ For flash-sale scenarios where thousands of users query ticket availability simu
 | **Unit of Work** | `Persistence/UnitOfWork.cs` | Atomic commit: extracts domain events, stages outbox, saves all in one transaction |
 | **Transactional Outbox** | `Persistence/Outbox/OutboxMessageService.cs` + `BackgroundJobs/OutboxProcessor.cs` + `OutboxDispatcher.cs` | Guarantees event delivery even on crash. Events stored in same transaction as entity changes |
 | **Outbox Locking** | `OutboxRepository.GetAndLockUnprocessedMessagesAsync` | Raw SQL `UPDATE TOP(n) WITH (UPDLOCK, READPAST, ROWLOCK) SET ProcessingLock=... OUTPUT INSERTED.*` — atomic lock-and-fetch with 5-min stale-lock reclaim |
-| **Dead Letter Queue** | `OutboxRepository.MoveToDeadLetterAsync` + `OutboxDeadLetter.cs` + `AdminController` | After 3 retries or non-retryable error, moves to `OutboxDeadLetters` table. Admin can requeue |
+| **Dead Letter Queue** | `OutboxRepository.MoveToDeadLetterAsync`, `CompensationLogRepository.MoveToDeadLetterAsync`, `OutboxDeadLetter.cs`, `AdminController` | After retry exhaustion or non-retryable error, moves records to `OutboxDeadLetters`. Admin can requeue |
 | **Idempotency Store** | `Persistence/Repositories/IdempotencyStore.cs` | `ProcessedEvents` table with unique IdempotencyKey. Track-only mode for atomic commits |
 | **Optimistic Concurrency** | EF Core `RowVersion` (rowversion) on Event, Booking, TicketType, User | `UnitOfWork` wraps `DbUpdateConcurrencyException` as `ConcurrencyException` |
-| **Pessimistic Locking** | `BookingRepository.GetExpiredPendingBookingsAsync` | Raw SQL `UPDLOCK, READPAST, ROWLOCK` for safe concurrent batch dequeue |
+| **Pessimistic Locking** | `BookingRepository.GetExpiredPendingBookingsAsync` | Raw SQL `UPDLOCK, READPAST, ROWLOCK` for safe concurrent Pending/PendingPayment expiry dequeue |
 | **Fluent API Configuration** | `Persistence/Configuration/*.cs` (8 configs) | Entity-to-table mapping with value conversions, owned types, indexes, FKs |
 | **Value Object Conversion** | `EventConfiguration`, `BookingConfiguration`, `UserConfiguration` | `HasConversion` for ID types (Guid <-> ValueObject), `OwnsOne` for Money/Address/Email |
 | **Event Serializer** | `Persistence/Outbox/EventSerializer.cs` | Reflective type discovery + JSON serialization of domain events. Builds type dictionaries in static constructor |
 | **JSON Converter Factory** | `Persistence/Outbox/Converters/ValueObjectJsonConverterFactory.cs` | Reflective converter for value objects with `Guid Value` + `FromDatabase(Guid)` |
 | **Cache-Aside (Redis)** | `Caching/RedisCacheService.cs` | Get/Set/Remove/RemoveByPattern. Graceful degradation on Redis failure |
-| **Background Service** | `OutboxProcessor` (5s), `BookingExpirationJob` (1min), `PaymentReconciliationJob` (2min) | `BackgroundService` base class. Independent DI scopes per iteration |
+| **Background Service** | `OutboxProcessor` (5s), `CompensationProcessor` (10s), `BookingExpirationJob` (1min), `PaymentReconciliationJob` (2min) | `BackgroundService` base class. Independent DI scopes per iteration |
 | **Adapter Pattern** | `ReadDbContextAdapter.cs` | Adapts `ApplicationDbContext` to `IApplicationReadDbContext` with AsNoTracking |
 | **Strategy Pattern** | `StripePaymentGateway` vs `MockPaymentGateway` | `IPaymentService` with two implementations, selected via `Stripe:UseMock` config |
 | **Factory Pattern** | `EventMetadataFactory.cs` | Creates correlation/causation metadata for outbox messages |
@@ -1696,12 +1732,10 @@ This section traces the complete ticket booking workflow chronologically from th
     - `Deferred` -> generates `ReferenceCode` = `FAW-{cryptographic hex}`, `HoldExpiresAt = utcNow + 30 min`
   - Raises `BookingCreatedEvent`
 
-**4.8 Payment Initiation (BEFORE persist — payment-before-commit fix)**
-- For `Instant` payment: calls `IPaymentService.InitiatePaymentAsync(bookingId, referenceCode, amount, currency, ct)`.
-  - If `StripePaymentGateway` (production): creates Stripe Checkout Session, returns `PaymentInitiationResult(PaymentUrl, ClientSecret)`.
-  - If `MockPaymentGateway` (dev): returns fake `mock://payment/{bookingId}` URL.
-- **Critical ordering:** Payment is initiated BEFORE `AddBookingAsync` and `CommitAsync`. If Stripe is down, nothing is persisted — no orphaned booking with reserved seats.
-- On payment failure: returns `Failure(...)` immediately. No seats reserved, no booking created.
+**4.8 Prepare Local Commit**
+- `Instant` bookings keep their short hold window and remain locally pending until Stripe confirms payment.
+- `Deferred` bookings generate the Fawry-style reference code and skip Stripe checkout creation.
+- The handler does not call an external payment provider before the local database transaction commits.
 
 ### Stage 5: Infrastructure & Persistence — Atomic Commit with Outbox
 
@@ -1733,7 +1767,7 @@ This section traces the complete ticket booking workflow chronologically from th
   - `DbUpdateConcurrencyException` is thrown.
   - `UnitOfWork` catches it and re-throws as `ConcurrencyException`.
   - The handler's retry loop catches `ConcurrencyException` and retries (up to 3 attempts).
-  - On retry: compensates by calling `paymentService.CancelPaymentAsync(bookingId, ct)` to cancel the orphaned Stripe checkout session.
+  - On retry: re-reads fresh aggregate state and attempts the local commit again; no external payment session exists yet.
   - If all 3 attempts fail: `ConcurrencyException` propagates to `GlobalExceptionHandlingMiddleware` -> 409 Conflict response.
 - On success: `rowsAffected > 0`. Database locks released. Transaction committed.
 
@@ -1743,23 +1777,30 @@ This section traces the complete ticket booking workflow chronologically from th
 - Next request for event details will get a cache miss and read fresh data from DB.
 - Runs AFTER `CommitAsync` returns — guarantees no cache eviction before transaction success.
 
-**5.6 Return Result**
+**5.6 External Payment Initiation After Commit**
+- For `Instant` payment: calls `IPaymentService.InitiatePaymentAsync(bookingId, referenceCode, amount, currency, idempotencyKey, ct)` with `idempotencyKey = "payment-initiate:{bookingId}"`.
+  - If `StripePaymentGateway` (production): creates Stripe Checkout Session and passes the idempotency key in `RequestOptions.IdempotencyKey`.
+  - If `MockPaymentGateway` (dev): returns fake `mock://payment/{bookingId}` URL.
+- On success, the handler returns the payment URL/client secret to the caller.
+- On failure or exception, the handler stages a `CompensationLogDto` and calls `CommitWithoutEventsAsync()` so cancellation work is durable and retried asynchronously.
+
+**5.7 Return Result**
 - Handler returns `Result<CreateBookingResponse>.Success(new CreateBookingResponse(bookingId, paymentUrl, clientSecret))`.
 - `BookingController.CreateBooking` calls `result.ToCreatedResult("GetBookingDetails", new { id = result.Value.BookingId })`.
 - `ResultExtensions.ToCreatedResult` returns `CreatedAtRouteResult` with 201 status and `Location: /api/booking/{bookingId}` header.
 
-**5.7 LoggingPipelineBehavior (Post-Handler)**
+**5.8 LoggingPipelineBehavior (Post-Handler)**
 - Logs `[END] CreateBookingCommand handled in {ElapsedMs}ms`.
 - Stops `Stopwatch`.
 
-**5.8 Response**
+**5.9 Response**
 - HTTP 201 Created with JSON body containing `isSuccess: true`, `value: { bookingId, paymentUrl, clientSecret }`.
 - `CorrelationIdMiddleware` adds `X-Correlation-Id` to response headers.
 - `errorInterceptor` on the Angular side sees 201, passes through.
 - `BookingApplicationService` returns the `CreateBookingResponse` to the component.
 - The component navigates to `/bookings/{bookingId}` (or redirects to Stripe Checkout URL for Instant payment).
 
-### Stage 6: Asynchronous Reliability — Outbox Processing & Event Handling
+### Stage 6: Asynchronous Reliability — Outbox, Compensation, and Event Handling
 
 **6.1 OutboxProcessor Polls**
 - **File:** `Infrastructure/BackgroundJobs/OutboxProcessor.cs`
@@ -1782,20 +1823,9 @@ This section traces the complete ticket booking workflow chronologically from th
 **6.4 BookingCreatedEventHandler Executes**
 - **File:** `Application/Features/Bookings/Events/BookingCreated/BookingCreatedEventHandler.cs`
 - **Idempotency check:** Calls `IIdempotencyStore.IsProcessedAsync(bookingIdValue, ct)`. If already processed (e.g., from a previous redelivery), returns success without re-processing.
-- **Pre-validation:** The `BookingCreatedEventValidator` (registered as `IEventValidator<BookingCreatedEvent>`) checks that the booking exists and is in `Pending` status. If not, returns failure (prevents handler from running).
-- **Business logic (Instant only):**
-  - If `PaymentMethod == Deferred`, skips (await external Fawry confirmation).
-  - Loads the `Booking` aggregate from the repository.
-  - Loads the `Event` aggregate (with TicketTypes).
-  - Calls `booking.Confirm(utcNow)` — transitions booking from Pending to Confirmed, raises `BookingConfirmedEvent`.
-  - Calls `event.ConfirmReservation(ticketTypeId, quantity, utcNow)` — delegates to `TicketType.ConfirmReservation`: increments SoldCount, decrements ReservedCount. Raises `TicketTypeSeatsReservedEvent`.
-- **Idempotency mark (atomic with commit):**
-  - Calls `MarkAsProcessed(bookingIdValue, "booking-created:{bookingIdValue}", utcNow)` — track-only, no SaveChanges. The `ProcessedEvent` entity is added to the ChangeTracker but not yet saved.
-- **Commit:**
-  - Calls `UnitOfWork.CommitAsync(ct)` — extracts domain events from aggregates (BookingConfirmedEvent, TicketTypeSeatsReservedEvent), stages them as new outbox messages, and calls `SaveChangesAsync`.
-  - All of this (booking confirmation, seat count update, idempotency marker, new outbox messages) is committed in a **single database transaction**.
-  - If 0 rows affected, returns failure (dispatch marks as failed, schedules retry).
-- Logs "Booking confirmed (Instant) — N seat(s) moved from Reserved to Sold".
+- **Business logic:** Logs that the booking is awaiting external confirmation and does not confirm instant bookings.
+- **Idempotency mark:** Calls `MarkAsProcessed(bookingIdValue, "booking-created:{bookingIdValue}", utcNow)` and commits with `CommitWithoutEventsAsync()`.
+- **Reason:** Stripe webhook confirmation and deferred reference confirmation are the only confirmation paths. This avoids a race between outbox delivery and webhook delivery.
 
 **6.5 OutboxDispatcher Marks Processed**
 - After all messages in the batch are dispatched:
@@ -1809,26 +1839,31 @@ This section traces the complete ticket booking workflow chronologically from th
 - The processor waits 5 seconds, then polls again.
 
 **6.7 Downstream Event Propagation**
-- The `BookingConfirmedEvent` and `TicketTypeSeatsReservedEvent` (staged as new outbox messages in step 6.4) will be picked up in the next polling cycle (5 seconds later) and dispatched to their respective handlers.
-- Currently, no `IDomainEventHandler<BookingConfirmedEvent>` or `IDomainEventHandler<TicketTypeSeatsReservedEvent>` is registered — these events will be logged as "no handler registered" and marked as processed (no-op).
-- In a production system, these handlers could:
-  - Update a read model (e.g., materialized view for booking history)
-  - Send a confirmation email/SMS to the attendee
-  - Trigger analytics pipelines (occupancy rate, revenue tracking)
-  - Notify the organizer of new bookings
+- Confirmation events are produced by the webhook or deferred-payment command, not by `BookingCreatedEventHandler`.
+- When confirmation succeeds, any resulting domain events are picked up by the outbox polling cycle and dispatched to registered handlers.
+- Currently, unhandled events are logged as "no handler registered" and marked as processed (no-op).
+- In a production system, additional handlers could update read models, send attendee notifications, trigger analytics, or notify organizers.
 
-### Stage 7: Expiration & Cleanup (Background Jobs)
+### Stage 7: Compensation, Expiration & Cleanup (Background Jobs)
 
-**7.1 BookingExpirationJob (every 1 minute)**
+**7.1 CompensationProcessor (every 10 seconds)**
+- **File:** `Infrastructure/BackgroundJobs/CompensationProcessor.cs`
+- Locks up to 50 ready compensation records with `UPDLOCK, READPAST, ROWLOCK`.
+- Executes `CancelPaymentAsync` for payment-cancellation records.
+- On success, marks the record processed.
+- On failure, stores the error and schedules the next retry with backoff: 5s, 30s, 1m, 5m, 15m.
+- After 5 failed attempts, moves the record to `OutboxDeadLetters`.
+
+**7.2 BookingExpirationJob (every 1 minute)**
 - **File:** `Infrastructure/BackgroundJobs/BookingExpirationJob.cs`
-- Calls `GetExpiredPendingBookingsAsync(now, batchSize: 100, ct)` — raw SQL with `UPDLOCK, READPAST, ROWLOCK` to safely dequeue expired bookings without race conditions.
+- Calls `GetExpiredPendingBookingsAsync(now, batchSize: 100, ct)` — raw SQL with `UPDLOCK, READPAST, ROWLOCK` to safely dequeue expired Pending/PendingPayment bookings without race conditions.
 - For each expired booking:
   - Calls `booking.Expire(now)` — transitions to Expired, raises `BookingExpiredEvent`.
   - Loads the event and calls `evt.ReleaseSeats(booking.TicketTypeId, booking.Quantity, now)` — decrements ReservedCount on the TicketType.
 - Commits via `UnitOfWork.CommitAsync` — stages `BookingExpiredEvent` and `TicketTypeSeatsReleasedEvent` to the outbox.
 - The outbox processor will pick these up in the next cycle.
 
-**7.2 PaymentReconciliationJob (every 2 minutes)**
+**7.3 PaymentReconciliationJob (every 2 minutes)**
 - **File:** `Infrastructure/PaymentReconciliationJob.cs`
 - Calls `GetPendingInstantBookingsPastHoldAsync(now, batchSize: 50, ct)` — finds Instant bookings whose 2-minute hold has expired (AsNoTracking, read-only).
 - For each orphaned booking: calls `paymentService.CancelPaymentAsync(booking.Id.Value, ct)` to cancel the Stripe checkout session.
@@ -1836,7 +1871,39 @@ This section traces the complete ticket booking workflow chronologically from th
 
 ---
 
-## 12. Security Hardening Posture
+## 12. Payment Reliability Posture
+
+### Pending-First Flow
+
+The booking flow persists local state before any external payment API call:
+
+```text
+ReserveSeats -> Booking.Create(Pending) -> AddBookingAsync -> CommitAsync
+              -> InitiatePaymentAsync(..., idempotencyKey: payment-initiate:{bookingId})
+              -> Stripe webhook confirms paid checkout sessions
+```
+
+This ordering removes the external-before-local dual-write failure mode. If the process crashes after the local commit but before payment initiation completes, the booking still exists with a hold window and can be expired by background jobs.
+
+### Durable Compensation
+
+Payment initiation failures after local commit are written as compensation records instead of being cleaned up only in an exception handler. The compensation table stores the booking ID, operation type, payload, idempotency key, retry count, next retry time, and processing lock. `CompensationProcessor` retries cleanup with backoff and moves exhausted records to dead letters.
+
+### Confirmation Source of Truth
+
+Instant bookings are confirmed by the signed Stripe webhook. `BookingCreatedEventHandler` marks its event as processed and logs the awaiting-confirmation state; it does not move instant bookings to `Confirmed`. Deferred bookings continue to use reference-code confirmation.
+
+### Race Handling
+
+| Race | Handling |
+| --- | --- |
+| Payment initiation retry | Deterministic provider idempotency key `payment-initiate:{bookingId}` |
+| Duplicate webhook delivery | `ProcessedEvents` idempotency entry based on Stripe event ID |
+| Compensation processor restart | Processing locks expire after the stale-lock window |
+| User pays while cancellation is attempted | `CancelPaymentAsync` skips completed sessions |
+| Expiration job vs compensation cleanup | Expiration releases local seats; compensation only cleans up the external session |
+
+## 13. Security Hardening Posture
 
 ### JWT Security
 - **Secret removed from source control:** `Jwt:Secret` removed from `appsettings.json`. Loaded via .NET configuration hierarchy: User Secrets (dev) -> Environment Variables/Azure Key Vault (prod).
@@ -1874,7 +1941,7 @@ This section traces the complete ticket booking workflow chronologically from th
 
 ---
 
-## 13. Key Decisions & Architectural Rationale
+## 14. Key Decisions & Architectural Rationale
 
 | Decision | Rationale |
 |----------|-----------|

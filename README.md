@@ -45,7 +45,7 @@ For the detailed architecture specification and workflow trace, see [`EVENTIY_AR
 - Confirm reservations and move seats from reserved to sold.
 - Release reserved seats on pending-booking cancellation or expiration.
 - Refund sold seats when confirmed bookings are cancelled/refunded.
-- Support pending, confirmed, cancelled, expired, and refunded booking states.
+- Support pending, pending-payment, confirmed, cancelled, expired, and refunded booking states.
 - Support attendee self-cancellation for allowed bookings and admin/organizer booking management.
 - View bookings by current user, by event, and through admin all-bookings endpoints.
 - Show booking details at `/bookings/:id` in the Angular app.
@@ -55,9 +55,10 @@ For the detailed architecture specification and workflow trace, see [`EVENTIY_AR
 - Support `Instant` payments through Stripe Checkout.
 - Support `Deferred` payments with Fawry-style reference codes such as `FAW-XXXXXXXX`.
 - Store refreshable payment/booking hold windows: short holds for instant payments and longer holds for deferred payments.
-- Initiate instant payment before persisting a booking so failed payment setup does not leave reserved seats behind.
-- Compensate failed commits by cancelling orphaned Stripe checkout sessions.
-- Confirm Stripe payments through a signed webhook endpoint.
+- Persist the booking and reserved seats before calling Stripe, so the local transaction is always the first durable source of truth.
+- Use deterministic payment idempotency keys in the `payment-initiate:{bookingId}` shape when creating checkout sessions.
+- Stage durable compensation records when payment initiation fails or throws, then retry cancellation asynchronously instead of relying on inline catch-block cleanup.
+- Confirm Stripe payments through the signed webhook endpoint as the sole confirmer for instant bookings.
 - Confirm deferred payments through a backend command using the generated reference code.
 - Use `MockPaymentGateway` for local development when `Stripe:UseMock=true`.
 
@@ -91,10 +92,11 @@ For the detailed architecture specification and workflow trace, see [`EVENTIY_AR
 - Persist domain events using the Transactional Outbox pattern in the same database transaction as aggregate changes.
 - Process outbox messages with a background worker, retries, exponential backoff, and dead-letter storage.
 - Requeue dead-letter outbox messages through admin endpoints.
-- Guard domain-event consumers and Stripe webhooks with idempotency records.
+- Guard domain-event consumers, Stripe webhooks, and payment initiation with idempotency records.
 - Use SQL Server `rowversion` optimistic concurrency plus retry loops for high-contention booking flows.
-- Expire stale pending bookings and release seats in a background job.
+- Expire stale pending and pending-payment bookings and release seats in a background job.
 - Reconcile expired instant bookings by cancelling orphaned Stripe sessions in a background job.
+- Process durable compensation logs with retry backoff and dead-letter fallback for external payment cleanup.
 - Use Redis cache-aside for event list, event details, and event photos with graceful degradation if Redis is unavailable.
 
 ## Architecture at a glance
@@ -150,7 +152,7 @@ Eventiy.sln
 | --- | --- |
 | `Domain` | Enterprise business rules: `Event`, `TicketType`, `EventPhoto`, `Booking`, `User`, `RefreshToken`, value objects, typed errors, domain events, and `Result` types. |
 | `Application` | Use cases: MediatR commands/queries, handlers, FluentValidation validators, pipeline behaviors, repository/security/cache/payment/outbox abstractions. |
-| `Infrastructure` | External details: EF Core `ApplicationDbContext`, migrations, repositories, JWT, BCrypt password hashing, Redis caching, Redis Pub/Sub, Stripe/mock payments, local file storage, outbox processing, background jobs, seed data. |
+| `Infrastructure` | External details: EF Core `ApplicationDbContext`, migrations, repositories, JWT, BCrypt password hashing, Redis caching, Redis Pub/Sub, Stripe/mock payments, durable compensation logs, local file storage, outbox processing, background jobs, seed data. |
 | `Eventy.WebApi` | Presentation layer: controllers, middleware, CORS, JSON options, OpenAPI, Scalar API reference, static file serving, WebSocket gateway. |
 
 ### Frontend project
@@ -174,7 +176,7 @@ The domain model centers on these aggregates and entities:
 - `Event`: event lifecycle, type/category, date, location, capacity, ticket types, photos, publication/cancellation/completion state, and row-version concurrency token.
 - `TicketType`: ticket name, price, currency, capacity, reserved count, sold count, and availability rules. The application layer also contains venue-layout validation for section-aware ticketing flows.
 - `EventPhoto`: uploaded image metadata, public URL, caption, display order, and cover-photo state.
-- `Booking`: user reservation, ticket type, quantity, total amount, payment method, reference code, hold expiry, confirmation/cancellation/refund/expiry state, and row-version concurrency token.
+- `Booking`: user reservation, ticket type, quantity, total amount, payment method, reference code, hold expiry, pending-payment transition, confirmation/cancellation/refund/expiry state, and row-version concurrency token.
 - `User`: identity, role, password hash, organizer approval state, refresh tokens, and row-version concurrency token.
 - `RefreshToken`: hashed refresh-token lifecycle, expiry, revocation, and replacement tracking.
 
@@ -240,7 +242,17 @@ Booking queries are intentionally uncached because they contain personal/financi
 - `StripePaymentGateway` for production Stripe Checkout sessions and session cancellation.
 - `MockPaymentGateway` for local development and tests.
 
-Instant booking flow initiates payment before the booking is persisted. If payment initiation fails, no booking or seat reservation is stored. If persistence fails after payment initiation, the handler calls `CancelPaymentAsync` to compensate the orphaned checkout session.
+Instant booking uses a pending-first flow:
+
+```text
+Reserve seats -> create Pending booking -> commit booking + outbox atomically
+        -> initiate Stripe checkout with idempotency key payment-initiate:{bookingId}
+        -> webhook confirms paid checkout sessions
+```
+
+The booking and seat reservation are committed before the external Stripe call. If payment initiation fails after the local commit, the handler stages a durable compensation record and a background processor retries `CancelPaymentAsync` with backoff before moving exhausted records to dead letters.
+
+The Stripe webhook is the source of truth for confirming instant bookings. `BookingCreatedEventHandler` marks the creation event as processed and does not confirm instant bookings itself, avoiding a race between outbox delivery and webhook delivery.
 
 Deferred bookings generate a Fawry-style reference code and can be confirmed with `ConfirmDeferredPaymentCommand`.
 
@@ -265,8 +277,9 @@ The WebSocket middleware:
 | Job | Interval | Purpose |
 | --- | --- | --- |
 | `OutboxProcessor` | 5 seconds | Polls and dispatches outbox messages. |
-| `BookingExpirationJob` | 1 minute | Expires pending bookings past hold time and releases reserved seats. |
+| `BookingExpirationJob` | 1 minute | Expires pending/pending-payment bookings past hold time and releases reserved seats. |
 | `PaymentReconciliationJob` | 2 minutes | Cancels orphaned Stripe checkout sessions for expired instant bookings. |
+| `CompensationProcessor` | 10 seconds | Retries durable payment cleanup records and dead-letters exhausted entries. |
 
 ### File storage
 
@@ -605,7 +618,7 @@ Seed data includes:
 - Multiple attendees
 - 18 events across all event types with real coordinates
 - Venue-mapped ticket types and realistic pricing
-- Bookings using a mix of instant and deferred payment methods
+- Bookings using a mix of instant and deferred payment methods, including payment holds that can expire
 
 The seed data is for local development and demo workflows.
 
@@ -830,7 +843,7 @@ Content-Type: application/json
 - Commands and queries are mediated through MediatR.
 - FluentValidation validators live in the Application layer.
 - Cache invalidation should happen after successful commits.
-- Payment initiation must avoid orphaned reservations and compensate failed commits.
+- Payment initiation must commit local booking state before external payment calls, use deterministic idempotency keys, and stage durable compensation for failed external cleanup.
 - Angular HTTP services stay thin; application services map, cache, and orchestrate.
 - Angular components should use standalone APIs, signals where appropriate, and route guards for protected pages.
 
