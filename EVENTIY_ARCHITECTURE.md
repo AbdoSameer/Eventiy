@@ -25,7 +25,7 @@
 11. [End-to-End Workflow Trace: Ticket Booking / حجز التذاكر](#11-end-to-end-workflow-trace-ticket-booking--حجز-التذاكر)
 12. [Security Hardening Posture](#12-security-hardening-posture)
 13. [Key Decisions & Architectural Rationale](#13-key-decisions--architectural-rationale)
-14. [Pending Migrations & Next Steps](#14-pending-migrations--next-steps)
+
 
 ---
 
@@ -1897,27 +1897,6 @@ This section traces the complete ticket booking workflow chronologically from th
 | No EF Core interceptors | Domain event extraction is explicit in `UnitOfWork.CommitAsync()`, not hidden in a `SaveChangesInterceptor`. Deliberate clarity choice. |
 | Testcontainers over SQLite in-memory | Real SQL Server 2022 catches SQL-specific concurrency bugs (row-level locking, UPDLOCK/READPAST). |
 | ConcurrentExecutor with async barrier | All workers start simultaneously via `TaskCompletionSource`, maximizing race condition probability without blocking threads. |
-
----
-
-## 14. Pending Migrations & Next Steps
-
-### Pending Migrations (3)
-1. `AddProcessedEventsAndDeadLetters` — creates `ProcessedEvents` and `OutboxDeadLetters` tables
-2. `AddEventTypeAndCoordinates` — adds `Type` (int), `Latitude` (float?), `Longitude` (float?) columns to `Events` table
-3. *(Third migration name TBD)*
-
-### Next Steps
-1. **Force push rewritten git history** to remote (`git push --force --all`)
-2. **Run `dotnet ef database update`** against dev database to apply all 3 pending migrations
-3. **Add `ConnectionStrings:Redis`** to `appsettings.Development.json` or User Secrets for local Redis
-4. **Add `Jwt:Secret`** to staging/production environment variables or Azure Key Vault
-5. **Inform collaborators** to `git rebase` their feature branches after force-push
-6. **Implement API Rate Limiting** (Section 9.1) — add `UseRateLimiter` to middleware pipeline
-7. **Add Polly Circuit Breaker** for Stripe payment gateway (Section 9.3)
-8. **Add OpenTelemetry tracing** + Serilog structured logging (Section 9.5)
-9. **Add Health Checks** endpoint (`/health`) for Kubernetes/Docker probes
-10. **Implement Write-Behind cache** for real-time ticket availability (Section 9.4 enhancement)
 
 ---
 
