@@ -185,5 +185,25 @@ namespace Domain.Errors
             => Error.Conflict(
                 "Booking.CannotConfirmBooking",
                $"Your acess to confirm booking {value} is not allow");
+
+        public static Error BookingNotPendingPayment(Guid bookingId, BookingStatusEnum currentStatus)
+            => Error.Validation(
+                "Booking.BookingNotPendingPayment",
+                $"Booking {bookingId} is not in pending-payment status. Current status: {currentStatus}");
+
+        public static Error PaymentInitiationFailed(string reason)
+            => Error.Failure(
+                "Booking.PaymentInitiationFailed",
+                $"Payment initiation failed: {reason}");
+
+        public static Error CompensationAlreadyProcessed(Guid bookingId)
+            => Error.Conflict(
+                "Booking.CompensationAlreadyProcessed",
+                $"Compensation for booking {bookingId} has already been processed.");
+
+        public static Error CompensationMaxRetriesExceeded(Guid bookingId)
+            => Error.Failure(
+                "Booking.CompensationMaxRetriesExceeded",
+                $"Compensation for booking {bookingId} has exceeded the maximum retry count and was moved to dead-letter.");
     }
 }

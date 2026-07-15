@@ -27,6 +27,7 @@ public class StripePaymentGateway : IPaymentService
         string referenceCode,
         decimal amount,
         string currency,
+        string idempotencyKey,
         CancellationToken ct = default)
     {
         try
@@ -61,8 +62,13 @@ public class StripePaymentGateway : IPaymentService
                 },
             };
 
+            var requestOptions = new RequestOptions
+            {
+                IdempotencyKey = idempotencyKey,
+            };
+
             var service = new SessionService();
-            var session = await service.CreateAsync(options, cancellationToken: ct);
+            var session = await service.CreateAsync(options, requestOptions, ct);
 
             _logger.LogInformation(
                 "Created Stripe Checkout Session {SessionId} for booking {BookingId}, amount {Amount} {Currency}",

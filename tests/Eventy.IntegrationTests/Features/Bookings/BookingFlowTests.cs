@@ -6,6 +6,7 @@ using Domain.Abstractions.Persistence;
 using Domain.Aggregates.BookingAggregate.Enums;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Eventy.IntegrationTests.Assertions;
+using Eventy.IntegrationTests.Helpers;
 using Eventy.IntegrationTests.Fixtures;
 using Eventy.Testing.Foundation.Fakes;
 using FluentAssertions;
@@ -46,8 +47,11 @@ public class BookingFlowTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task CreateBooking_WhenPaymentFails_ShouldNotCreateBooking()
+    public async Task CreateBooking_WhenPaymentFails_ShouldPersistBookingAndStageCompensation()
     {
+        // Pending-First pattern: the booking is committed BEFORE the payment call.
+        // A payment failure therefore leaves a durable Pending booking AND a
+        // compensation record — the opposite of the old all-or-nothing rollback.
         var (eventId, ticketTypeId) = await SeedEventAsync();
 
         var scope = _fixture.Factory.Services.CreateScope();
@@ -65,15 +69,23 @@ public class BookingFlowTests : IAsyncLifetime
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.InternalServerError,
-            "payment failure should return server error");
+            "payment initiation failure surfaces as a server error to the caller");
 
         await using var db = _fixture.CreateDbContext();
-        var bookingCount = await db.Db.Bookings
-            .CountAsync(b => b.EventId == EventId.FromDatabase(eventId));
-        bookingCount.Should().Be(0, "no booking should persist when payment fails");
+
+        // The booking is persisted as Pending (Phase-1 commit already happened).
+        var booking = await db.Db.Bookings
+            .FirstOrDefaultAsync(b => b.EventId == EventId.FromDatabase(eventId));
+        booking.Should().NotBeNull("the booking must be durably persisted before the payment call");
+        booking!.Status.Should().Be(BookingStatusEnum.Pending,
+            "a failed payment leaves the booking in its initial Pending state");
+
+        // A durable compensation record is staged for the processor.
+        await db.Db.ShouldHaveCompensationForBookingAsync(booking.Id.Value);
 
         ps.SetFailMode(false);
     }
+
 
     [Fact]
     public async Task DeferredPayment_CreateThenConfirmByReferenceCode_ShouldConfirmBooking()

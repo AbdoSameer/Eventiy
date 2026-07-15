@@ -38,7 +38,7 @@ namespace Infrastructure.Persistence.Repositories
             var sql = @"
                 SELECT TOP (@BatchSize) b.*
                 FROM Bookings b WITH (UPDLOCK, READPAST, ROWLOCK)
-                WHERE b.Status = 'Pending'
+                WHERE b.Status IN ('Pending', 'PendingPayment')
                   AND b.HoldExpiresAt IS NOT NULL
                   AND b.HoldExpiresAt <= @Now
                 ORDER BY b.HoldExpiresAt";
@@ -62,7 +62,7 @@ namespace Infrastructure.Persistence.Repositories
             var sql = @"
                 SELECT TOP (@BatchSize) b.*
                 FROM Bookings b WITH (UPDLOCK, READPAST, ROWLOCK)
-                WHERE b.Status = 'Pending'
+                WHERE b.Status IN ('Pending', 'PendingPayment')
                   AND b.PaymentMethod = 'Instant'
                   AND b.HoldExpiresAt IS NOT NULL
                   AND b.HoldExpiresAt <= @Now

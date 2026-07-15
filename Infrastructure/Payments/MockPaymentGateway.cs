@@ -18,6 +18,7 @@ public class MockPaymentGateway : IPaymentService
         string referenceCode,
         decimal amount,
         string currency,
+        string idempotencyKey,
         CancellationToken ct = default)
     {
         _logger.LogInformation(

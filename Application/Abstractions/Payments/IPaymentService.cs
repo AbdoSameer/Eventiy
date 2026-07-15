@@ -13,6 +13,7 @@ namespace Application.Abstractions.Payments
             string referenceCode,
             decimal amount,
             string currency,
+            string idempotencyKey,
             CancellationToken ct = default);
 
         Task<Result> CancelPaymentAsync(

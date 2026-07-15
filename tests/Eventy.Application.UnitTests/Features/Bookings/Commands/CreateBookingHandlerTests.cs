@@ -29,6 +29,7 @@ public class CreateBookingHandlerTests
     private readonly IBookingRepository _bookingRepo;
     private readonly IEventRepository _eventRepo;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ICompensationLogRepository _compensationRepo;
     private readonly CreateBookingCommandHandler _handler;
     private readonly Event _sampleEvent;
 
@@ -40,6 +41,7 @@ public class CreateBookingHandlerTests
         _currentUser = Substitute.For<ICurrentUserService>();
         _cache = Substitute.For<ICacheService>();
         _paymentService = Substitute.For<IPaymentService>();
+        _compensationRepo = Substitute.For<ICompensationLogRepository>();
         _timeProvider = TimeProvider.System;
 
         _currentUser.GetCurrentUserId().Returns(Result<UserId>.Success(UserId.FromDatabase(Guid.NewGuid())));
@@ -52,9 +54,11 @@ public class CreateBookingHandlerTests
             .Returns(Task.FromResult<Event?>(_sampleEvent));
 
         _unitOfWork.CommitAsync(Arg.Any<CancellationToken>()).Returns(1);
+        _unitOfWork.CommitWithoutEventsAsync(Arg.Any<CancellationToken>()).Returns(1);
 
         _paymentService.InitiatePaymentAsync(
-                Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<decimal>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+                Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<decimal>(), Arg.Any<string>(),
+                Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(Result<PaymentInitiationResult>.Success(
                 new PaymentInitiationResult("https://pay.example.com/success", null)));
 
@@ -62,6 +66,7 @@ public class CreateBookingHandlerTests
         serviceProvider.GetService(typeof(IBookingRepository)).Returns(_bookingRepo);
         serviceProvider.GetService(typeof(IEventRepository)).Returns(_eventRepo);
         serviceProvider.GetService(typeof(IUnitOfWork)).Returns(_unitOfWork);
+        serviceProvider.GetService(typeof(ICompensationLogRepository)).Returns(_compensationRepo);
 
         var scope = Substitute.For<IServiceScope>();
         scope.ServiceProvider.Returns(serviceProvider);
@@ -131,12 +136,20 @@ public class CreateBookingHandlerTests
         await _bookingRepo.DidNotReceive().AddBookingAsync(Arg.Any<Booking>(), Arg.Any<CancellationToken>());
     }
 
+    /// <summary>
+    /// Pending-First pattern: even when payment initiation fails, the booking
+    /// transaction MUST have committed first (Phase 1), and a durable
+    /// compensation record MUST be staged (Phase 2). This replaces the old
+    /// behaviour where failure rolled back the whole booking.
+    /// </summary>
     [Fact]
-    public async Task Handle_WhenPaymentInitiationFails_ShouldNotCommit()
+    public async Task Handle_WhenPaymentInitiationFails_ShouldCommitBookingThenStageCompensation()
     {
         _paymentService.InitiatePaymentAsync(
-                Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<decimal>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(Result<PaymentInitiationResult>.Failure(new Error("Payment.Failed", "Stripe is down", ErrorType.Failure)));
+                Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<decimal>(), Arg.Any<string>(),
+                Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Result<PaymentInitiationResult>.Failure(
+                new Error("Payment.Failed", "Stripe is down", ErrorType.Failure)));
 
         var ticketTypeId = _sampleEvent.TicketTypes.First().Id;
 
@@ -150,8 +163,13 @@ public class CreateBookingHandlerTests
 
         var result = await _handler.Handle(command, CancellationToken.None);
 
-        result.IsFailure.Should().BeTrue("booking should fail when payment initiation fails");
-        await _unitOfWork.DidNotReceive().CommitAsync(Arg.Any<CancellationToken>());
-        await _bookingRepo.DidNotReceive().AddBookingAsync(Arg.Any<Booking>(), Arg.Any<CancellationToken>());
+        // Phase 1 — booking committed before payment was attempted.
+        result.IsFailure.Should().BeTrue("payment initiation failed so the overall result is a failure");
+        await _unitOfWork.Received(1).CommitAsync(Arg.Any<CancellationToken>());
+        await _bookingRepo.Received(1).AddBookingAsync(Arg.Any<Booking>(), Arg.Any<CancellationToken>());
+
+        // Phase 2 — durable compensation staged, not inline cancellation.
+        _compensationRepo.Received(1).Add(Arg.Any<CompensationLogDto>());
+        await _unitOfWork.Received(1).CommitWithoutEventsAsync(Arg.Any<CancellationToken>());
     }
 }

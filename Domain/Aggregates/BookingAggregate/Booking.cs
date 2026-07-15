@@ -130,30 +130,32 @@ namespace Domain.Aggregates.BookingAggregate
         {
             if (Status == BookingStatusEnum.Confirmed)
                 return Result.Failure(BookingErrors.BookingAlreadyConfirmed(Id.Value));
-          
+           
             if (Status == BookingStatusEnum.Expired)
                 return Result.Failure(BookingErrors.BookingExpired(Id.Value));
-           
+            
             if (Status == BookingStatusEnum.Cancelled)
                 return Result.Failure(BookingErrors.BookingAlreadyCancelled(Id.Value));
-            
+             
             if (Status == BookingStatusEnum.Refunded)
                 return Result.Failure(BookingErrors.CannotModifyRefundedBooking(Id.Value));
-        
-            if (Status != BookingStatusEnum.Pending)  
+         
+            if (Status != BookingStatusEnum.Pending && Status != BookingStatusEnum.PendingPayment)
                 return Result.Failure(BookingErrors.BookingNotPending(Id.Value, Status));
 
             Status = BookingStatusEnum.Confirmed;
             ConfirmationDate = utcNow;
             
             RaiseDomainEvent(new BookingConfirmedEvent(Id, UserId, EventId, TicketTypeId, Quantity, utcNow));
-          
+           
             return Result.Success();
         }
 
         public Result Cancel(DateTime utcNow, string? reason = null)
         {
-            if (Status != BookingStatusEnum.Pending && Status != BookingStatusEnum.Confirmed)
+            if (Status != BookingStatusEnum.Pending &&
+                Status != BookingStatusEnum.PendingPayment &&
+                Status != BookingStatusEnum.Confirmed)
                 return Result.Failure(BookingErrors.CannotCancelBooking(Id.Value, Status));
 
             if (Status == BookingStatusEnum.Cancelled)
@@ -226,7 +228,7 @@ namespace Domain.Aggregates.BookingAggregate
 
         public Result Expire(DateTime utcNow)
         {
-            if (Status != BookingStatusEnum.Pending)
+            if (Status != BookingStatusEnum.Pending && Status != BookingStatusEnum.PendingPayment)
                 return Result.Failure(BookingErrors.CannotExpireBooking(Id.Value, Status));
 
             if (HoldExpiresAt is null || utcNow < HoldExpiresAt.Value)
@@ -264,13 +266,37 @@ namespace Domain.Aggregates.BookingAggregate
         // Helper method to check if booking can be modified
         public bool CanBeModified()
         {
-            return Status == BookingStatusEnum.Pending;
+            return Status == BookingStatusEnum.Pending || Status == BookingStatusEnum.PendingPayment;
         }
 
         // Helper method to check if booking is active
         public bool IsActive()
         {
-            return Status == BookingStatusEnum.Pending || Status == BookingStatusEnum.Confirmed;
+            return Status == BookingStatusEnum.Pending ||
+                   Status == BookingStatusEnum.PendingPayment ||
+                   Status == BookingStatusEnum.Confirmed;
+        }
+
+        public Result MarkAsPendingPayment(DateTime utcNow)
+        {
+            if (Status != BookingStatusEnum.Pending)
+                return Result.Failure(BookingErrors.BookingNotPending(Id.Value, Status));
+
+            Status = BookingStatusEnum.PendingPayment;
+
+            RaiseDomainEvent(new PaymentInitiatedEvent(Id, UserId, EventId, TicketTypeId, utcNow));
+
+            return Result.Success();
+        }
+
+        public Result MarkAsPending(DateTime utcNow)
+        {
+            if (Status != BookingStatusEnum.PendingPayment)
+                return Result.Failure(BookingErrors.BookingNotPendingPayment(Id.Value, Status));
+
+            Status = BookingStatusEnum.Pending;
+
+            return Result.Success();
         }
     }
 }

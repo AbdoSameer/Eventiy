@@ -79,6 +79,7 @@ public static class DependencyInjection
         services.AddHostedService<OutboxProcessor>();
         services.AddHostedService<BookingExpirationJob>();
         services.AddHostedService<PaymentReconciliationJob>();
+        services.AddHostedService<CompensationProcessor>();
         services.AddSingleton(TimeProvider.System);
 
 
@@ -90,6 +91,7 @@ public static class DependencyInjection
 
         services.AddScoped<IEventMetadataFactory, Messaging.EventMetadataFactory>();
         services.AddScoped<IIdempotencyStore, IdempotencyStore>();
+        services.AddScoped<ICompensationLogRepository, CompensationLogRepository>();
         services.AddScoped<IVenueLayoutValidator, VenueLayoutValidator>();
         services.Configure<StripeSettings>(configuration.GetSection(StripeSettings.SectionName));
         services.AddHttpContextAccessor();

@@ -21,6 +21,7 @@ namespace Infrastructure.Persistence
         public DbSet<EventPhoto> EventPhotos { get; set; }
         public DbSet<ProcessedEvent> ProcessedEvents { get; set; }
         public DbSet<OutboxDeadLetter> OutboxDeadLetters { get; set; }
+        public DbSet<CompensationLog> CompensationLogs { get; set; }
 
         public ApplicationDbContext(
             DbContextOptions<ApplicationDbContext> options,

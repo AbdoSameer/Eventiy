@@ -88,51 +88,16 @@ public class BookingCreatedEventHandler : IDomainEventHandler<BookingCreatedEven
         }
 
         // Deferred payments await manual confirmation (Fawry/Cash callback).
-        // Only Instant payments are confirmed automatically.
-        if (booking.PaymentMethod == PaymentMethod.Deferred)
-        {
-            _logger.LogInformation(
-                "Booking {BookingId} is Deferred ({ReferenceCode}) — awaiting external payment confirmation",
-                bookingIdValue, booking.ReferenceCode);
-            return Result.Success();
-        }
-
-        var evt = await _eventRepo.GetByIdAsync(@event.EventId, cancellationToken);
-        if (evt is null)
-        {
-            _logger.LogError("Event {EventId} not found — cannot confirm booking {BookingId}",
-                @event.EventId?.Value ?? Guid.Empty, bookingIdValue);
-            return Result.Failure(EventErrors.EventNotFound(@event.EventId));
-        }
-
+        // Instant payments await Stripe webhook confirmation (checkout.session.completed).
+        // Neither payment method is auto-confirmed here — the webhook is the source of truth.
         var utcNow = _timeProvider.GetUtcNow().UtcDateTime;
 
-        var confirmResult = booking.Confirm(utcNow);
-        if (confirmResult.IsFailure)
-            return confirmResult;
-
-        var seatResult = evt.ConfirmReservation(@event.TicketTypeId, @event.Quantity, utcNow);
-        if (seatResult.IsFailure)
-            return seatResult;
-
-        // Track the idempotency record in the same DbContext so the booking confirmation
-        // and the processed-event marker commit atomically. If the commit crashes, neither
-        // is persisted and a redelivery will see an unprocessed event with a Pending booking
-        // and run the confirmation again. If the commit succeeds, the processed-event record
-        // guarantees any subsequent redelivery short-circuits at the IsProcessedAsync check.
-        _idempotencyStore.MarkAsProcessed(bookingIdValue, idempotencyKey, utcNow);
-
-        var rows = await _uow.CommitAsync(cancellationToken);
-        if (rows <= 0)
-        {
-            _logger.LogError("Commit returned 0 rows — booking {BookingId} not confirmed",
-                bookingIdValue);
-            return Result.Failure(BookingErrors.BookingConfirmationFailed());
-        }
-
         _logger.LogInformation(
-            "Booking {BookingId} confirmed (Instant) — {Quantity} seat(s) moved from Reserved to Sold",
-            bookingIdValue, @event.Quantity);
+            "Booking {BookingId} created with {PaymentMethod} — awaiting external confirmation (webhook/deferred)",
+            bookingIdValue, booking.PaymentMethod);
+
+        _idempotencyStore.MarkAsProcessed(bookingIdValue, idempotencyKey, utcNow);
+        await _uow.CommitWithoutEventsAsync(cancellationToken);
 
         return Result.Success();
     }
