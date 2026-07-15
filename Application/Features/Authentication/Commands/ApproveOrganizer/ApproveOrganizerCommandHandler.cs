@@ -30,7 +30,6 @@ internal sealed class ApproveOrganizerCommandHandler(
             return Result.Success();
 
         user.Approve();
-        userRepository.Update(user);
 
         var rows = await unitOfWork.CommitAsync(cancellationToken);
         if (rows <= 0)

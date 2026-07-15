@@ -72,7 +72,6 @@ namespace Application.Features.Authentication.Commands.Register
                 refreshTokenRaw = jwtGenerator.GenerateRefreshToken();
                 var refreshTokenHash = jwtGenerator.HashToken(refreshTokenRaw);
                 user.IssueRefreshToken(refreshTokenHash, utcNow.AddDays(7), utcNow);
-                userRepository.Update(user);
             }
 
             await unitOfWork.CommitAsync(cancellationToken);

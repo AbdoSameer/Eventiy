@@ -210,11 +210,11 @@ public static class DatabaseSeeder
             ("Standard Corner", "234", 3395m, 760),
             ("Standard Side", "S105", 2540m, 1100),
             ("Standard Side", "S118", 2675m, 1040),
-            ("Premium Club", "S180", 4700m, 420),
-            ("Premium Lounge", "C129", 6850m, 260),
-            ("Premium Corner Suite", "GC19", 7956m, 180),
-            ("VVIP Premium Box", "VVIP1", 81758m, 24),
-            ("VVIP Sideline Suite", "VVIP2", 54300m, 16),
+            ("Premium Club", "S180", 1800m, 420),
+            ("Premium Lounge", "C129", 2500m, 260),
+            ("Premium Corner Suite", "GC19", 3500m, 180),
+            ("VVIP Premium Box", "VVIP1", 8500m, 24),
+            ("VVIP Sideline Suite", "VVIP2", 5500m, 16),
         };
 
         var TheaterZones = new[]
@@ -233,12 +233,12 @@ public static class DatabaseSeeder
         {
             // ─── Music ──────────────────────────────────────────────
             var addrMusic1 = GetValue(
-                Address.Create("Egypt", "Cairo", "Cairo International Stadium", "11511"),
+                Address.Create("Egypt", "Cairo", "Cairo International Stadium", "11511", 30.0691, 31.3119),
                 "address for Cairo Music Festival");
             var music1 = GetValue(
                 Event.Create("Cairo International Music Festival 2027", 60000,
                     new DateTime(2027, 7, 20, 19, 0, 0),
-                    addrMusic1, "Three nights of world-class performances at the historic Cairo Stadium, featuring international and Arab artists.",
+                    addrMusic1, "Three nights of world-class performances at the historic Cairo Stadium, featuring international and Arab artists across pop, rock, and classical genres.",
                     EventType.Music, utcNow),
                 "Cairo Music Festival");
             AddVenueTicketTypes(music1, ConcertZones, "Concert", utcNow);
@@ -246,7 +246,7 @@ public static class DatabaseSeeder
             events.Add(music1);
 
             var addrMusic2 = GetValue(
-                Address.Create("France", "Paris", "Accor Arena", "75012"),
+                Address.Create("France", "Paris", "Accor Arena", "75012", 48.8376, 2.3786),
                 "address for Paris Jazz Festival");
             var music2 = GetValue(
                 Event.Create("Paris Jazz Festival 2027", 18000,
@@ -260,7 +260,7 @@ public static class DatabaseSeeder
 
             // ─── Tech ───────────────────────────────────────────────
             var addrTech1 = GetValue(
-                Address.Create("United Arab Emirates", "Dubai", "Dubai World Trade Centre", "00000"),
+                Address.Create("United Arab Emirates", "Dubai", "Dubai World Trade Centre", "00000", 25.2265, 55.2832),
                 "address for Dubai AI Summit");
             var tech1 = GetValue(
                 Event.Create("Dubai AI & Blockchain Summit 2027", 40000,
@@ -278,7 +278,7 @@ public static class DatabaseSeeder
             events.Add(tech1);
 
             var addrTech2 = GetValue(
-                Address.Create("Germany", "Berlin", "Berlin ExpoCenter City", "14055"),
+                Address.Create("Germany", "Berlin", "Berlin ExpoCenter City", "14055", 52.5037, 13.3318),
                 "address for Berlin TechWeek");
             var tech2 = GetValue(
                 Event.Create("Berlin TechWeek 2027", 30000,
@@ -297,7 +297,7 @@ public static class DatabaseSeeder
 
             // ─── Sports ─────────────────────────────────────────────
             var addrSport1 = GetValue(
-                Address.Create("Brazil", "Rio de Janeiro", "Maracanã Stadium", "20271-130"),
+                Address.Create("Brazil", "Rio de Janeiro", "Maracanã Stadium", "20271-130", -22.9121, -43.2302),
                 "address for Rio Marathon");
             var sport1 = GetValue(
                 Event.Create("Rio de Janeiro Marathon & Half-Marathon 2027", 35000,
@@ -310,7 +310,7 @@ public static class DatabaseSeeder
             events.Add(sport1);
 
             var addrSport2 = GetValue(
-                Address.Create("United States", "New York", "MetLife Stadium", "10001"),
+                Address.Create("United States", "New York", "MetLife Stadium", "10001", 40.8135, -74.0745),
                 "address for FIFA World Cup Final");
             var sport2 = GetValue(
                 Event.Create("FIFA World Cup 2027: Brazil vs Argentina — Final", 82500,
@@ -323,7 +323,7 @@ public static class DatabaseSeeder
             events.Add(sport2);
 
             var addrSport3 = GetValue(
-                Address.Create("United States", "Los Angeles", "Rose Bowl Stadium", "91103"),
+                Address.Create("United States", "Los Angeles", "Rose Bowl Stadium", "91103", 34.1614, -118.1677),
                 "address for World Cup Semi-Final 1");
             var sport3 = GetValue(
                 Event.Create("FIFA World Cup 2027: Semi-Final 1 — Germany vs France", 72000,
@@ -336,7 +336,7 @@ public static class DatabaseSeeder
             events.Add(sport3);
 
             var addrSport4 = GetValue(
-                Address.Create("Mexico", "Mexico City", "Estadio Azteca", "01000"),
+                Address.Create("Mexico", "Mexico City", "Estadio Azteca", "01000", 19.3030, -99.1505),
                 "address for World Cup Semi-Final 2");
             var sport4 = GetValue(
                 Event.Create("FIFA World Cup 2027: Semi-Final 2 — Portugal vs England", 85000,
@@ -349,7 +349,7 @@ public static class DatabaseSeeder
             events.Add(sport4);
 
             var addrSport5 = GetValue(
-                Address.Create("United States", "Atlanta", "Mercedes-Benz Stadium", "30313"),
+                Address.Create("United States", "Atlanta", "Mercedes-Benz Stadium", "30313", 33.7554, -84.4008),
                 "address for World Cup Quarter-Final 1");
             var sport5 = GetValue(
                 Event.Create("FIFA World Cup 2027: Quarter-Final — Italy vs Spain", 65000,
@@ -362,7 +362,7 @@ public static class DatabaseSeeder
             events.Add(sport5);
 
             var addrSport6 = GetValue(
-                Address.Create("United States", "Dallas", "AT&T Stadium", "76111"),
+                Address.Create("United States", "Dallas", "AT&T Stadium", "76111", 32.7473, -97.0929),
                 "address for World Cup Quarter-Final 2");
             var sport6 = GetValue(
                 Event.Create("FIFA World Cup 2027: Quarter-Final — Netherlands vs Belgium", 70000,
@@ -375,7 +375,7 @@ public static class DatabaseSeeder
             events.Add(sport6);
 
             var addrSport7 = GetValue(
-                Address.Create("United States", "Miami", "Hard Rock Stadium", "33056"),
+                Address.Create("United States", "Miami", "Hard Rock Stadium", "33056", 25.9570, -80.2388),
                 "address for World Cup Round of 16");
             var sport7 = GetValue(
                 Event.Create("FIFA World Cup 2027: Round of 16 — Uruguay vs Croatia", 55000,
@@ -389,7 +389,7 @@ public static class DatabaseSeeder
 
             // ─── Art ────────────────────────────────────────────────
             var addrArt1 = GetValue(
-                Address.Create("France", "Paris", "Musée du Louvre", "75001"),
+                Address.Create("France", "Paris", "Musée du Louvre", "75001", 48.8606, 2.3376),
                 "address for Louvre Exhibition");
             var art1 = GetValue(
                 Event.Create("Louvre: Masters of Modern Art Exhibition 2027", 25000,
@@ -407,7 +407,7 @@ public static class DatabaseSeeder
             events.Add(art1);
 
             var addrArt2 = GetValue(
-                Address.Create("Japan", "Tokyo", "Mori Arts Center Gallery", "106-6150"),
+                Address.Create("Japan", "Tokyo", "Mori Arts Center Gallery", "106-6150", 35.6604, 139.7292),
                 "address for Tokyo Art Fair");
             var art2 = GetValue(
                 Event.Create("Tokyo International Art Fair 2027", 20000,
@@ -424,7 +424,7 @@ public static class DatabaseSeeder
 
             // ─── Food ───────────────────────────────────────────────
             var addrFood1 = GetValue(
-                Address.Create("Egypt", "Cairo", "Zamalek Corniche", "11511"),
+                Address.Create("Egypt", "Cairo", "Zamalek Corniche", "11511", 30.0629, 31.2188),
                 "address for Cairo Food Festival");
             var food1 = GetValue(
                 Event.Create("Cairo Nile Food Festival 2027", 30000,
@@ -440,7 +440,7 @@ public static class DatabaseSeeder
             events.Add(food1);
 
             var addrFood2 = GetValue(
-                Address.Create("Japan", "Osaka", "Osaka Castle Park", "540-0002"),
+                Address.Create("Japan", "Osaka", "Osaka Castle Park", "540-0002", 34.6873, 135.5262),
                 "address for Osaka Food Fest");
             var food2 = GetValue(
                 Event.Create("Osaka Street Food & Ramen Festival 2027", 40000,
@@ -459,12 +459,12 @@ public static class DatabaseSeeder
 
             // ─── Education ──────────────────────────────────────────
             var addrEdu1 = GetValue(
-                Address.Create("Egypt", "Alexandria", "Bibliotheca Alexandrina", "21526"),
+                Address.Create("Egypt", "Alexandria", "Bibliotheca Alexandrina", "21526", 31.2089, 29.9093),
                 "address for Alexandria Knowledge Summit");
             var edu1 = GetValue(
                 Event.Create("Alexandria Knowledge Summit 2027", 8000,
                     new DateTime(2027, 9, 20, 9, 0, 0),
-                    addrEdu1, "A gathering of scholars, scientists, and thought leaders at the legendary Library of Alexandria.",
+                    addrEdu1, "A gathering of scholars, scientists, and thought leaders at the legendary Library of Alexandria. Keynotes on AI ethics, climate science, and Mediterranean archaeology.",
                     EventType.Education, utcNow),
                 "Alexandria Knowledge Summit");
             edu1.AddTicketType("Academic Pass",
@@ -475,12 +475,12 @@ public static class DatabaseSeeder
             events.Add(edu1);
 
             var addrEdu2 = GetValue(
-                Address.Create("France", "Lyon", "Centre de Congrès de Lyon", "69006"),
+                Address.Create("France", "Lyon", "Centre de Congrès de Lyon", "69006", 45.7836, 4.8492),
                 "address for Lyon Education Forum");
             var edu2 = GetValue(
                 Event.Create("Global Education Leaders Forum Lyon 2027", 5000,
                     new DateTime(2027, 6, 14, 8, 0, 0),
-                    addrEdu2, "Ministers, educators, and EdTech founders reimagining the future of learning.",
+                    addrEdu2, "Ministers, educators, and EdTech founders reimagining the future of learning with hands-on workshops on personalized learning and digital inclusion.",
                     EventType.Education, utcNow),
                 "Lyon Education Forum");
             edu2.AddTicketType("Delegate Pass",
@@ -494,7 +494,7 @@ public static class DatabaseSeeder
 
             // ─── Theater ────────────────────────────────────────────
             var addrTheatre1 = GetValue(
-                Address.Create("Egypt", "Cairo", "Cairo Opera House", "11511"),
+                Address.Create("Egypt", "Cairo", "Cairo Opera House", "11511", 30.0406, 31.2236),
                 "address for Cairo Opera Season");
             var theatre1 = GetValue(
                 Event.Create("Cairo Opera: Aida — Verdi's Masterpiece", 1200,
@@ -507,7 +507,7 @@ public static class DatabaseSeeder
             events.Add(theatre1);
 
             var addrTheatre2 = GetValue(
-                Address.Create("France", "Paris", "Opéra Garnier", "75009"),
+                Address.Create("France", "Paris", "Opéra Garnier", "75009", 48.8720, 2.3316),
                 "address for Paris Ballet");
             var theatre2 = GetValue(
                 Event.Create("Ballet de l'Opéra National de Paris — Swan Lake", 1800,
@@ -521,7 +521,7 @@ public static class DatabaseSeeder
 
             // ─── Outdoors ───────────────────────────────────────────
             var addrOut1 = GetValue(
-                Address.Create("Egypt", "Giza", "Giza Plateau", "12511"),
+                Address.Create("Egypt", "Giza", "Giza Plateau", "12511", 29.9773, 31.1325),
                 "address for Giza Desert Expedition");
             var out1 = GetValue(
                 Event.Create("Giza Desert Safari & Pyramids Camping", 200,
@@ -539,7 +539,7 @@ public static class DatabaseSeeder
             events.Add(out1);
 
             var addrOut2 = GetValue(
-                Address.Create("Australia", "Sydney", "Royal National Park Entrance", "2232"),
+                Address.Create("Australia", "Sydney", "Royal National Park Entrance", "2232", -34.0496, 151.0598),
                 "address for Sydney Coastal Trek");
             var out2 = GetValue(
                 Event.Create("Royal National Park Coastal Trek — Sydney", 150,
@@ -590,11 +590,14 @@ public static class DatabaseSeeder
             {
                 var ticketType = ticketTypes[random.Next(ticketTypes.Count)];
                 int quantity = random.Next(1, 5);
+                var paymentMethod = random.NextDouble() > 0.25
+                    ? PaymentMethod.Instant
+                    : PaymentMethod.Deferred;
 
                 var bookingResult = Booking.Create(
                     userId, eventItem.Id, ticketType.Id,
                     eventItem.EventName.Value, quantity, ticketType.Price,
-                    PaymentMethod.Instant, utcNow);
+                    paymentMethod, utcNow);
 
                 if (bookingResult.IsFailure)
                 {

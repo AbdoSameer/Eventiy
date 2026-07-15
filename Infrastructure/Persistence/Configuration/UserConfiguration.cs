@@ -57,13 +57,14 @@ namespace Infrastructure.Persistence.Configuration
                    .HasDefaultValue(true)
                    .IsRequired();
 
-            builder.Property<byte[]>("RowVersion").IsRowVersion();
+            builder.Property(u => u.RowVersion).IsRowVersion().HasColumnName("RowVersion");
 
             builder.OwnsMany(u => u.RefreshTokens, rt =>
             {
                 rt.ToTable("RefreshTokens");
                 rt.WithOwner().HasForeignKey("UserId");
-                rt.HasKey("Id");
+                rt.HasKey(r => r.Id);
+                rt.Property(r => r.Id).ValueGeneratedOnAdd();
                 rt.Property(r => r.TokenHash).HasMaxLength(128).IsRequired();
                 rt.Property(r => r.ExpiresOnUtc).IsRequired();
                 rt.Property(r => r.CreatedOnUtc).IsRequired();

@@ -7,11 +7,12 @@ using Domain.Errors;
 
 namespace Application.Features.Bookings.Events.BookingCreated;
 
-internal sealed class BookingCreatedValidator : IEventValidator<BookingCreatedEvent>
+internal sealed class BookingCreatedEventValidator : IEventValidator<BookingCreatedEvent>
 {
     private readonly IApplicationReadDbContext _dbContext;
 
-    public BookingCreatedValidator(IApplicationReadDbContext dbContext)
+
+    public BookingCreatedEventValidator(IApplicationReadDbContext dbContext)
     {
         _dbContext = dbContext;
     }

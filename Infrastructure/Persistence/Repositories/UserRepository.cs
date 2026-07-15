@@ -17,25 +17,20 @@ namespace Infrastructure.Persistence.Repositories
         public async Task<User?> GetByEmailAsync(Email email, CancellationToken ct = default) =>
             await _context.Users
                 .Include(u => u.RefreshTokens)
-                .AsNoTracking()
                 .FirstOrDefaultAsync(u => u.Email.Value == email.Value, ct);
 
         public async Task<User?> GetByIdAsync(UserId id, CancellationToken ct = default) =>
             await _context.Users
                 .Include(u => u.RefreshTokens)
-                .AsNoTracking()
                 .FirstOrDefaultAsync(u => u.Id == id, ct);
 
         public async Task<User?> GetByRefreshTokenHashAsync(string tokenHash, CancellationToken ct = default) =>
             await _context.Users
                 .Include(u => u.RefreshTokens)
-                .AsNoTracking()
                 .FirstOrDefaultAsync(u => u.RefreshTokens.Any(t => t.TokenHash == tokenHash), ct);
 
         public async Task AddAsync(User user, CancellationToken ct = default) =>
             await _context.Users.AddAsync(user, ct);
-
-        public void Update(User user) => _context.Users.Update(user);
     }
 
 }

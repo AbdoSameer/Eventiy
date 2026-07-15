@@ -29,16 +29,13 @@ namespace Domain.Aggregates.EventAggregate.Entities
         public int AvailableCount => Capacity - SoldCount - ReservedCount;
 
         public double OccupancyRate => Capacity > 0
-            ? (double)SoldCount / Capacity * 100
-            : 0;
+            ? (double)SoldCount / Capacity * 100 : 0;
 
         public double ReservationRate => Capacity > 0
-            ? (double)ReservedCount / Capacity * 100
-            : 0;
+            ? (double)ReservedCount / Capacity * 100 : 0;
 
         public int UnavailableCount => SoldCount + ReservedCount;
 
-        // Constructors
 
         protected TicketType() : base(default!)
         {

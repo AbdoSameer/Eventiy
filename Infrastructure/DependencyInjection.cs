@@ -1,6 +1,5 @@
 using Application.Abstractions;
 using Application.Abstractions.Caching;
-using Application.Abstractions.Messaging;
 using Application.Abstractions.Outbox;
 using Application.Abstractions.Payments;
 using Application.Abstractions.Persistence;
@@ -92,7 +91,6 @@ public static class DependencyInjection
         services.AddScoped<IEventMetadataFactory, Messaging.EventMetadataFactory>();
         services.AddScoped<IIdempotencyStore, IdempotencyStore>();
         services.AddScoped<IVenueLayoutValidator, VenueLayoutValidator>();
-        services.AddScoped<IPaymentService, StripePaymentGateway>();
         services.Configure<StripeSettings>(configuration.GetSection(StripeSettings.SectionName));
         services.AddHttpContextAccessor();
 
@@ -116,16 +114,25 @@ public static class DependencyInjection
 
         var stripeSettings = configuration.GetSection(StripeSettings.SectionName).Get<StripeSettings>()
             ?? throw new InvalidOperationException(
-                "Stripe settings are not configured. Set Stripe:SecretKey and Stripe:WebhookSecret via User Secrets (dev) or environment variables (prod).");
+                "Stripe settings are not configured. Set Stripe:UseMock=true for development, or Stripe:SecretKey and Stripe:WebhookSecret via User Secrets (dev) or environment variables (prod).");
 
-        if (string.IsNullOrWhiteSpace(stripeSettings.SecretKey))
-            throw new InvalidOperationException("Stripe:SecretKey is required. Use User Secrets for development.");
+        if (stripeSettings.UseMock)
+        {
+            services.AddScoped<IPaymentService, MockPaymentGateway>();
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(stripeSettings.SecretKey))
+                throw new InvalidOperationException("Stripe:SecretKey is required when UseMock=false. Use User Secrets for development.");
 
-        if (string.IsNullOrWhiteSpace(stripeSettings.WebhookSecret))
-            throw new InvalidOperationException("Stripe:WebhookSecret is required. Use User Secrets for development.");
+            if (string.IsNullOrWhiteSpace(stripeSettings.WebhookSecret))
+                throw new InvalidOperationException("Stripe:WebhookSecret is required when UseMock=false. Use User Secrets for development.");
 
-        if (string.IsNullOrWhiteSpace(stripeSettings.SuccessUrl) || string.IsNullOrWhiteSpace(stripeSettings.CancelUrl))
-            throw new InvalidOperationException("Stripe:SuccessUrl and Stripe:CancelUrl are required.");
+            if (string.IsNullOrWhiteSpace(stripeSettings.SuccessUrl) || string.IsNullOrWhiteSpace(stripeSettings.CancelUrl))
+                throw new InvalidOperationException("Stripe:SuccessUrl and Stripe:CancelUrl are required when UseMock=false.");
+
+            services.AddScoped<IPaymentService, StripePaymentGateway>();
+        }
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>

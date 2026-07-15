@@ -169,14 +169,13 @@ export class EventDetailComponent implements OnInit {
           if (result.isSuccess && result.value) {
             if (this.paymentMethod() === 'Instant') {
               const { bookingId, paymentUrl } = result.value;
-              if (paymentUrl) {
+              if (paymentUrl && !paymentUrl.startsWith('mock://')) {
                 sessionStorage.setItem(`paymentUrl:${bookingId}`, paymentUrl);
                 this.toast.showInfo('Redirecting to payment gateway...');
                 window.open(paymentUrl, '_blank');
                 this.toast.showSuccess('Booking created! Complete payment in the new tab.');
                 this.router.navigateByUrl('/dashboard/attendee');
-              } else if (!environment.production) {
-                // Dev mock: confirm booking synchronously
+              } else {
                 this.bookingApp.confirmBooking(bookingId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
                   next: (confirmResult) => {
                     if (confirmResult.isSuccess) {
@@ -191,10 +190,6 @@ export class EventDetailComponent implements OnInit {
                     this.router.navigateByUrl('/dashboard/attendee');
                   },
                 });
-              } else {
-                // Production: paymentUrl is null — this shouldn't happen, but be safe
-                this.toast.showInfo('Booking created. Awaiting payment confirmation.');
-                this.router.navigateByUrl('/dashboard/attendee');
               }
             } else {
               this.loadDeferredBooking(result.value.bookingId);

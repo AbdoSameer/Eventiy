@@ -1,4 +1,4 @@
-﻿using Application.Abstractions.Messaging;
+﻿using Application.Abstractions;
 using Application.Abstractions.Outbox;
 using Domain.Common;
 using Microsoft.Extensions.Logging;

@@ -15,6 +15,7 @@ namespace Domain.Aggregates.UserAggregate
         public string PasswordHash { get; private set; }
         public Role Role { get; private set; }
         public bool IsApproved { get; private set; }
+        public byte[]? RowVersion { get; private set; } = Array.Empty<byte>();
         public string FullName => $"{FirstName} {LastName}".Trim();
         public IReadOnlyCollection<RefreshToken> RefreshTokens => _refreshTokens.AsReadOnly();
 

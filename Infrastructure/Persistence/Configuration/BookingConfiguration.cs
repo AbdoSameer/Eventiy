@@ -156,7 +156,7 @@ namespace Infrastructure.Persistence.Configuration
                    .HasDatabaseName("IX_Bookings_BookingDate_Status");
 
             // ===== Concurrency ============
-            builder.Property<byte[]>("RowVersion")
+            builder.Property(b => b.RowVersion)
                    .IsRowVersion()
                    .HasColumnName("RowVersion");
         }

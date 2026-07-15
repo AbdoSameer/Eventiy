@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class addUserAuthentication : Migration
+    public partial class Allprojectafterfixedissue : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -26,10 +26,13 @@ namespace Infrastructure.Migrations
                     Amount = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
                     Currency = table.Column<string>(type: "nvarchar(3)", maxLength: 3, nullable: false),
                     TotalAmount = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
+                    HoldExpiresAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     ConfirmationDate = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CancellationDate = table.Column<DateTime>(type: "datetime2", nullable: true),
                     RefundDate = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CancellationReason = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    PaymentMethod = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    ReferenceCode = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
                     RowVersion = table.Column<byte[]>(type: "rowversion", rowVersion: true, nullable: true)
                 },
                 constraints: table =>
@@ -49,7 +52,10 @@ namespace Infrastructure.Migrations
                     City = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     Street = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
                     PostalCode = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
+                    Latitude = table.Column<double>(type: "float", nullable: true),
+                    Longitude = table.Column<double>(type: "float", nullable: true),
                     Status = table.Column<int>(type: "int", nullable: false),
+                    Type = table.Column<int>(type: "int", nullable: false),
                     Description = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
                     PublishedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CancelledAt = table.Column<DateTime>(type: "datetime2", nullable: true),
@@ -62,6 +68,25 @@ namespace Infrastructure.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Events", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "OutboxDeadLetters",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    EventName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    Domain = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    Payload = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    OccurredOnUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    IdempotencyKey = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    RetryCount = table.Column<int>(type: "int", nullable: false, defaultValue: 0),
+                    FailedReason = table.Column<string>(type: "nvarchar(4000)", maxLength: 4000, nullable: false),
+                    MovedToDeadLetterAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_OutboxDeadLetters", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -87,6 +112,19 @@ namespace Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "ProcessedEvents",
+                columns: table => new
+                {
+                    EventId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    IdempotencyKey = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    ProcessedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ProcessedEvents", x => x.EventId);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Users",
                 columns: table => new
                 {
@@ -105,6 +143,31 @@ namespace Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "EventPhotos",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    EventId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    FileName = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: false),
+                    StoragePath = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
+                    PublicUrl = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
+                    Caption = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    DisplayOrder = table.Column<int>(type: "int", nullable: false, defaultValue: 0),
+                    IsCover = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
+                    UploadedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETUTCDATE()")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_EventPhotos", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_EventPhotos_Events_EventId",
+                        column: x => x.EventId,
+                        principalTable: "Events",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "TicketTypes",
                 columns: table => new
                 {
@@ -116,6 +179,8 @@ namespace Infrastructure.Migrations
                     Capacity = table.Column<int>(type: "int", nullable: false),
                     SoldCount = table.Column<int>(type: "int", nullable: false, defaultValue: 0),
                     ReservedCount = table.Column<int>(type: "int", nullable: false, defaultValue: 0),
+                    SectionCode = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
+                    VenueType = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
                     RowVersion = table.Column<byte[]>(type: "rowversion", rowVersion: true, nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETUTCDATE()"),
                     LastModifiedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
@@ -127,6 +192,30 @@ namespace Infrastructure.Migrations
                         name: "FK_TicketTypes_Events_EventId",
                         column: x => x.EventId,
                         principalTable: "Events",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "RefreshTokens",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    TokenHash = table.Column<string>(type: "nvarchar(128)", maxLength: 128, nullable: false),
+                    ExpiresOnUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    CreatedOnUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    RevokedOnUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    ReplacedByTokenHash = table.Column<string>(type: "nvarchar(128)", maxLength: 128, nullable: true),
+                    UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_RefreshTokens", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_RefreshTokens_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -152,6 +241,13 @@ namespace Infrastructure.Migrations
                 columns: new[] { "EventId", "Status" });
 
             migrationBuilder.CreateIndex(
+                name: "IX_Bookings_ReferenceCode",
+                table: "Bookings",
+                column: "ReferenceCode",
+                unique: true,
+                filter: "[ReferenceCode] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Bookings_Status",
                 table: "Bookings",
                 column: "Status");
@@ -170,6 +266,16 @@ namespace Infrastructure.Migrations
                 name: "IX_Bookings_UserId_Status",
                 table: "Bookings",
                 columns: new[] { "UserId", "Status" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_EventPhotos_DisplayOrder",
+                table: "EventPhotos",
+                column: "DisplayOrder");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_EventPhotos_EventId_IsCover",
+                table: "EventPhotos",
+                columns: new[] { "EventId", "IsCover" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Events_CreatedAt",
@@ -197,6 +303,11 @@ namespace Infrastructure.Migrations
                 column: "Status");
 
             migrationBuilder.CreateIndex(
+                name: "IX_OutboxDeadLetters_Domain",
+                table: "OutboxDeadLetters",
+                column: "Domain");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_OutboxMessages_Domain",
                 table: "OutboxMessages",
                 column: "Domain");
@@ -221,6 +332,23 @@ namespace Infrastructure.Migrations
                 name: "IX_OutboxMessages_ReadyForProcessing",
                 table: "OutboxMessages",
                 columns: new[] { "ProcessedOnUtc", "NextRetryOnUtc" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProcessedEvents_IdempotencyKey",
+                table: "ProcessedEvents",
+                column: "IdempotencyKey",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RefreshTokens_TokenHash",
+                table: "RefreshTokens",
+                column: "TokenHash",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RefreshTokens_UserId",
+                table: "RefreshTokens",
+                column: "UserId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_TicketTypes_Capacity",
@@ -277,7 +405,19 @@ namespace Infrastructure.Migrations
                 name: "Bookings");
 
             migrationBuilder.DropTable(
+                name: "EventPhotos");
+
+            migrationBuilder.DropTable(
+                name: "OutboxDeadLetters");
+
+            migrationBuilder.DropTable(
                 name: "OutboxMessages");
+
+            migrationBuilder.DropTable(
+                name: "ProcessedEvents");
+
+            migrationBuilder.DropTable(
+                name: "RefreshTokens");
 
             migrationBuilder.DropTable(
                 name: "TicketTypes");

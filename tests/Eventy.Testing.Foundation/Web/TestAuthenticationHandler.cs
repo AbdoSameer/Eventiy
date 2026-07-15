@@ -20,19 +20,19 @@ public class TestAuthenticationHandler : AuthenticationHandler<AuthenticationSch
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        // Support per-request UserId override via X-Test-UserId header.
-        // If absent, falls back to DefaultUserId — preserving backward compatibility.
         var rawUserId = Request.Headers["X-Test-UserId"].FirstOrDefault();
         var userId = rawUserId is not null && Guid.TryParse(rawUserId, out var parsed)
             ? parsed
             : TestUsers.DefaultUserId;
+
+        var role = Request.Headers["X-Test-Role"].FirstOrDefault() ?? "Attendee";
 
         var identity = new ClaimsIdentity(new[]
         {
             new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
             new Claim(ClaimTypes.Name, $"Test User {userId}"),
             new Claim(ClaimTypes.Email, $"user-{userId}@eventy.com"),
-            new Claim(ClaimTypes.Role, "Attendee"),
+            new Claim(ClaimTypes.Role, role),
         }, "Test");
 
         var principal = new ClaimsPrincipal(identity);

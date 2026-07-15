@@ -18,7 +18,7 @@ public static class DependencyInjection
 
         services.AddValidatorsFromAssembly(assembly, includeInternalTypes: true);
 
-        services.AddScoped<IEventValidator<BookingCreatedEvent>, BookingCreatedValidator>();
+        services.AddScoped<IEventValidator<BookingCreatedEvent>, BookingCreatedEventValidator>();
 
         services.AddScoped<IDomainEventHandler<BookingCreatedEvent>, BookingCreatedEventHandler>();
         services.AddScoped<IDomainEventHandler<BookingCancelledEvent>, BookingCancelledEventHandler>();

@@ -19,7 +19,6 @@ namespace Domain.Primitives
         public double? Latitude { get; }
         public double? Longitude { get; }
 
-
         private Address(
             string country,
             string city,

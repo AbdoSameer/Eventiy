@@ -12,7 +12,7 @@ Complete code quality improvements, flash-sale performance optimization, and sec
 - Use built-in .NET abstractions (`TimeProvider`, `ConcurrencyException`, `IDistributedCache`) over custom ones where possible
 
 ## Build Verification
-- **dotnet build Eventy.WebApi**: ✅ 0 errors, 31 pre-existing warnings
+- **dotnet build Eventy.WebApi**: ✅ 0 errors, 40 pre-existing warnings
 - **ng build**: ✅ 0 errors, bundle generation complete
 - **EF migrations (3 pending)**: `AddProcessedEventsAndDeadLetters`, `AddEventTypeAndCoordinates`
 
@@ -124,6 +124,12 @@ Complete code quality improvements, flash-sale performance optimization, and sec
 ### Booking Total Mismatch Fix
 - **Problem**: Seating chart displayed `sum(SeatNode.price)` from mock D3 data, while backend charged `ticketType.Price * quantity`. If mock seat prices differed from the real ticket type price, the two totals didn't match.
 - **Fix**: Added `bookingTotal` computed signal that derives from `eventData.ticketTypes[ticketTypeId].price * store.totalSelected()` — the same formula the backend uses. Floating pill and sidebar now render `bookingTotal()` instead of `store.totalCartPrice()` / `store.totalPrice()`.
+
+### Seed Data Update — Real Coordinates, Realistic Pricing, Mixed PaymentMethods
+- **All 18 events**: Added real `Latitude`/`Longitude` coordinates to `Address.Create()` calls (e.g., Maracanã -22.9121, -43.2302; Louvre 48.8606, 2.3376) enabling nearby-event geolocation queries
+- **SportZones prices normalized**: VVIP Premium Box $81,758 → $8,500; VVIP Sideline Suite $54,300 → $5,500; Premium Corner Suite $7,956 → $3,500; Premium Lounge $6,850 → $2,500; Premium Club $4,700 → $1,800 — all now reflect real-world premium sports ticket ranges
+- **Enriched descriptions**: Added detail to Alexandria Knowledge Summit ("Keynotes on AI ethics, climate science...") and Lyon Education Forum ("hands-on workshops on personalized learning")
+- **Mixed PaymentMethod bookings**: ~75% Instant, ~25% Deferred — seed bookings now exercise both payment flows, creating real `ReferenceCode`/`HoldExpiresAt` values on Deferred bookings
 
 ### Booking Lifecycle Fix
 - Inventory reservation with atomic `ReserveSeats()`, deferred persistence via `ReferenceCode`/`HoldExpiresAt`/`PaymentMethod`, mock `StripePaymentGateway` returning `null` URL for dev, admin booking endpoints, attendee self-cancel for Pending only

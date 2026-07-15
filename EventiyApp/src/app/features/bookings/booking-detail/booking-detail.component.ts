@@ -54,7 +54,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
           </div>
 
           <div class="mt-8 flex flex-wrap gap-3">
-            @if (b.status === 'Pending' && b.paymentMethod === 'Instant' && paymentUrl()) {
+            @if (b.status === 'Pending' && b.paymentMethod === 'Instant' && paymentUrl() && !paymentUrl()!.startsWith('mock://')) {
               <a [href]="paymentUrl()" target="_blank" rel="noopener"
                 class="rounded-full bg-indigo-600 text-white px-6 py-2 font-semibold hover:bg-indigo-700 transition-colors">
                 Complete Payment

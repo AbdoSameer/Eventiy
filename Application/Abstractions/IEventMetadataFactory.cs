@@ -1,4 +1,4 @@
-namespace Application.Abstractions.Messaging;
+namespace Application.Abstractions;
 
 public sealed record EventMetadata(
     string CorrelationId,

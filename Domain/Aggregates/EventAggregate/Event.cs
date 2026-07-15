@@ -79,7 +79,7 @@ namespace Domain.Aggregates.EventAggregate
             if (date < dateTime)
                 return Result<Event>.Failure(EventErrors.InvalidEventDate(date));
 
-            if (location == null || string.IsNullOrWhiteSpace(location.City))
+            if (location is null || string.IsNullOrWhiteSpace(location.City))
                 return Result<Event>.Failure(EventErrors.LocationCannotBeEmpty());
 
             if (description.Length > MAX_DESCRIPTION_LENGTH)
@@ -292,7 +292,7 @@ namespace Domain.Aggregates.EventAggregate
                 return Result.Failure(EventErrors.CannotModifyTicketTypesAfterDraft());
 
             var ticketType = _ticketTypes.FirstOrDefault(t => t.Id == ticketTypeId);
-            if (ticketType == null)
+            if (ticketType is null)
                 return Result.Failure(TicketTypeErrors.TicketTypeNotFound(ticketTypeId));
 
             var oldPrice = ticketType.Price.Amount;
@@ -323,7 +323,7 @@ namespace Domain.Aggregates.EventAggregate
                 return Result.Failure(EventErrors.CannotModifyTicketTypesAfterDraft());
 
             var ticketType = _ticketTypes.FirstOrDefault(t => t.Id == ticketTypeId);
-            if (ticketType == null)
+            if (ticketType is null)
                 return Result.Failure(TicketTypeErrors.TicketTypeNotFound(ticketTypeId));
 
             var oldCapacity = ticketType.Capacity;
@@ -352,7 +352,7 @@ namespace Domain.Aggregates.EventAggregate
                 return Result.Failure(EventErrors.CannotModifyTicketTypesAfterDraft());
 
             var ticketType = _ticketTypes.FirstOrDefault(t => t.Id == ticketTypeId);
-            if (ticketType == null)
+            if (ticketType is null)
                 return Result.Failure(TicketTypeErrors.TicketTypeNotFound(ticketTypeId));
 
             var removeResult = ticketType.Remove();
@@ -551,7 +551,7 @@ namespace Domain.Aggregates.EventAggregate
             if (Status != EventStatus.Draft)
                 return Result.Failure(EventErrors.CannotModifyLocationAfterDraft());
 
-            if (newLocation == null || string.IsNullOrWhiteSpace(newLocation.City))
+            if (newLocation is null || string.IsNullOrWhiteSpace(newLocation.City))
                 return Result.Failure(EventErrors.LocationCannotBeEmpty());
 
             var locationResult = Address.Create(
@@ -633,7 +633,7 @@ namespace Domain.Aggregates.EventAggregate
 
         public Result AdminUpdateLocation(Address newLocation, DateTime utcNow)
         {
-            if (newLocation == null || string.IsNullOrWhiteSpace(newLocation.City))
+            if (newLocation is null || string.IsNullOrWhiteSpace(newLocation.City))
                 return Result.Failure(EventErrors.LocationCannotBeEmpty());
 
             var locationResult = Address.Create(
@@ -684,7 +684,7 @@ namespace Domain.Aggregates.EventAggregate
 
         public Result AddPhoto(EventPhoto photo, DateTime utcNow)
         {
-            if (photo == null)
+            if (photo is null)
                 return Result.Failure(Error.Validation("Event.PhotoNull", "Photo cannot be null."));
 
             if (_photos.Count >= MAX_PHOTOS)
@@ -771,7 +771,7 @@ namespace Domain.Aggregates.EventAggregate
         public Result ReorderPhotos(List<EventPhotoId> orderedIds,
             DateTime utcNow)
         {
-            if (orderedIds == null || orderedIds.Count != _photos.Count)
+            if (orderedIds is null || orderedIds.Count != _photos.Count)
                 return Result.Failure(
                     Error.Validation("Event.InvalidPhotoOrder",
                         "The number of ordered IDs must match the number of photos."));

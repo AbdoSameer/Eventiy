@@ -2,6 +2,7 @@ namespace Domain.Aggregates.UserAggregate;
 
 public sealed class RefreshToken
 {
+    public int Id { get; private set; }
     public string TokenHash { get; private set; } = string.Empty;
     public DateTime ExpiresOnUtc { get; private set; }
     public DateTime CreatedOnUtc { get; private set; }

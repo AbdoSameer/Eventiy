@@ -31,6 +31,7 @@ namespace Domain.Aggregates.BookingAggregate
         public string? CancellationReason { get; private set; }
         public PaymentMethod PaymentMethod { get; private set; }
         public string? ReferenceCode { get; private set; }
+        public byte[]? RowVersion { get; private set; } = Array.Empty<byte>();
 
         private Booking() : base(default!) { }
 

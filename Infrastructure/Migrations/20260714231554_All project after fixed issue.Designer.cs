@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260705120159_AddEventPhotos")]
-    partial class AddEventPhotos
+    [Migration("20260714231554_All project after fixed issue")]
+    partial class Allprojectafterfixedissue
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -60,9 +60,23 @@ namespace Infrastructure.Migrations
                         .HasColumnType("nvarchar(200)")
                         .HasColumnName("EventTitle");
 
+                    b.Property<DateTime?>("HoldExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PaymentMethod")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("PaymentMethod");
+
                     b.Property<int>("Quantity")
                         .HasColumnType("int")
                         .HasColumnName("Quantity");
+
+                    b.Property<string>("ReferenceCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("ReferenceCode");
 
                     b.Property<DateTime?>("RefundDate")
                         .HasColumnType("datetime2")
@@ -100,6 +114,11 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("EventId")
                         .HasDatabaseName("IX_Bookings_EventId");
+
+                    b.HasIndex("ReferenceCode")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Bookings_ReferenceCode")
+                        .HasFilter("[ReferenceCode] IS NOT NULL");
 
                     b.HasIndex("Status")
                         .HasDatabaseName("IX_Bookings_Status");
@@ -184,6 +203,95 @@ namespace Infrastructure.Migrations
                     b.ToTable("EventPhotos", (string)null);
                 });
 
+            modelBuilder.Entity("Domain.Aggregates.EventAggregate.Entities.TicketType", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("Id");
+
+                    b.Property<int>("Capacity")
+                        .HasColumnType("int")
+                        .HasColumnName("Capacity");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasColumnName("CreatedAt")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("EventId");
+
+                    b.Property<DateTime?>("LastModifiedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("LastModifiedAt");
+
+                    b.Property<int>("ReservedCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0)
+                        .HasColumnName("ReservedCount");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion")
+                        .HasColumnName("RowVersion");
+
+                    b.Property<string>("SectionCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("SectionCode");
+
+                    b.Property<int>("SoldCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0)
+                        .HasColumnName("SoldCount");
+
+                    b.Property<string>("TicketTypeName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("Name");
+
+                    b.Property<string>("VenueType")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("VenueType");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Capacity")
+                        .HasDatabaseName("IX_TicketTypes_Capacity");
+
+                    b.HasIndex("EventId")
+                        .HasDatabaseName("IX_TicketTypes_EventId");
+
+                    b.HasIndex("SoldCount")
+                        .HasDatabaseName("IX_TicketTypes_SoldCount");
+
+                    b.HasIndex("TicketTypeName")
+                        .HasDatabaseName("IX_TicketTypes_Name");
+
+                    b.HasIndex("EventId", "ReservedCount")
+                        .HasDatabaseName("IX_TicketTypes_EventId_ReservedCount");
+
+                    b.HasIndex("EventId", "TicketTypeName")
+                        .IsUnique()
+                        .HasDatabaseName("UX_TicketTypes_EventId_Name");
+
+                    b.HasIndex("EventId", "Capacity", "SoldCount")
+                        .HasDatabaseName("IX_TicketTypes_EventId_Capacity_SoldCount");
+
+                    b.HasIndex("EventId", "Capacity", "SoldCount", "ReservedCount")
+                        .HasDatabaseName("IX_TicketTypes_EventId_Capacity_SoldCount_ReservedCount");
+
+                    b.ToTable("TicketTypes", (string)null);
+                });
+
             modelBuilder.Entity("Domain.Aggregates.EventAggregate.Event", b =>
                 {
                     b.Property<Guid>("Id")
@@ -241,6 +349,10 @@ namespace Infrastructure.Migrations
                         .HasColumnType("int")
                         .HasColumnName("Status");
 
+                    b.Property<int>("Type")
+                        .HasColumnType("int")
+                        .HasColumnName("Type");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedAt")
@@ -256,85 +368,6 @@ namespace Infrastructure.Migrations
                         .HasDatabaseName("IX_Events_Date_Status");
 
                     b.ToTable("Events", (string)null);
-                });
-
-            modelBuilder.Entity("Domain.Aggregates.EventAggregate.TicketType", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uniqueidentifier")
-                        .HasColumnName("Id");
-
-                    b.Property<int>("Capacity")
-                        .HasColumnType("int")
-                        .HasColumnName("Capacity");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("CreatedAt")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<Guid>("EventId")
-                        .HasColumnType("uniqueidentifier")
-                        .HasColumnName("EventId");
-
-                    b.Property<DateTime?>("LastModifiedAt")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("LastModifiedAt");
-
-                    b.Property<int>("ReservedCount")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(0)
-                        .HasColumnName("ReservedCount");
-
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion")
-                        .HasColumnName("RowVersion");
-
-                    b.Property<int>("SoldCount")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(0)
-                        .HasColumnName("SoldCount");
-
-                    b.Property<string>("TicketTypeName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
-                        .HasColumnName("Name");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Capacity")
-                        .HasDatabaseName("IX_TicketTypes_Capacity");
-
-                    b.HasIndex("EventId")
-                        .HasDatabaseName("IX_TicketTypes_EventId");
-
-                    b.HasIndex("SoldCount")
-                        .HasDatabaseName("IX_TicketTypes_SoldCount");
-
-                    b.HasIndex("TicketTypeName")
-                        .HasDatabaseName("IX_TicketTypes_Name");
-
-                    b.HasIndex("EventId", "ReservedCount")
-                        .HasDatabaseName("IX_TicketTypes_EventId_ReservedCount");
-
-                    b.HasIndex("EventId", "TicketTypeName")
-                        .IsUnique()
-                        .HasDatabaseName("UX_TicketTypes_EventId_Name");
-
-                    b.HasIndex("EventId", "Capacity", "SoldCount")
-                        .HasDatabaseName("IX_TicketTypes_EventId_Capacity_SoldCount");
-
-                    b.HasIndex("EventId", "Capacity", "SoldCount", "ReservedCount")
-                        .HasDatabaseName("IX_TicketTypes_EventId_Capacity_SoldCount_ReservedCount");
-
-                    b.ToTable("TicketTypes", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Aggregates.UserAggregate.User", b =>
@@ -378,6 +411,55 @@ namespace Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Users", (string)null);
+                });
+
+            modelBuilder.Entity("Infrastructure.Persistence.Outbox.OutboxDeadLetter", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Domain")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("EventName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("FailedReason")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("MovedToDeadLetterAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("OccurredOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("RetryCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Domain")
+                        .HasDatabaseName("IX_OutboxDeadLetters_Domain");
+
+                    b.ToTable("OutboxDeadLetters", (string)null);
                 });
 
             modelBuilder.Entity("Infrastructure.Persistence.Outbox.OutboxMessage", b =>
@@ -450,6 +532,28 @@ namespace Infrastructure.Migrations
                     b.ToTable("OutboxMessages", (string)null);
                 });
 
+            modelBuilder.Entity("Infrastructure.Persistence.ProcessedEvent", b =>
+                {
+                    b.Property<Guid>("EventId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("ProcessedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("EventId");
+
+                    b.HasIndex("IdempotencyKey")
+                        .IsUnique();
+
+                    b.ToTable("ProcessedEvents", (string)null);
+                });
+
             modelBuilder.Entity("Domain.Aggregates.BookingAggregate.Booking", b =>
                 {
                     b.OwnsOne("Domain.Primitives.Money", "Money", b1 =>
@@ -486,6 +590,43 @@ namespace Infrastructure.Migrations
                         .WithMany("Photos")
                         .HasForeignKey("EventId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Domain.Aggregates.EventAggregate.Entities.TicketType", b =>
+                {
+                    b.HasOne("Domain.Aggregates.EventAggregate.Event", null)
+                        .WithMany("TicketTypes")
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_TicketTypes_Events_EventId");
+
+                    b.OwnsOne("Domain.Primitives.Money", "Price", b1 =>
+                        {
+                            b1.Property<Guid>("TicketTypeId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<decimal>("Amount")
+                                .HasPrecision(18, 2)
+                                .HasColumnType("decimal(18,2)")
+                                .HasColumnName("Price");
+
+                            b1.Property<string>("Currency")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("nvarchar(3)")
+                                .HasColumnName("Currency");
+
+                            b1.HasKey("TicketTypeId");
+
+                            b1.ToTable("TicketTypes");
+
+                            b1.WithOwner()
+                                .HasForeignKey("TicketTypeId");
+                        });
+
+                    b.Navigation("Price")
                         .IsRequired();
                 });
 
@@ -530,6 +671,14 @@ namespace Infrastructure.Migrations
                                 .HasColumnType("nvarchar(100)")
                                 .HasColumnName("Country");
 
+                            b1.Property<double?>("Latitude")
+                                .HasColumnType("float")
+                                .HasColumnName("Latitude");
+
+                            b1.Property<double?>("Longitude")
+                                .HasColumnType("float")
+                                .HasColumnName("Longitude");
+
                             b1.Property<string>("PostalCode")
                                 .HasMaxLength(20)
                                 .HasColumnType("nvarchar(20)")
@@ -556,45 +705,50 @@ namespace Infrastructure.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Domain.Aggregates.EventAggregate.TicketType", b =>
-                {
-                    b.HasOne("Domain.Aggregates.EventAggregate.Event", null)
-                        .WithMany("TicketTypes")
-                        .HasForeignKey("EventId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("FK_TicketTypes_Events_EventId");
-
-                    b.OwnsOne("Domain.Primitives.Money", "Price", b1 =>
-                        {
-                            b1.Property<Guid>("TicketTypeId")
-                                .HasColumnType("uniqueidentifier");
-
-                            b1.Property<decimal>("Amount")
-                                .HasPrecision(18, 2)
-                                .HasColumnType("decimal(18,2)")
-                                .HasColumnName("Price");
-
-                            b1.Property<string>("Currency")
-                                .IsRequired()
-                                .HasMaxLength(3)
-                                .HasColumnType("nvarchar(3)")
-                                .HasColumnName("Currency");
-
-                            b1.HasKey("TicketTypeId");
-
-                            b1.ToTable("TicketTypes");
-
-                            b1.WithOwner()
-                                .HasForeignKey("TicketTypeId");
-                        });
-
-                    b.Navigation("Price")
-                        .IsRequired();
-                });
-
             modelBuilder.Entity("Domain.Aggregates.UserAggregate.User", b =>
                 {
+                    b.OwnsMany("Domain.Aggregates.UserAggregate.RefreshToken", "RefreshTokens", b1 =>
+                        {
+                            b1.Property<int>("Id")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("int");
+
+                            SqlServerPropertyBuilderExtensions.UseIdentityColumn(b1.Property<int>("Id"));
+
+                            b1.Property<DateTime>("CreatedOnUtc")
+                                .HasColumnType("datetime2");
+
+                            b1.Property<DateTime>("ExpiresOnUtc")
+                                .HasColumnType("datetime2");
+
+                            b1.Property<string>("ReplacedByTokenHash")
+                                .HasMaxLength(128)
+                                .HasColumnType("nvarchar(128)");
+
+                            b1.Property<DateTime?>("RevokedOnUtc")
+                                .HasColumnType("datetime2");
+
+                            b1.Property<string>("TokenHash")
+                                .IsRequired()
+                                .HasMaxLength(128)
+                                .HasColumnType("nvarchar(128)");
+
+                            b1.Property<Guid>("UserId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.HasKey("Id");
+
+                            b1.HasIndex("TokenHash")
+                                .IsUnique();
+
+                            b1.HasIndex("UserId");
+
+                            b1.ToTable("RefreshTokens", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("UserId");
+                        });
+
                     b.OwnsOne("Domain.Aggregates.UserAggregate.ValueObject.Email", "Email", b1 =>
                         {
                             b1.Property<Guid>("UserId")
@@ -619,6 +773,8 @@ namespace Infrastructure.Migrations
 
                     b.Navigation("Email")
                         .IsRequired();
+
+                    b.Navigation("RefreshTokens");
                 });
 
             modelBuilder.Entity("Domain.Aggregates.EventAggregate.Event", b =>

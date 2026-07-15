@@ -308,8 +308,12 @@ export class SeatingChartComponent implements AfterViewInit, OnDestroy {
         if (result.isSuccess && result.value) {
           const { bookingId, paymentUrl } = result.value;
           if (this.paymentMethod() === 'Instant' && paymentUrl) {
-            sessionStorage.setItem(`paymentUrl:${bookingId}`, paymentUrl);
-            window.open(paymentUrl, '_blank');
+            if (paymentUrl.startsWith('mock://')) {
+              this.bookingApp.confirmBooking(bookingId).pipe(takeUntil(this.destroy$)).subscribe();
+            } else {
+              sessionStorage.setItem(`paymentUrl:${bookingId}`, paymentUrl);
+              window.open(paymentUrl, '_blank');
+            }
           }
           this.pushToast({
             kind: 'success',

@@ -50,35 +50,25 @@ public sealed class EventPhoto : Entity<EventPhotoId>
         DateTime utcNow)
     {
         if (string.IsNullOrWhiteSpace(fileName))
-            return Result<EventPhoto>.Failure(
-                Error.Validation("EventPhoto.FileNameEmpty", "File name cannot be empty."));
+            return Result<EventPhoto>.Failure(EventPhotoErrors.FileNameCannotBeEmpty());
 
         if (fileName.Length > MAX_FILE_NAME_LENGTH)
-            return Result<EventPhoto>.Failure(
-                Error.Validation("EventPhoto.FileNameTooLong",
-                    $"File name cannot exceed {MAX_FILE_NAME_LENGTH} characters."));
+            return Result<EventPhoto>.Failure(EventPhotoErrors.FileNameTooLong(MAX_FILE_NAME_LENGTH));
 
         if (string.IsNullOrWhiteSpace(storagePath))
-            return Result<EventPhoto>.Failure(
-                Error.Validation("EventPhoto.StoragePathEmpty", "Storage path cannot be empty."));
+            return Result<EventPhoto>.Failure(EventPhotoErrors.StoragePathCannotBeEmpty());
 
         if (storagePath.Length > MAX_STORAGE_PATH_LENGTH)
-            return Result<EventPhoto>.Failure(
-                Error.Validation("EventPhoto.StoragePathTooLong",
-                    $"Storage path cannot exceed {MAX_STORAGE_PATH_LENGTH} characters."));
+            return Result<EventPhoto>.Failure(EventPhotoErrors.StoragePathTooLong(MAX_STORAGE_PATH_LENGTH));
 
         if (string.IsNullOrWhiteSpace(publicUrl))
-            return Result<EventPhoto>.Failure(
-                Error.Validation("EventPhoto.PublicUrlEmpty", "Public URL cannot be empty."));
+            return Result<EventPhoto>.Failure(EventPhotoErrors.PublicUrlCannotBeEmpty());
 
         if (publicUrl.Length > MAX_PUBLIC_URL_LENGTH)
-            return Result<EventPhoto>.Failure(
-                Error.Validation("EventPhoto.PublicUrlTooLong",
-                    $"Public URL cannot exceed {MAX_PUBLIC_URL_LENGTH} characters."));
+            return Result<EventPhoto>.Failure(EventPhotoErrors.PublicUrlTooLong(MAX_PUBLIC_URL_LENGTH));
 
         if (displayOrder < 0)
-            return Result<EventPhoto>.Failure(
-                Error.Validation("EventPhoto.InvalidDisplayOrder", "Display order cannot be negative."));
+            return Result<EventPhoto>.Failure(EventPhotoErrors.InvalidDisplayOrder());
 
         var idResult = EventPhotoId.Create(Guid.NewGuid());
         if (idResult.IsFailure)
@@ -92,8 +82,7 @@ public sealed class EventPhoto : Entity<EventPhotoId>
     public Result SetCover()
     {
         if (IsCover)
-            return Result.Failure(
-                Error.Conflict("EventPhoto.AlreadyCover", "This photo is already the cover."));
+            return Result.Failure(EventPhotoErrors.AlreadyCover());
 
         IsCover = true;
         return Result.Success();
@@ -102,8 +91,7 @@ public sealed class EventPhoto : Entity<EventPhotoId>
     public Result RemoveCover()
     {
         if (!IsCover)
-            return Result.Failure(
-                Error.Conflict("EventPhoto.NotCover", "This photo is not the cover."));
+            return Result.Failure(EventPhotoErrors.NotCover());
 
         IsCover = false;
         return Result.Success();
@@ -112,19 +100,16 @@ public sealed class EventPhoto : Entity<EventPhotoId>
     public Result UpdateCaption(string? caption)
     {
         if (caption?.Length > MAX_CAPTION_LENGTH)
-            return Result<EventPhoto>.Failure(
-                Error.Validation("EventPhoto.CaptionTooLong",
-                    $"Caption cannot exceed {MAX_CAPTION_LENGTH} characters."));
+            return Result.Failure(EventPhotoErrors.CaptionTooLong(MAX_CAPTION_LENGTH));
 
-        Caption = caption?.Trim();
+        Caption = string.IsNullOrWhiteSpace(caption) ? null : caption.Trim();
         return Result.Success();
     }
 
     public Result UpdateDisplayOrder(int displayOrder)
     {
         if (displayOrder < 0)
-            return Result.Failure(
-                Error.Validation("EventPhoto.InvalidDisplayOrder", "Display order cannot be negative."));
+            return Result.Failure(EventPhotoErrors.InvalidDisplayOrder());
 
         DisplayOrder = displayOrder;
         return Result.Success();
