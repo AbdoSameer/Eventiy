@@ -24,8 +24,6 @@ namespace Application.Features.Bookings.Command.CreateBooking
         private readonly ICacheService _cache;
         private readonly IPaymentService _paymentService;
 
-        private const int MAX_CONCURRENCY_RETRIES = 3;
-
         public CreateBookingCommandHandler(
             IServiceScopeFactory scopeFactory,
             TimeProvider dateTimeProvider,
@@ -54,23 +52,14 @@ namespace Application.Features.Bookings.Command.CreateBooking
             if (eventIdResult.IsFailure)
                 return Result<CreateBookingResponse>.Failure(eventIdResult.Errors.ToArray());
 
-            for (var attempt = 1; attempt <= MAX_CONCURRENCY_RETRIES; attempt++)
-            {
-                try
-                {
-                    return await AttemptBooking(
-                        userIdResult.Value,
-                        eventIdResult.Value,
-                        ticketTypeIdResult.Value,
-                        request,
-                        cancellationToken);
-                }
-                catch (ConcurrencyException) when (attempt < MAX_CONCURRENCY_RETRIES)
-                {
-                }
-            }
-
-            return Result<CreateBookingResponse>.Failure(BookingErrors.ConcurrencyConflict());
+            return await ConcurrencyRetryHelper.ExecuteWithConcurrencyRetryAsync(
+                () => AttemptBooking(
+                    userIdResult.Value,
+                    eventIdResult.Value,
+                    ticketTypeIdResult.Value,
+                    request,
+                    cancellationToken),
+                cancellationToken);
         }
 
         private async Task<Result<CreateBookingResponse>> AttemptBooking(

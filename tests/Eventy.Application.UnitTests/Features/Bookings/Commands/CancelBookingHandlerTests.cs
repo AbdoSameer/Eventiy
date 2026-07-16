@@ -14,6 +14,7 @@ using Domain.Aggregates.UserAggregate.ValueObject;
 using Domain.Common;
 using Domain.Primitives;
 using FluentAssertions;
+using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using Xunit;
 
@@ -50,9 +51,20 @@ public class CancelBookingHandlerTests
             .Returns(Task.FromResult<Event?>(_sampleEvent));
         _uow.CommitAsync(Arg.Any<CancellationToken>()).Returns(1);
 
+        var serviceProvider = Substitute.For<IServiceProvider>();
+        serviceProvider.GetService(typeof(IBookingRepository)).Returns(_bookingRepo);
+        serviceProvider.GetService(typeof(IEventRepository)).Returns(_eventRepo);
+        serviceProvider.GetService(typeof(IUnitOfWork)).Returns(_uow);
+        serviceProvider.GetService(typeof(IUserRepository)).Returns(_userRepo);
+
+        var scope = Substitute.For<IServiceScope>();
+        scope.ServiceProvider.Returns(serviceProvider);
+
+        var scopeFactory = Substitute.For<IServiceScopeFactory>();
+        scopeFactory.CreateScope().Returns(scope);
+
         _handler = new CancelBookingCommandHandler(
-            _bookingRepo, _eventRepo, _uow, _timeProvider,
-            _userRepo, _currentUser, _cache);
+            scopeFactory, _timeProvider, _currentUser, _cache);
     }
 
     private static Event? CreateSampleEvent()

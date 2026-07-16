@@ -39,6 +39,7 @@ public class CreateBookingPendingFirstTests
     private readonly TimeProvider _timeProvider;
     private readonly Event _sampleEvent;
     private readonly CreateBookingCommandHandler _bookingHandler;
+    private readonly IServiceScopeFactory _scopeFactory;
 
     public CreateBookingPendingFirstTests()
     {
@@ -69,15 +70,16 @@ public class CreateBookingPendingFirstTests
         serviceProvider.GetService(typeof(IEventRepository)).Returns(_eventRepo);
         serviceProvider.GetService(typeof(IUnitOfWork)).Returns(_unitOfWork);
         serviceProvider.GetService(typeof(ICompensationLogRepository)).Returns(_compensationRepo);
+        serviceProvider.GetService(typeof(IIdempotencyStore)).Returns(_idempotencyStore);
 
         var scope = Substitute.For<IServiceScope>();
         scope.ServiceProvider.Returns(serviceProvider);
 
-        var scopeFactory = Substitute.For<IServiceScopeFactory>();
-        scopeFactory.CreateScope().Returns(scope);
+        _scopeFactory = Substitute.For<IServiceScopeFactory>();
+        _scopeFactory.CreateScope().Returns(scope);
 
         _bookingHandler = new CreateBookingCommandHandler(
-            scopeFactory, _timeProvider, _currentUser, _cache, _paymentService);
+            _scopeFactory, _timeProvider, _currentUser, _cache, _paymentService);
     }
 
     private CreateBookingCommand InstantCommand() => new()
@@ -281,7 +283,7 @@ public class CreateBookingPendingFirstTests
             .Returns(false);
 
         var webhookHandler = new ConfirmBookingFromWebhookCommandHandler(
-            _bookingRepo, _eventRepo, _unitOfWork, _idempotencyStore, _timeProvider, _cache);
+            _scopeFactory, _timeProvider, _cache);
 
         var stripeEventId = "evt_test_" + Guid.NewGuid().ToString("N");
         var command = new ConfirmBookingFromWebhookCommand(booking.Id.Value, stripeEventId);
