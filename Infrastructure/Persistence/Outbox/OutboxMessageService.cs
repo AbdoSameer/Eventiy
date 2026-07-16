@@ -39,11 +39,10 @@ public sealed class OutboxMessageService : IOutboxMessageService
 
         var messages = events.Select(de =>
         {
-            var id = Guid.NewGuid();
             var payload = _serializer.Serialize(de);
-            var idempotencyKey = ComputeIdempotencyKey(id, de, metadata, payload);
+            var idempotencyKey = ComputeIdempotencyKey(de, metadata, payload);
             return new OutboxMessageDto(
-                Id: id,
+                Id: de.Id,
                 EventName: de.Name,
                 Domain: de.Domain,
                 Payload: payload,
@@ -63,17 +62,17 @@ public sealed class OutboxMessageService : IOutboxMessageService
             string.Join(", ", events.Select(e => e.Name)));
     }
 
-    private static string ComputeIdempotencyKey(Guid messageId, IDomainEvent domainEvent, EventMetadata metadata, string payload)
+    private static string ComputeIdempotencyKey(IDomainEvent domainEvent, EventMetadata metadata, string payload)
     {
         if (!string.IsNullOrWhiteSpace(metadata.CorrelationId))
         {
-            var correlationKey = $"{domainEvent.Name}_{metadata.CorrelationId}_{messageId:N}";
+            var correlationKey = $"{domainEvent.Name}_{domainEvent.Id:N}";
             return correlationKey.Length <= 100
                 ? correlationKey
                 : correlationKey[..100];
         }
 
-        var raw = $"{domainEvent.Name}_{domainEvent.OccurredOnUtc:O}_{messageId:N}_{payload}";
+        var raw = $"{domainEvent.Name}_{domainEvent.Id:N}_{payload}";
         var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(raw));
         return Convert.ToHexString(hashBytes)[..32];
     }

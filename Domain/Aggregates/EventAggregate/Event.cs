@@ -433,7 +433,7 @@ namespace Domain.Aggregates.EventAggregate
             if (confirmResult.IsFailure)
                 return confirmResult;
 
-            RaiseDomainEvent(new TicketTypeSeatsReservedEvent(
+            RaiseDomainEvent(new TicketTypeReservationConfirmedEvent(
                 ticketTypeId,
                 Id,
                 quantity,
@@ -457,7 +457,7 @@ namespace Domain.Aggregates.EventAggregate
             if (refundResult.IsFailure)
                 return refundResult;
 
-            RaiseDomainEvent(new TicketTypeSeatsReleasedEvent(
+            RaiseDomainEvent(new TicketTypeSeatsRefundedEvent(
                 ticketTypeId,
                 Id,
                 quantity,
@@ -794,11 +794,6 @@ namespace Domain.Aggregates.EventAggregate
                 Id, "Reordered", _photos.Count, utcNow));
 
             return Result.Success();
-        }
-
-        public int GetRemainingCapacity()
-        {
-            return _ticketTypes.Sum(t => t.Capacity - t.SoldCount);
         }
 
         public int GetReservedCount()

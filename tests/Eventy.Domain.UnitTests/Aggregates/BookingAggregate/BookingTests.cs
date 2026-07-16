@@ -182,21 +182,6 @@ public class BookingTests
 
     #endregion
 
-    #region UpdateQuantity
-
-    [Fact]
-    public void UpdateQuantity_WhenPending_ShouldUpdateQuantity()
-    {
-        var booking = CreateValidBooking(quantity: 2).Value;
-
-        var result = booking.UpdateQuantity(5, UtcNow);
-
-        result.IsSuccess.Should().BeTrue();
-        booking.Quantity.Should().Be(5);
-    }
-
-    #endregion
-
     #region CanBeModified / IsActive
 
     [Fact]

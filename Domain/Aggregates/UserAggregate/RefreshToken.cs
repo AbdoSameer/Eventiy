@@ -9,8 +9,6 @@ public sealed class RefreshToken
     public DateTime? RevokedOnUtc { get; private set; }
     public string? ReplacedByTokenHash { get; private set; }
 
-    public bool IsActive => RevokedOnUtc is null && DateTime.UtcNow < ExpiresOnUtc;
-
     private RefreshToken() { }
 
     public static RefreshToken Create(string tokenHash, DateTime expiresOnUtc, DateTime utcNow) => new()
@@ -25,4 +23,10 @@ public sealed class RefreshToken
         RevokedOnUtc = utcNow;
         ReplacedByTokenHash = replacedByTokenHash;
     }
+
+    public bool IsActiveAt(DateTime utcNow) => RevokedOnUtc is null && utcNow < ExpiresOnUtc;
+
+    public bool IsExpiredAt(DateTime utcNow) => RevokedOnUtc is null && utcNow >= ExpiresOnUtc;
+
+    public bool IsRevoked => RevokedOnUtc is not null;
 }

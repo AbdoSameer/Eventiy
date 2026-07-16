@@ -44,8 +44,17 @@ public sealed class UnitOfWork : IUnitOfWork
             throw new ConcurrencyException(
                 "A concurrency conflict occurred while saving changes. The data was modified by another process.", ex);
         }
-    }
+        catch (DbUpdateException ex) when (IsDuplicateIdempotencyKeyError(ex))
+        {
+            _logger?.LogWarning(
+                ex,
+                "Duplicate IdempotencyKey detected — outbox messages were already staged by a prior transaction. Ignoring.");
 
+            DetachAllTrackedEntities();
+
+            return 0;
+        }
+    }
 
     public async Task<int> CommitWithoutEventsAsync(CancellationToken cancellationToken = default)
         => await _context.SaveChangesAsync(cancellationToken);
@@ -64,5 +73,25 @@ public sealed class UnitOfWork : IUnitOfWork
         aggregates.ForEach(a => a.ClearDomainEvents());
 
         return events;
+    }
+
+    private static bool IsDuplicateIdempotencyKeyError(DbUpdateException ex)
+    {
+        if (ex.InnerException is not Microsoft.Data.SqlClient.SqlException sqlEx)
+            return false;
+
+        const int uniqueConstraintViolation = 2601;
+        const int uniqueKeyViolation = 2627;
+
+        return sqlEx.Number == uniqueConstraintViolation
+            || sqlEx.Number == uniqueKeyViolation;
+    }
+
+    private void DetachAllTrackedEntities()
+    {
+        foreach (var entry in _context.ChangeTracker.Entries().ToList())
+        {
+            entry.State = EntityState.Detached;
+        }
     }
 }

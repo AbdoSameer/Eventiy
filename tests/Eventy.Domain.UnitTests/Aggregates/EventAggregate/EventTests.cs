@@ -241,15 +241,7 @@ public class EventTests
 
     #endregion
 
-    #region GetRemainingCapacity / HasAvailableSeats
-
-    [Fact]
-    public void GetRemainingCapacity_WithNoReservations_ShouldReturnTotalCapacity()
-    {
-        var (@event, _) = CreatePublishedEventWithTickets(100, 100);
-
-        @event.GetRemainingCapacity().Should().Be(100);
-    }
+    #region HasAvailableSeats
 
     [Fact]
     public void HasAvailableSeats_WhenSoldOut_ShouldReturnFalse()

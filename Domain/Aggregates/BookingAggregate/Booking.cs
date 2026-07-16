@@ -242,27 +242,6 @@ namespace Domain.Aggregates.BookingAggregate
             return Result.Success();
         }
 
-        public Result UpdateQuantity(int newQuantity, DateTime utcNow)
-        {
-            if (Status != BookingStatusEnum.Pending)
-                return Result.Failure(BookingErrors.BookingNotPending(Id.Value, Status));
-
-            if (newQuantity <= 0)
-                return Result.Failure(BookingErrors.QuantityMustBeGreaterThanZero());
-
-            if (newQuantity > MAX_QUANTITY_PER_BOOKING)
-                return Result.Failure(BookingErrors.MaximumQuantityExceeded(MAX_QUANTITY_PER_BOOKING));
-
-            // Recalculate total amount
-            var oldTotal = TotalAmount;
-            Quantity = newQuantity;
-            TotalAmount = Money.Amount * newQuantity;
-
-            RaiseDomainEvent(new BookingQuantityUpdatedEvent(Id, oldTotal, TotalAmount, utcNow));
-
-            return Result.Success();
-        }
-
         // Helper method to check if booking can be modified
         public bool CanBeModified()
         {

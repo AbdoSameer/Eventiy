@@ -40,13 +40,9 @@ public class Result<TValue> : Result, IValidationResult<Result<TValue>>
         ? _value!
         : throw new InvalidOperationException("Cannot access the value of a failed result.");
 
-    public static implicit operator Result<TValue>(TValue? value) =>
-        value is not null ? Success(value) : Failure(Error.NullValue);
-
     public static Result<TValue> Success(TValue value) => new(true, value, [Error.None]);
 
     public new static Result<TValue> Failure(params Error[] errors) => new(false, default, errors);
 
     public new static Result<TValue> CreateFailure(Error[] errors) => new(false, default, errors);
-
 }

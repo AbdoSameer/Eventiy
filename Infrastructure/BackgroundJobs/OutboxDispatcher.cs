@@ -104,30 +104,39 @@ public sealed class OutboxDispatcher : IOutboxDispatcher
         var domainEvent = deserializeResult.Value;
         var eventType = domainEvent.GetType();
 
+        var handlerType = typeof(IDomainEventHandler<>).MakeGenericType(eventType);
+        var handler = serviceProvider.GetService(handlerType);
+
+        if (handler is null)
+        {
+            _logger.LogDebug("No handler registered for {EventType}", messageDto.EventName);
+            return Result.Success();
+        }
+
+        var handlerName = handler.GetType().Name;
+        var handleMethod = handlerType.GetMethod("HandleAsync")!;
+
         try
         {
-            var handlerType = typeof(IDomainEventHandler<>).MakeGenericType(eventType);
-            var handler = serviceProvider.GetService(handlerType);
-
-            if (handler is null)
-            {
-                _logger.LogDebug("No handler registered for {EventType}", messageDto.EventName);
-                return Result.Success();
-            }
-
-            var handleMethod = handlerType.GetMethod("HandleAsync")!;
             var task = (Task<Result>)handleMethod.Invoke(handler, [domainEvent, cancellationToken])!;
-
             return await task;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Handler failed for message {MessageId}", messageDto.Id);
+            var domainEx = new DomainEventHandlerException(
+                messageDto.EventName,
+                handlerName,
+                $"Handler '{handlerName}' failed to process event '{messageDto.EventName}': {ex.Message}",
+                ex);
+
+            _logger.LogError(domainEx,
+                "[Domain Event Failure] Handler '{HandlerName}' failed to process event '{EventName}' for message {MessageId}. Reason: {Reason}",
+                handlerName, messageDto.EventName, messageDto.Id, ex.Message);
 
             return Result.Failure(
                 Error.Failure(
                     "Outbox.HandlerFailed",
-                    $"Event handler failed: {ex.Message}"));
+                    $"Handler '{handlerName}' failed for event '{messageDto.EventName}': {ex.Message}"));
         }
     }
 

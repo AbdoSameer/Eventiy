@@ -173,7 +173,7 @@ namespace Domain.Primitives
         public bool IsNegative() => Amount < 0;
 
         // ===== CONVERSION =====
-        public static implicit operator decimal(Money money) => money.Amount;
+        public decimal ToDecimal() => Amount;
 
 
         public Result<string> ToCurrencyFormat()
@@ -197,19 +197,6 @@ namespace Domain.Primitives
         {
             yield return Amount;
             yield return Currency;
-        }
-
-        public override bool Equals(object? obj)
-        {
-            if (obj is not Money other)
-                return false;
-
-            return Currency == other.Currency && Amount == other.Amount;
-        }
-
-        public override int GetHashCode()
-        {
-            return HashCode.Combine(Currency, Amount);
         }
 
         public override string ToString()

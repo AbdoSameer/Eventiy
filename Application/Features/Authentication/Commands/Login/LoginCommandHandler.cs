@@ -16,6 +16,8 @@ namespace Application.Features.Authentication.Commands.Login
         IUnitOfWork unitOfWork,
         TimeProvider dateTimeProvider) : ICommandHandler<LoginCommand, AuthResponse>
     {
+        private const string DummyHash = "$2a$12$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
+
         public async Task<Result<AuthResponse>> Handle(
             LoginCommand command, CancellationToken cancellationToken)
         {
@@ -24,8 +26,12 @@ namespace Application.Features.Authentication.Commands.Login
                 return Result<AuthResponse>.Failure(UserErrors.InvalidCredentials());
 
             var user = await userRepository.GetByEmailAsync(emailResult.Value, cancellationToken);
+
             if (user is null)
+            {
+                passwordHasher.Verify(command.Password, DummyHash);
                 return Result<AuthResponse>.Failure(UserErrors.InvalidCredentials());
+            }
 
             var isPasswordValid = passwordHasher.Verify(command.Password, user.GetPasswordHash());
             if (!isPasswordValid)
@@ -48,5 +54,4 @@ namespace Application.Features.Authentication.Commands.Login
                 RefreshToken: refreshTokenRaw));
         }
     }
-
 }

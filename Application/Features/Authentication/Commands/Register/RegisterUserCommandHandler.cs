@@ -8,7 +8,6 @@ using Domain.Aggregates.UserAggregate.ValueObject;
 using Domain.Common;
 using Domain.Errors;
 
-
 namespace Application.Features.Authentication.Commands.Register
 {
     internal sealed class RegisterUserCommandHandler(
@@ -35,8 +34,8 @@ namespace Application.Features.Authentication.Commands.Register
 
             var passwordHash = passwordHasher.Hash(command.Password);
 
-            var requiresApproval = roleResult.Value == Role.Organizer;
-        
+            var requiresApproval = roleResult.Value.RequiresApproval;
+
             var utcNow = dateTimeProvider.GetUtcNow().UtcDateTime;
             var userResult = User.Create(
                 command.FirstName,
@@ -54,11 +53,6 @@ namespace Application.Features.Authentication.Commands.Register
 
             await userRepository.AddAsync(user, cancellationToken);
 
-            var rows = await unitOfWork.CommitAsync(cancellationToken);
-            if (rows <= 0)
-                return Result<AuthResponse>.Failure(
-                    Error.Failure("User.RegistrationFailed", "Failed to persist user."));
-
             var token = default(string?);
             var expiresAt = default(DateTime?);
             var refreshTokenRaw = default(string?);
@@ -74,7 +68,10 @@ namespace Application.Features.Authentication.Commands.Register
                 user.IssueRefreshToken(refreshTokenHash, utcNow.AddDays(7), utcNow);
             }
 
-            await unitOfWork.CommitAsync(cancellationToken);
+            var rows = await unitOfWork.CommitAsync(cancellationToken);
+            if (rows <= 0)
+                return Result<AuthResponse>.Failure(
+                    Error.Failure("User.RegistrationFailed", "Failed to persist user."));
 
             return Result<AuthResponse>.Success(new AuthResponse(
                 user.Id.Value,
@@ -86,5 +83,4 @@ namespace Application.Features.Authentication.Commands.Register
                 refreshTokenRaw));
         }
     }
-
 }

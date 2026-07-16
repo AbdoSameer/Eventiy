@@ -26,12 +26,15 @@ internal sealed class RefreshTokenCommandHandler(
         var existingToken = user.RefreshTokens.First(t => t.TokenHash == tokenHash);
         var utcNow = dateTimeProvider.GetUtcNow().UtcDateTime;
 
-        if (!existingToken.IsActive)
+        if (existingToken.IsRevoked)
         {
             user.RevokeAllRefreshTokens(utcNow);
             await unitOfWork.CommitAsync(cancellationToken);
             return Result<AuthResponse>.Failure(UserErrors.RefreshTokenReused());
         }
+
+        if (existingToken.IsExpiredAt(utcNow))
+            return Result<AuthResponse>.Failure(UserErrors.RefreshTokenExpired());
 
         var newRefreshTokenRaw = jwtGenerator.GenerateRefreshToken();
         var newRefreshTokenHash = jwtGenerator.HashToken(newRefreshTokenRaw);

@@ -1,7 +1,6 @@
 ﻿using Domain.Common;
 using Domain.Errors;
 
-
 namespace Domain.Aggregates.UserAggregate.ValueObject
 {
     public sealed class Role : ValueObjectBase
@@ -22,10 +21,13 @@ namespace Domain.Aggregates.UserAggregate.ValueObject
                 _ => Result<Role>.Failure(UserErrors.RoleInvalid())
             };
 
+        public bool CanCreateEvents => this == Organizer || this == Admin;
+        public bool CanApproveOrganizers => this == Admin;
+        public bool RequiresApproval => this == Organizer;
+
         protected override IEnumerable<object> GetEqualityComponents()
         {
             yield return Value;
         }
     }
-
 }

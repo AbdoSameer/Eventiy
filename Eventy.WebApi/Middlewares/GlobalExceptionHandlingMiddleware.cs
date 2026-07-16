@@ -29,6 +29,15 @@ public sealed class GlobalExceptionHandlingMiddleware(
                 "concurrency.conflict",
                 "The resource was modified by another request. Please retry.");
         }
+        catch (DomainEventHandlerException ex)
+        {
+            logger.LogError(ex,
+                "[Domain Event Failure] Handler '{HandlerName}' failed to process event '{EventName}' on {Path}. Reason: {Reason}",
+                ex.HandlerName, ex.EventName, context.Request.Path, ex.InnerException?.Message ?? ex.Message);
+            await WriteProblemAsync(context, HttpStatusCode.InternalServerError,
+                "domain_event_handler.failed",
+                $"Handler '{ex.HandlerName}' failed to process event '{ex.EventName}'.");
+        }
         catch (DbUpdateException ex)
         {
             logger.LogError(ex, "Database update failed on {Path}", context.Request.Path);

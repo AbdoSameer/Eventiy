@@ -30,9 +30,13 @@ namespace Domain.Aggregates.UserAggregate
             DateTime utcNow,
             bool isApproved = true)
         {
+            var userIdResult = UserId.Create(Guid.NewGuid());
+            if (userIdResult.IsFailure)
+                return Result<User>.Failure(userIdResult.Errors.ToArray());
+
             var user = new User
             {
-                Id = UserId.Create(Guid.NewGuid()).Value,
+                Id = userIdResult.Value,
                 FirstName = firstName.Trim(),
                 LastName = lastName.Trim(),
                 Email = email,
@@ -59,7 +63,7 @@ namespace Domain.Aggregates.UserAggregate
 
         public Result RevokeRefreshToken(string tokenHash, DateTime utcNow)
         {
-            var token = _refreshTokens.FirstOrDefault(t => t.TokenHash == tokenHash && t.IsActive);
+            var token = _refreshTokens.FirstOrDefault(t => t.TokenHash == tokenHash && t.IsActiveAt(utcNow));
             if (token is null)
                 return Result.Failure(UserErrors.RefreshTokenNotFoundOrInactive());
 
@@ -69,7 +73,7 @@ namespace Domain.Aggregates.UserAggregate
 
         public void RevokeAllRefreshTokens(DateTime utcNow)
         {
-            foreach (var token in _refreshTokens.Where(t => t.IsActive))
+            foreach (var token in _refreshTokens.Where(t => t.IsActiveAt(utcNow)))
             {
                 token.Revoke(utcNow);
             }
