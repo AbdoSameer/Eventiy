@@ -25,6 +25,30 @@ EXPOSE 8080
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS restore
 WORKDIR /src
 
+# NuGet resilience: the default 100s HTTP timeout + no retries means a single
+# flaky packet to api.nuget.org (common on CI runner NAT'd networking) kills the
+# whole restore. Bump the timeout to 5min and allow 3 retries with backoff so a
+# transient blip doesn't fail the build.
+ENV NUGET_HTTP_TIMEOUT=300 \
+    DOTNET_NUGET_SIGNATURE_LOG_LEVEL=error \
+    DOTNET_SYSTEM_NET_HTTP_USESOCKETSHTTPHANDLER=1
+# (Retry count is set via NuGet.config below since there's no env var for it.)
+
+# NuGet.config: enable retries and pin to the public v3 index. Lives in the
+# image (not the repo) so it applies regardless of build environment.
+RUN mkdir -p /root/.nuget/NuGet && printf '%s\n' \
+    '<?xml version="1.0" encoding="utf-8"?>' \
+    '<configuration>' \
+    '  <config>' \
+    '    <add key="maxHttpRequestTimesPerSource" value="8" />' \
+    '    <add key="http_timeout" value="300" />' \
+    '  </config>' \
+    '  <packageSources>' \
+    '    <clear />' \
+    '    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" protocolVersion="3" />' \
+    '  </packageSources>' \
+    '</configuration>' > /root/.nuget/NuGet/NuGet.config
+
 # Copy only the solution + project manifests so `dotnet restore` is cached.
 COPY Eventiy.sln ./
 COPY Eventy.WebApi/Eventy.WebApi.csproj   ./Eventy.WebApi/
@@ -36,7 +60,10 @@ COPY Infrastructure/Infrastructure.csproj ./Infrastructure/
 # projects and EventiyApp.esproj, which are excluded from the build context.
 # Restoring the WebApi csproj transitively restores Application, Domain,
 # and Infrastructure via project references.
-RUN dotnet restore Eventy.WebApi/Eventy.WebApi.csproj
+# --locked-mode would fail fast if packages.lock.json drifts; not used here
+# since lock files aren't committed. --disable-parallel avoids hammering the
+# index during the initial cold restore on a constrained runner.
+RUN dotnet restore Eventy.WebApi/Eventy.WebApi.csproj --disable-parallel
 
 
 # ── Stage 3: build the whole solution ────────────────────────────────────────

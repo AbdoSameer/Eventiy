@@ -205,7 +205,12 @@ backend-integration-tests:
     # so create a docker context first and attach the builder to it.
     - docker context create ci-context
     - export BUILDX_BUILDER="builder-${CI_JOB_ID}"
-    - docker buildx create ci-context --name "$BUILDX_BUILDER" --use --driver docker-container
+    # `--driver-opt network=host` is the fix for NU1301 (NuGet timeouts): the
+    # docker-container builder runs in its own network namespace that, on GitLab
+    # SaaS shared runners, can't reliably NAT out to api.nuget.org. Pinning it
+    # to the host network makes the builder reach the internet exactly like the
+    # runner host does — same path `docker build` (non-buildx) already uses.
+    - docker buildx create ci-context --name "$BUILDX_BUILDER" --use --driver docker-container --driver-opt network=host
     - docker buildx inspect --bootstrap "$BUILDX_BUILDER"
   after_script:
     # Clean up the builder so nothing leaks between jobs/runners. Guarded so
