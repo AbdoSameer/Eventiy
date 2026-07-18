@@ -1,26 +1,23 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# Eventy — GitLab CI/CD pipeline
+# Eventy — GitLab CI/CD pipeline (production-ready)
 #
 # Builds, tests, containerizes, and pushes both the .NET 9 backend and the
-# Angular 19 frontend to the GitLab Container Registry ($CI_REGISTRY_IMAGE),
-# which is auto-resolved from your project's namespace (including the numeric
-# suffix GitLab adds to disambiguate group names — handled automatically).
+# Angular 19 frontend to the GitLab Container Registry ($CI_REGISTRY_IMAGE).
 #
-# No manual registry variables are required: $CI_REGISTRY, $CI_REGISTRY_IMAGE,
-# $CI_REGISTRY_USER and $CI_REGISTRY_PASSWORD are injected by GitLab itself.
+# No manual registry variables needed: $CI_REGISTRY, $CI_REGISTRY_IMAGE,
+# $CI_REGISTRY_USER, $CI_REGISTRY_PASSWORD are auto-injected by GitLab.
 #
-# Runner requirement: jobs that use Docker (DinD) need a runner with the
-# `docker` executor and `privileged = true` (GitLab shared Linux runners do).
+# Runner requirement: jobs using Docker (DinD / buildx) need a runner with
+# the `docker` executor and `privileged = true` (GitLab shared Linux runners do).
 # ─────────────────────────────────────────────────────────────────────────────
 
 variables:
-  # Use BuildKit for better layer caching + secrets during build.
+  # BuildKit for better layer caching + cross-stage cache.
   DOCKER_BUILDKIT: "1"
-  # Docker-in-Docker: TLS cert dir matches the `docker:24-dind` default so the
-  # DinD daemon and the docker CLI client agree on the TLS setup.
+  # DinD: TLS enabled (port 2376 with certs). Matches docker:24-dind defaults.
   DOCKER_DRIVER: overlay2
   DOCKER_TLS_CERTDIR: "/certs"
-  # Image name suffixes under $CI_REGISTRY_IMAGE (e.g. …/backend:latest).
+  # Image name suffixes under $CI_REGISTRY_IMAGE (…/backend:latest, …/frontend:latest).
   BACKEND_IMAGE: backend
   FRONTEND_IMAGE: frontend
   # .NET / Node version pins (also baked into the Dockerfiles).
@@ -28,7 +25,6 @@ variables:
   NODE_IMAGE: node:22-alpine
   GIT_DEPTH: "0"  # needed for commit-based versioning / SemVer tags
 
-# Run the full pipeline only on the main branch, MRs, and version tags.
 workflow:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -38,6 +34,8 @@ workflow:
 
 default:
   interruptible: true
+  # `retry` must be an object with `max` + `when` — NOT a list. Retrying only
+  # infrastructure flakiness, never real test failures.
   retry:
     max: 1
     when:
@@ -46,19 +44,17 @@ default:
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 1: Backend unit tests (Domain + Application — no Docker needed)
-# Run only the fast unit-test projects; integration/concurrency tests need
-# Testcontainers and run in a separate DinD-enabled stage below.
+#
+# `dotnet test` accepts only ONE project/solution as positional arg (MSB1008
+# otherwise), so we run the whole solution and split via --filter on namespace.
 # ─────────────────────────────────────────────────────────────────────────────
 backend-unit-tests:
-  stage: test
+  stage: test-unit
   image: ${DOTNET_SDK_IMAGE}
   cache:
     # GitLab caps cache:key:files at 2 entries. Eventiy.sln captures project-
-    # graph changes (added/removed projects); Eventy.WebApi.csproj captures
-    # package-reference changes in the entry-point project, which transitively
-    # represents the app's dependency surface. For full lock-file semantics,
-    # enable <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
-    # in the csprojs and key on packages.lock.json instead.
+    # graph changes; Eventy.WebApi.csproj captures package-reference changes
+    # in the entry-point project (transitively the whole dependency surface).
     key:
       files:
         - Eventiy.sln
@@ -68,37 +64,21 @@ backend-unit-tests:
       - ~/.nuget/packages
   script:
     - dotnet restore Eventiy.sln
-    # `dotnet test` accepts only ONE project/solution as a positional argument
-    # (error MSB1008 if you pass two). Run the whole solution but filter by
-    # namespace so this job stays fast and Testcontainers-free.
-    #   FullyQualifiedName filter is case-sensitive on the namespace segment,
-    #   so we anchor on the canonical test project roots.
     - >
       dotnet test Eventiy.sln
       --configuration Release
       --logger "trx;LogFileName=tests.trx"
       --logger "console;verbosity=normal"
-      --collect:"XPlat Code Coverage"
       --settings tests/Eventy.Tests.runsettings
-      --filter "FullyQualifiedName!~Eventy.IntegrationTests&FullyQualifiedName!~Eventy.ConcurrencyTests&FullyQualifiedName!~Eventy.Testing.Foundation"
+      --filter "FullyQualifiedName!~IntegrationTests&FullyQualifiedName!~ConcurrencyTests&FullyQualifiedName!~Testing.Foundation"
       --
       RunConfiguration.ResultsDirectory=${CI_PROJECT_DIR}/test-results/unit
-    - |
-      if [ -d test-results/unit ]; then
-        find test-results/unit -name "coverage.cobertura.xml" \
-          -exec cp {} test-results/unit/coverage.cobertura.xml \; || true
-      fi
-  coverage: '/Total\s*\|\s*([0-9]+\.[0-9]+)%/'
   artifacts:
     when: always
     paths:
       - test-results/unit/**/*.trx
-      - test-results/unit/**/coverage.cobertura.xml
     reports:
       junit: test-results/unit/**/*.trx
-      coverage_report:
-        coverage_format: cobertura
-        path: test-results/unit/**/coverage.cobertura.xml
     expire_in: 7 days
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -106,10 +86,10 @@ backend-unit-tests:
     - if: $CI_COMMIT_TAG
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Stage 1 (parallel): Frontend lint + build sanity check
+# Stage 1 (parallel): Frontend build sanity check
 # ─────────────────────────────────────────────────────────────────────────────
 frontend-build-check:
-  stage: test
+  stage: test-unit
   image: ${NODE_IMAGE}
   cache:
     key:
@@ -136,8 +116,7 @@ frontend-build-check:
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 2: Backend integration / concurrency tests (Testcontainers → needs DinD)
-# Testcontainers spins up MSSQL containers, so this job MUST run with a
-# Docker-in-Docker service and the docker CLI able to reach it.
+# Testcontainers spins up MSSQL containers, so this job MUST run with DinD.
 # Run only on master & tags to keep MR pipelines fast.
 # ─────────────────────────────────────────────────────────────────────────────
 backend-integration-tests:
@@ -147,33 +126,30 @@ backend-integration-tests:
     - name: docker:24-dind
       alias: docker
   variables:
-    # DinD with TLS enabled (DOCKER_TLS_CERTDIR=/certs) → connect via the cert.
     DOCKER_HOST: tcp://docker:2376
     DOCKER_TLS_VERIFY: "1"
     DOCKER_CERT_PATH: /certs/client
   before_script:
-    # Install the docker CLI inside the SDK image so Testcontainers' docker
-    # discovery works alongside the dotnet test process.
+    # Testcontainers discovers Docker via the CLI, so install it inside the SDK
+    # image. `docker.io` is the Debian-friendly package name.
     - apt-get update && apt-get install -y --no-install-recommends docker.io
   cache:
     key:
       files:
         - Eventiy.sln
+        - Eventy.WebApi/Eventy.WebApi.csproj
       prefix: nuget-int
     paths:
       - ~/.nuget/packages
   script:
     - dotnet restore Eventiy.sln
-    # `dotnet test` accepts only ONE project/solution as a positional argument
-    # (error MSB1008 if you pass two). Run the solution and select only the
-    # Docker-dependent (Testcontainers) namespaces.
     - >
       dotnet test Eventiy.sln
       --configuration Release
       --logger "trx;LogFileName=integration.trx"
       --logger "console;verbosity=normal"
       --settings tests/Eventy.Tests.runsettings
-      --filter "FullyQualifiedName~Eventy.IntegrationTests|FullyQualifiedName~Eventy.ConcurrencyTests"
+      --filter "FullyQualifiedName~IntegrationTests|FullyQualifiedName~ConcurrencyTests"
       --
       RunConfiguration.ResultsDirectory=${CI_PROJECT_DIR}/test-results/integration
   artifacts:
@@ -189,12 +165,14 @@ backend-integration-tests:
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 3: Build & push Docker images to the GitLab Container Registry.
-# Uses BuildKit cache imports to the registry so rebuilds reuse layers
-# (no cold start every run). Tags both :<sha> (immutable, deployable) and
-# :latest (rolling).
+#
+# Uses a dedicated `docker-container` buildx builder so we can export/import
+# cache to the registry (the default `docker` driver cannot). The builder is
+# created per-job with a unique name and removed in after_script to avoid
+# leftover containers and name collisions on concurrent runners.
 # ─────────────────────────────────────────────────────────────────────────────
 .docker-push:
-  stage: build-push
+  stage: docker-build-push
   image: docker:24
   services:
     - name: docker:24-dind
@@ -204,8 +182,15 @@ backend-integration-tests:
     DOCKER_TLS_VERIFY: "1"
     DOCKER_CERT_PATH: /certs/client
   before_script:
-    # $CI_REGISTRY_USER / $CI_REGISTRY_PASSWORD are auto-injected by GitLab.
     - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
+    # Unique builder name per job → safe under concurrent execution.
+    # `docker-container` driver is required for --cache-to type=registry.
+    - export BUILDX_BUILDER="builder-${CI_JOB_ID}"
+    - docker buildx create --name "$BUILDX_BUILDER" --use --driver docker-container
+    - docker buildx inspect --bootstrap "$BUILDX_BUILDER"
+  after_script:
+    # Always clean up the builder container so nothing leaks between jobs/runners.
+    - docker buildx rm "builder-${CI_JOB_ID}" || true
   rules:
     - if: $CI_COMMIT_BRANCH == "master"
     - if: $CI_COMMIT_TAG
@@ -214,41 +199,38 @@ backend:image:
   extends: .docker-push
   needs: ["backend-unit-tests"]
   script:
-    - export TAG_SHA="${CI_REGISTRY_IMAGE}/${BACKEND_IMAGE}:${CI_COMMIT_SHORT_SHA}"
-    - export TAG_LATEST="${CI_REGISTRY_IMAGE}/${BACKEND_IMAGE}:latest"
+    - export BUILDX_BUILDER="builder-${CI_JOB_ID}"
     - >
       docker buildx build
+      --builder "$BUILDX_BUILDER"
       --file Dockerfile.backend
-      --tag "$TAG_SHA"
-      --tag "$TAG_LATEST"
-      --build-arg BUILDKIT_INLINE_CACHE=1
+      --tag "${CI_REGISTRY_IMAGE}/${BACKEND_IMAGE}:${CI_COMMIT_SHORT_SHA}"
+      --tag "${CI_REGISTRY_IMAGE}/${BACKEND_IMAGE}:latest"
       --cache-from "type=registry,ref=${CI_REGISTRY_IMAGE}/${BACKEND_IMAGE}:buildcache"
-      --cache-to   "type=registry,ref=${CI_REGISTRY_IMAGE}/${BACKEND_IMAGE}:buildcache,mode=max"
+      --cache-to "type=registry,ref=${CI_REGISTRY_IMAGE}/${BACKEND_IMAGE}:buildcache,mode=max"
       --push
       .
-    - echo "Pushed $TAG_SHA and $TAG_LATEST"
+    - echo "Pushed ${CI_REGISTRY_IMAGE}/${BACKEND_IMAGE}:${CI_COMMIT_SHORT_SHA} and :latest"
 
 frontend:image:
   extends: .docker-push
   needs: ["frontend-build-check"]
   script:
-    - export TAG_SHA="${CI_REGISTRY_IMAGE}/${FRONTEND_IMAGE}:${CI_COMMIT_SHORT_SHA}"
-    - export TAG_LATEST="${CI_REGISTRY_IMAGE}/${FRONTEND_IMAGE}:latest"
+    - export BUILDX_BUILDER="builder-${CI_JOB_ID}"
     - >
       docker buildx build
+      --builder "$BUILDX_BUILDER"
       --file Dockerfile.frontend
-      --tag "$TAG_SHA"
-      --tag "$TAG_LATEST"
-      --build-arg BUILDKIT_INLINE_CACHE=1
+      --tag "${CI_REGISTRY_IMAGE}/${FRONTEND_IMAGE}:${CI_COMMIT_SHORT_SHA}"
+      --tag "${CI_REGISTRY_IMAGE}/${FRONTEND_IMAGE}:latest"
       --cache-from "type=registry,ref=${CI_REGISTRY_IMAGE}/${FRONTEND_IMAGE}:buildcache"
-      --cache-to   "type=registry,ref=${CI_REGISTRY_IMAGE}/${FRONTEND_IMAGE}:buildcache,mode=max"
+      --cache-to "type=registry,ref=${CI_REGISTRY_IMAGE}/${FRONTEND_IMAGE}:buildcache,mode=max"
       --push
       .
-    - echo "Pushed $TAG_SHA and $TAG_LATEST"
+    - echo "Pushed ${CI_REGISTRY_IMAGE}/${FRONTEND_IMAGE}:${CI_COMMIT_SHORT_SHA} and :latest"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Stage 4 (optional): Tag-gated release marker
-# Enable when you tag commits with v1.2.3. Promotes the :<sha> image to :<tag>.
+# Stage 4 (optional): Tag-gated release marker — promote :<sha> → :<tag>.
 # ─────────────────────────────────────────────────────────────────────────────
 release:tag:
   stage: release
@@ -274,7 +256,7 @@ release:tag:
 
 # ── Stage order ──────────────────────────────────────────────────────────────
 stages:
-  - test
+  - test-unit
   - test-integration
-  - build-push
+  - docker-build-push
   - release
