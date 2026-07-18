@@ -24,6 +24,9 @@ variables:
   DOTNET_SDK_IMAGE: mcr.microsoft.com/dotnet/sdk:9.0
   NODE_IMAGE: node:22-alpine
   GIT_DEPTH: "0"  # needed for commit-based versioning / SemVer tags
+  # Keep NuGet packages inside the project dir so GitLab can actually cache them
+  # (paths outside $CI_PROJECT_DIR are silently not archived).
+  NUGET_PACKAGES: $CI_PROJECT_DIR/.nuget/packages
 
 workflow:
   rules:
@@ -61,7 +64,7 @@ backend-unit-tests:
         - Eventy.WebApi/Eventy.WebApi.csproj
       prefix: nuget-unit
     paths:
-      - ~/.nuget/packages
+      - .nuget/packages
   script:
     - dotnet restore Eventiy.sln
     - >
@@ -140,7 +143,7 @@ backend-integration-tests:
         - Eventy.WebApi/Eventy.WebApi.csproj
       prefix: nuget-int
     paths:
-      - ~/.nuget/packages
+      - .nuget/packages
   script:
     - dotnet restore Eventiy.sln
     - >
@@ -185,8 +188,11 @@ backend-integration-tests:
     - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
     # Unique builder name per job → safe under concurrent execution.
     # `docker-container` driver is required for --cache-to type=registry.
+    # buildx refuses to create a builder directly from TLS env vars (DinD),
+    # so create a docker context first and attach the builder to it.
+    - docker context create ci-context
     - export BUILDX_BUILDER="builder-${CI_JOB_ID}"
-    - docker buildx create --name "$BUILDX_BUILDER" --use --driver docker-container
+    - docker buildx create ci-context --name "$BUILDX_BUILDER" --use --driver docker-container
     - docker buildx inspect --bootstrap "$BUILDX_BUILDER"
   after_script:
     # Always clean up the builder container so nothing leaks between jobs/runners.
