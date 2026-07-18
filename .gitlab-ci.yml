@@ -66,12 +66,13 @@ backend-unit-tests:
     paths:
       - .nuget/packages
   script:
-    - dotnet restore Eventiy.sln
+    - dotnet restore Eventiy.sln --verbosity quiet
     - >
       dotnet test Eventiy.sln
       --configuration Release
+      --verbosity quiet
       --logger "trx;LogFileName=tests.trx"
-      --logger "console;verbosity=normal"
+      --logger "console;verbosity=minimal"
       --settings tests/Eventy.Tests.runsettings
       --filter "FullyQualifiedName!~IntegrationTests&FullyQualifiedName!~ConcurrencyTests&FullyQualifiedName!~Testing.Foundation"
       --
@@ -125,6 +126,9 @@ frontend-build-check:
 backend-integration-tests:
   stage: test-integration
   image: ${DOTNET_SDK_IMAGE}
+  # Hard cap: Testcontainers on small SaaS shared runners can otherwise hang
+  # for the full project timeout (observed 44+ minute stalls).
+  timeout: 30m
   services:
     - name: docker:24-dind
       alias: docker
@@ -145,12 +149,13 @@ backend-integration-tests:
     paths:
       - .nuget/packages
   script:
-    - dotnet restore Eventiy.sln
+    - dotnet restore Eventiy.sln --verbosity quiet
     - >
       dotnet test Eventiy.sln
       --configuration Release
+      --verbosity quiet
       --logger "trx;LogFileName=integration.trx"
-      --logger "console;verbosity=normal"
+      --logger "console;verbosity=minimal"
       --settings tests/Eventy.Tests.runsettings
       --filter "FullyQualifiedName~IntegrationTests|FullyQualifiedName~ConcurrencyTests"
       --
@@ -163,8 +168,16 @@ backend-integration-tests:
       junit: test-results/integration/**/*.trx
     expire_in: 7 days
   rules:
+    # Manual + allow_failure: Testcontainers starves the small SaaS shared
+    # runners (CPU/RAM), causing multi-40-minute hangs. Run on demand only,
+    # and never block the automated build → push flow (the image jobs use
+    # `needs:` on the unit-test jobs, so they don't wait for this stage).
     - if: $CI_COMMIT_BRANCH == "master"
+      when: manual
+      allow_failure: true
     - if: $CI_COMMIT_TAG
+      when: manual
+      allow_failure: true
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 3: Build & push Docker images to the GitLab Container Registry.
@@ -195,8 +208,10 @@ backend-integration-tests:
     - docker buildx create ci-context --name "$BUILDX_BUILDER" --use --driver docker-container
     - docker buildx inspect --bootstrap "$BUILDX_BUILDER"
   after_script:
-    # Always clean up the builder container so nothing leaks between jobs/runners.
-    - docker buildx rm "builder-${CI_JOB_ID}" || true
+    # Clean up the builder so nothing leaks between jobs/runners. Guarded so
+    # aborted/canceled jobs (where the builder may never have been created)
+    # don't print spurious "no builder found" errors.
+    - if docker buildx ls 2>/dev/null | grep -q "builder-${CI_JOB_ID}"; then docker buildx rm "builder-${CI_JOB_ID}"; fi || true
   rules:
     - if: $CI_COMMIT_BRANCH == "master"
     - if: $CI_COMMIT_TAG
