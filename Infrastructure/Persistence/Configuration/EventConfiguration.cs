@@ -111,6 +111,11 @@ namespace Infrastructure.Persistence.Configuration
                    .HasColumnName("LastModifiedAt")
                    .IsRequired(false);
 
+            builder.Property(x => x.IsHighDemand)
+                   .HasColumnName("IsHighDemand")
+                   .IsRequired()
+                   .HasDefaultValue(false);
+
             builder.Property(x => x.RowVersion)
                     .IsRowVersion()
                     .HasColumnName("RowVersion");

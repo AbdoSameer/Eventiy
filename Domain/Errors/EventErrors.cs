@@ -241,5 +241,23 @@ public static class EventErrors
 
     // ===== Concurrency Errors ==============
 
+    public static Error CanOnlyToggleHighDemandOnPublishedEvent()
+        => Error.Conflict(
+            "Event.CanOnlyToggleHighDemandOnPublished",
+            "High-demand mode can only be toggled on a published event.");
 
+    public static Error CannotReserveOnUnpublishedEvent()
+        => Error.Conflict(
+            "Event.CannotReserveOnUnpublished",
+            "Seats cannot be reserved on an unpublished event. Publish the event first.");
+
+    public static Error RedisInventoryUnavailable()
+        => Error.Failure(
+            "Event.RedisInventoryUnavailable",
+            "Redis inventory store is unavailable and the event is in high-demand mode. Please retry shortly.");
+
+    public static Error RedisInventoryShortfall(int requested, long remaining)
+        => Error.Conflict(
+            "Event.RedisInventoryShortfall",
+            $"Requested quantity ({requested}) exceeds remaining inventory ({remaining}).");
 }

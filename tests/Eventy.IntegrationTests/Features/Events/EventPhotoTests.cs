@@ -151,9 +151,13 @@ public class EventPhotoTests : IAsyncLifetime
         fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/png");
         multipart.Add(fileContent, "photos", "test.png");
 
+        // The default test client authenticates as an Attendee (not Organizer/Admin),
+        // so the [Authorize(Roles = "Organizer,Admin")] filter returns 403 Forbidden.
+        // This is correct HTTP semantics: 401 = unauthenticated, 403 = authenticated
+        // but lacking the required role.
         var response = await _client.PostAsync($"/api/Event/{eventId}/photos", multipart);
 
-        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     #endregion

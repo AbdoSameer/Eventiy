@@ -59,13 +59,13 @@ public class IntegrationTestFixture : IAsyncLifetime
             throw new InvalidOperationException($"Failed to create seed event: {eventResult.Errors[0].Message}");
 
         @event = eventResult.Value;
-        @event.Publish(utcNow);
 
         var money = Money.FromDecimal(ticketPrice, "EGP");
         if (money.IsFailure)
             throw new InvalidOperationException($"Failed to create money: {money.Errors[0].Message}");
 
         @event.AddTicketType("General", money.Value, ticketCapacity, utcNow);
+        @event.Publish(utcNow);
 
         // Persist via scoped DbContext (not Factory.Services scope — that's the app's scope)
         using var scope = Factory.Services.CreateScope();

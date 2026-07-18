@@ -1,4 +1,5 @@
 using Application.Abstractions.Caching;
+using Application.Abstractions.Inventory;
 using Application.Abstractions.Payments;
 using Application.Abstractions.Persistence;
 using Application.Abstractions.Security;
@@ -36,6 +37,8 @@ public class CreateBookingPendingFirstTests
     private readonly ICacheService _cache;
     private readonly IPaymentService _paymentService;
     private readonly IIdempotencyStore _idempotencyStore;
+    private readonly IInventoryReservationStrategy _optimisticStrategy;
+    private readonly IInventoryReservationStrategy _atomicRedisStrategy;
     private readonly TimeProvider _timeProvider;
     private readonly Event _sampleEvent;
     private readonly CreateBookingCommandHandler _bookingHandler;
@@ -51,11 +54,18 @@ public class CreateBookingPendingFirstTests
         _cache = Substitute.For<ICacheService>();
         _paymentService = Substitute.For<IPaymentService>();
         _idempotencyStore = Substitute.For<IIdempotencyStore>();
+        _optimisticStrategy = Substitute.For<IInventoryReservationStrategy>();
+        _atomicRedisStrategy = Substitute.For<IInventoryReservationStrategy>();
         _timeProvider = TimeProvider.System;
 
         _currentUser.GetCurrentUserId()
             .Returns(Result<UserId>.Success(UserId.FromDatabase(Guid.NewGuid())));
         _currentUser.IsAuthenticated.Returns(true);
+
+        // Default: optimistic strategy succeeds (mimics the old ReserveSeats path)
+        _optimisticStrategy
+            .ReserveAsync(Arg.Any<ReservationContext>(), Arg.Any<CancellationToken>())
+            .Returns(Result<ReservationResult>.Success(ReservationResult.Success()));
 
         _sampleEvent = CreateSampleEvent()!;
         _eventRepo.GetByIdAsync(Arg.Any<EventId>(), Arg.Any<CancellationToken>())
@@ -79,7 +89,8 @@ public class CreateBookingPendingFirstTests
         _scopeFactory.CreateScope().Returns(scope);
 
         _bookingHandler = new CreateBookingCommandHandler(
-            _scopeFactory, _timeProvider, _currentUser, _cache, _paymentService);
+            _scopeFactory, _timeProvider, _currentUser, _cache, _paymentService,
+            _optimisticStrategy, _atomicRedisStrategy);
     }
 
     private CreateBookingCommand InstantCommand() => new()
@@ -318,8 +329,8 @@ public class CreateBookingPendingFirstTests
             address, "test", Domain.Aggregates.EventAggregate.Enums.EventType.Music, utcNow);
         if (eventResult.IsFailure) return null;
         var @event = eventResult.Value;
-        @event.Publish(utcNow);
         @event.AddTicketType("General", Money.FromDecimal(100m, "EGP").Value, 50, utcNow);
+        @event.Publish(utcNow);
         return @event;
     }
 

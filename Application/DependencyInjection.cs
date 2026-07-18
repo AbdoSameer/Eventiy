@@ -1,6 +1,8 @@
 ﻿using Application.Abstractions.Behaviors;
+using Application.Abstractions.Inventory;
 using Application.Features.Bookings.Events.BookingCancelled;
 using Application.Features.Bookings.Events.BookingCreated;
+using Application.Features.Bookings.Inventory;
 using Domain.Aggregates.BookingAggregate.Events;
 using Application.Abstractions.Persistence;
 using FluentValidation;
@@ -11,6 +13,9 @@ using System.Reflection;
 namespace Application;
 public static class DependencyInjection
 {
+    public const string OptimisticStrategyKey = "OptimisticReservation";
+    public const string AtomicRedisStrategyKey = "AtomicRedisReservation";
+
     public static IServiceCollection AddApplication(
         this IServiceCollection services)
     {
@@ -22,6 +27,8 @@ public static class DependencyInjection
 
         services.AddScoped<IDomainEventHandler<BookingCreatedEvent>, BookingCreatedEventHandler>();
         services.AddScoped<IDomainEventHandler<BookingCancelledEvent>, BookingCancelledEventHandler>();
+
+        services.AddKeyedTransient<IInventoryReservationStrategy, OptimisticReservationStrategy>(OptimisticStrategyKey);
 
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingPipelineBehavior<,>));
 

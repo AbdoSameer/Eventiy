@@ -75,10 +75,10 @@ public class CancelBookingHandlerTests
             address, "A test concert", Domain.Aggregates.EventAggregate.Enums.EventType.Music, utcNow);
         if (eventResult.IsFailure) return null;
         var @event = eventResult.Value;
-        @event.Publish(utcNow);
         var moneyResult = Money.FromDecimal(100m, "EGP");
         if (moneyResult.IsFailure) return null;
         @event.AddTicketType("General", moneyResult.Value, 50, utcNow);
+        @event.Publish(utcNow);
         return @event;
     }
 

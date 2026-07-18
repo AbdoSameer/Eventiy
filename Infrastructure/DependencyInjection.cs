@@ -1,5 +1,6 @@
 using Application.Abstractions;
 using Application.Abstractions.Caching;
+using Application.Abstractions.Inventory;
 using Application.Abstractions.Outbox;
 using Application.Abstractions.Payments;
 using Application.Abstractions.Persistence;
@@ -10,6 +11,7 @@ using Domain.Common;
 using Infrastructure.Authentication;
 using Infrastructure.BackgroundJobs;
 using Infrastructure.Caching;
+using Infrastructure.Inventory;
 using Infrastructure.Payments;
 using Infrastructure.Persistence;
 using Infrastructure.RealTime;
@@ -101,6 +103,10 @@ public static class DependencyInjection
         services.AddSingleton<ConnectionMultiplexer>(_ =>
             ConnectionMultiplexer.Connect(redisConnectionString));
         services.AddSingleton<ICacheService, RedisCacheService>();
+
+        // High-demand inventory strategy (atomic Redis DECR)
+        services.AddKeyedTransient<IInventoryReservationStrategy, AtomicRedisReservationStrategy>(
+            Application.DependencyInjection.AtomicRedisStrategyKey);
 
         // Real-time seat sync
         services.AddSingleton<IWebSocketConnectionManager, WebSocketConnectionManager>();

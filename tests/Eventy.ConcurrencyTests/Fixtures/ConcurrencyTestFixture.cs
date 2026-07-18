@@ -53,13 +53,13 @@ public class ConcurrencyTestFixture : IAsyncLifetime
             throw new InvalidOperationException($"Failed to create seed event: {eventResult.Errors[0].Message}");
 
         var @event = eventResult.Value;
-        @event.Publish(utcNow);
 
         var money = Money.FromDecimal(price, "EGP");
         if (money.IsFailure)
             throw new InvalidOperationException($"Failed to create money: {money.Errors[0].Message}");
 
         @event.AddTicketType("General", money.Value, capacity, utcNow);
+        @event.Publish(utcNow);
 
         using var scope = Factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();

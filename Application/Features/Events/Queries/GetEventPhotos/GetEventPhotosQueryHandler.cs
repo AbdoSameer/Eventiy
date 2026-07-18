@@ -2,9 +2,11 @@ using Application.Abstractions.Caching;
 using Application.Abstractions.Messaging;
 using Application.Abstractions.Persistence;
 using Domain.Abstractions.Persistence;
+using Domain.Aggregates.EventAggregate;
 using Domain.Aggregates.EventAggregate.Entities;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Common;
+using Domain.Errors;
 
 namespace Application.Features.Events.Queries.GetEventPhotos;
 
@@ -36,6 +38,15 @@ internal sealed class GetEventPhotosQueryHandler
         var cached = await _cache.GetAsync<List<EventPhotoResponse>>(cacheKey, cancellationToken);
         if (cached is not null)
             return Result<List<EventPhotoResponse>>.Success(cached);
+
+        var eventExists = await _readDbContext.AnyAsync(
+            _readDbContext.Query<Event>(),
+            e => e.Id == eventIdResult.Value,
+            cancellationToken);
+
+        if (!eventExists)
+            return Result<List<EventPhotoResponse>>.Failure(
+                EventErrors.EventNotFound(eventIdResult.Value));
 
         var query = _readDbContext.Query<EventPhoto>()
             .Where(p => p.EventId == eventIdResult.Value)

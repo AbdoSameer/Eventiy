@@ -30,6 +30,7 @@ namespace Domain.Aggregates.EventAggregate
         public string? CancellationReason { get; private set; }
         public DateTime CreatedAt { get; private set; }
         public DateTime? LastModifiedAt { get; private set; }
+        public bool IsHighDemand { get; private set; }
 
         public byte[] RowVersion { get; private set; } = Array.Empty<byte>();
 
@@ -377,6 +378,9 @@ namespace Domain.Aggregates.EventAggregate
             int quantity,
             DateTime utcNow)
         {
+            if (Status != EventStatus.Published)
+                return Result.Failure(EventErrors.CannotReserveOnUnpublishedEvent());
+
             var ticketType = _ticketTypes.FirstOrDefault(t => t.Id == ticketTypeId);
             if (ticketType is null)
                 return Result.Failure(TicketTypeErrors.TicketTypeNotFound(ticketTypeId));
@@ -463,6 +467,40 @@ namespace Domain.Aggregates.EventAggregate
                 quantity,
                 ticketType.SoldCount,
                 ticketType.AvailableCount,
+                utcNow));
+
+            return Result.Success();
+        }
+
+        /// <summary>
+        /// Records a seat reservation that was atomically decremented in Redis
+        /// (high-demand mode). Does NOT mutate <see cref="TicketType.ReservedCount"/>
+        /// in memory — the Redis counter is the source of truth for availability
+        /// while high-demand mode is on. A background processor consumes the
+        /// raised <see cref="TicketTypeRedisReservationSyncedEvent"/> to sync
+        /// the final count back to SQL.
+        /// </summary>
+        public Result RecordRedisReservation(
+            TicketTypeId ticketTypeId,
+            int quantity,
+            long redisRemainingCount,
+            DateTime utcNow)
+        {
+            if (Status != EventStatus.Published)
+                return Result.Failure(EventErrors.CannotReserveOnUnpublishedEvent());
+
+            var ticketType = _ticketTypes.FirstOrDefault(t => t.Id == ticketTypeId);
+            if (ticketType is null)
+                return Result.Failure(TicketTypeErrors.TicketTypeNotFound(ticketTypeId));
+
+            if (quantity <= 0)
+                return Result.Failure(TicketTypeErrors.QuantityMustBeGreaterThanZero());
+
+            RaiseDomainEvent(new TicketTypeRedisReservationSyncedEvent(
+                ticketTypeId,
+                Id,
+                quantity,
+                redisRemainingCount,
                 utcNow));
 
             return Result.Success();
@@ -676,6 +714,25 @@ namespace Domain.Aggregates.EventAggregate
 
             RaiseDomainEvent(new TicketTypeAddedEvent(
                 Id, ticketResult.Value.Id, name, price.Amount, capacity, dateTime));
+
+            return Result.Success();
+        }
+
+        public Result SetHighDemandMode(bool enabled, DateTime utcNow)
+        {
+            if (Status != EventStatus.Published)
+                return Result.Failure(EventErrors.CanOnlyToggleHighDemandOnPublishedEvent());
+
+            if (IsHighDemand == enabled)
+                return Result.Success();
+
+            IsHighDemand = enabled;
+            LastModifiedAt = utcNow;
+
+            RaiseDomainEvent(new EventHighDemandModeToggledEvent(
+                Id,
+                enabled,
+                utcNow));
 
             return Result.Success();
         }

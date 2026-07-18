@@ -44,8 +44,8 @@ public class EventBuilder
 
         var @event = eventResult.Value;
         var utcNow = DateTime.UtcNow;
-        @event.Publish(utcNow);
         @event.AddTicketType(ticketName, Money.FromDecimal(price, "EGP").Value, ticketCapacity, utcNow);
+        @event.Publish(utcNow);
 
         return Result<Event>.Success(@event);
     }

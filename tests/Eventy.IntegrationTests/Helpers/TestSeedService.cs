@@ -37,8 +37,8 @@ public sealed class TestSeedService
             "Integration Test Event", eventCapacity, utcNow.AddDays(30),
             address, "Test description", EventType.Music, utcNow);
         var @event = eventResult.Value;
-        @event.Publish(utcNow);
         @event.AddTicketType("General", Money.FromDecimal(price, currency).Value, ticketCapacity, utcNow);
+        @event.Publish(utcNow);
 
         _db.Events.Add(@event);
         await _db.SaveChangesAsync();

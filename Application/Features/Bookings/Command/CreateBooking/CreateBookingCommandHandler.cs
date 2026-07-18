@@ -1,4 +1,5 @@
 using Application.Abstractions.Caching;
+using Application.Abstractions.Inventory;
 using Application.Abstractions.Messaging;
 using Application.Abstractions.Payments;
 using Application.Abstractions.Persistence;
@@ -23,19 +24,27 @@ namespace Application.Features.Bookings.Command.CreateBooking
         private readonly ICurrentUserService _currentUserService;
         private readonly ICacheService _cache;
         private readonly IPaymentService _paymentService;
+        private readonly IInventoryReservationStrategy _optimisticStrategy;
+        private readonly IInventoryReservationStrategy _atomicRedisStrategy;
 
         public CreateBookingCommandHandler(
             IServiceScopeFactory scopeFactory,
             TimeProvider dateTimeProvider,
             ICurrentUserService currentUserService,
             ICacheService cache,
-            IPaymentService paymentService)
+            IPaymentService paymentService,
+            [FromKeyedServices(Application.DependencyInjection.OptimisticStrategyKey)]
+                IInventoryReservationStrategy optimisticStrategy,
+            [FromKeyedServices(Application.DependencyInjection.AtomicRedisStrategyKey)]
+                IInventoryReservationStrategy atomicRedisStrategy)
         {
             _scopeFactory = scopeFactory;
             _dateTimeProvider = dateTimeProvider;
             _currentUserService = currentUserService;
             _cache = cache;
             _paymentService = paymentService;
+            _optimisticStrategy = optimisticStrategy;
+            _atomicRedisStrategy = atomicRedisStrategy;
         }
 
         public async Task<Result<CreateBookingResponse>> Handle(CreateBookingCommand request, CancellationToken cancellationToken)
@@ -85,8 +94,18 @@ namespace Application.Features.Bookings.Command.CreateBooking
 
             var utcNow = _dateTimeProvider.GetUtcNow().UtcDateTime;
 
-            var reservationResult = eventResult.ReserveSeats(
-                ticketTypeId, request.Quantity, utcNow);
+            var strategy = eventResult.IsHighDemand
+                ? _atomicRedisStrategy
+                : _optimisticStrategy;
+
+            var reservationResult = await strategy.ReserveAsync(
+                new ReservationContext(
+                    eventResult,
+                    ticketTypeId,
+                    request.Quantity,
+                    utcNow),
+                cancellationToken);
+
             if (reservationResult.IsFailure)
                 return Result<CreateBookingResponse>.Failure(reservationResult.Errors.ToArray());
 
