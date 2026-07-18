@@ -857,7 +857,7 @@ Both the backend (.NET 9 Web API) and the frontend (Angular 19) are containerize
 | `Dockerfile.frontend` | Node 22 build → `nginxinc/nginx-unprivileged:1.27-alpine` serving Angular + reverse-proxying `/api` to the backend | repo root |
 | `EventiyApp/nginx.conf` | SPA fallback (`try_files … /index.html`), hashed-asset caching, `/api/` reverse proxy with WebSocket upgrade | consumed by `Dockerfile.frontend` |
 | `.dockerignore` | Trims `bin/`, `obj/`, `node_modules/`, `dist/`, `.git/`, IDE folders from the build context | repo root |
-| `.gitlab-ci.yml` | Pipeline: unit tests → (integration tests w/ DinD) → build & push to ACR | repo root |
+| `.gitlab-ci.yml` | Pipeline: unit tests → (integration tests w/ DinD) → build & push to the GitLab Container Registry | repo root |
 
 ### Local builds
 
@@ -886,15 +886,13 @@ To run them together locally, give the backend container the network alias `back
 
 ### GitLab CI
 
-Required CI/CD variables (Settings → CI/CD → Variables, masked & protected):
+Images are pushed to the **GitLab Container Registry** using GitLab's auto-injected variables (`$CI_REGISTRY`, `$CI_REGISTRY_IMAGE`, `$CI_REGISTRY_USER`, `$CI_REGISTRY_PASSWORD`). No manual CI/CD variables need to be set for registry auth — the namespace (including any numeric suffix GitLab adds, e.g. `sameer-group6045629`) is resolved automatically via `$CI_REGISTRY_IMAGE`.
 
-- `AZURE_ACR_SERVER` — e.g. `eventiy.azurecr.io`
-- `AZURE_ACR_USERNAME` — service principal or admin user
-- `AZURE_ACR_PASSWORD` — (masked)
+> **Deploying to Azure?** If the runtime target (App Service / AKS / Container Apps) is on Azure, you'll need to give it a deploy token or credentials to pull from the GitLab registry. The alternative — Azure Container Registry — needs no cross-tenant auth in that case; switch the `:image` jobs back to `$AZURE_ACR_SERVER` with the three `AZURE_ACR_*` variables if you prefer.
 
-The pipeline runs: `backend-unit-tests` + `frontend-build-check` (every MR) → `backend-integration-tests` w/ Docker-in-Docker (master/tags only) → `backend:image` + `frontend:image` buildx build & push to ACR with registry layer caching → `release:tag` promotes `:latest` → `:<tag>` on version tags.
+The pipeline runs: `backend-unit-tests` + `frontend-build-check` (every MR) → `backend-integration-tests` w/ Docker-in-Docker for Testcontainers (master/tags only) → `backend:image` + `frontend:image` buildx build & push with registry layer caching (`--cache-from`/`--cache-to`) → `release:tag` promotes `:<sha>` → `:<tag>` on version tags.
 
-Image tags pushed: `:<commit-sha>` (immutable, deployable) and `:latest` (rolling).
+Image tags pushed: `:<commit-sha>` (immutable, deployable, enables safe rollback) and `:latest` (rolling).
 
 ## Documentation
 
