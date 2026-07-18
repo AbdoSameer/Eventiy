@@ -3,6 +3,19 @@
   <RunConfiguration>
     <MaxCpuCount>4</MaxCpuCount>
   </RunConfiguration>
+  <!--
+    Code coverage is intentionally NOT configured here. The XPlat Code Coverage
+    data collector requires the Coverlet.Collector package to be referenced by
+    the test projects; none of them reference it, so enabling it produced
+    "Unable to find a datacollector with friendly name 'XPlat code coverage'"
+    warnings on every run without ever producing coverage data.
+
+    To re-enable coverage:
+      1. Add <PackageReference Include="Coverlet.Collector" Version="6.0.2" />
+         to each unit/integration/concurrency test project.
+      2. Restore the <DataCollectionRunSettings> block below.
+  -->
+  <!--
   <DataCollectionRunSettings>
     <DataCollectors>
       <DataCollector friendlyName="XPlat code coverage">
@@ -14,4 +27,5 @@
       </DataCollector>
     </DataCollectors>
   </DataCollectionRunSettings>
+  -->
 </RunSettings>
