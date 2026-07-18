@@ -53,11 +53,16 @@ backend-unit-tests:
   stage: test
   image: ${DOTNET_SDK_IMAGE}
   cache:
+    # GitLab caps cache:key:files at 2 entries. Eventiy.sln captures project-
+    # graph changes (added/removed projects); Eventy.WebApi.csproj captures
+    # package-reference changes in the entry-point project, which transitively
+    # represents the app's dependency surface. For full lock-file semantics,
+    # enable <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    # in the csprojs and key on packages.lock.json instead.
     key:
       files:
         - Eventiy.sln
-        - Domain/Domain.csproj
-        - Application/Application.csproj
+        - Eventy.WebApi/Eventy.WebApi.csproj
       prefix: nuget-unit
     paths:
       - ~/.nuget/packages
