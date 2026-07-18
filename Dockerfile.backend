@@ -32,8 +32,11 @@ COPY Application/Application.csproj       ./Application/
 COPY Domain/Domain.csproj                 ./Domain/
 COPY Infrastructure/Infrastructure.csproj ./Infrastructure/
 
-# Tests are restored as part of the solution (if a tests project is added later).
-RUN dotnet restore Eventiy.sln
+# Restore only the entry-point project: the solution also references test
+# projects and EventiyApp.esproj, which are excluded from the build context.
+# Restoring the WebApi csproj transitively restores Application, Domain,
+# and Infrastructure via project references.
+RUN dotnet restore Eventy.WebApi/Eventy.WebApi.csproj
 
 
 # ── Stage 3: build the whole solution ────────────────────────────────────────
@@ -41,7 +44,7 @@ FROM restore AS build
 WORKDIR /src
 # Copy the rest of the source on top of the manifests already restored.
 COPY . ./
-RUN dotnet build Eventiy.sln -c Release -o /app/build --no-restore
+RUN dotnet build Eventy.WebApi/Eventy.WebApi.csproj -c Release -o /app/build --no-restore
 
 
 # ── Stage 4: publish the Web API (the startup project pulls the rest in) ─────
