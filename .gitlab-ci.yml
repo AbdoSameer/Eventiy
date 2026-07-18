@@ -68,15 +68,19 @@ backend-unit-tests:
       - ~/.nuget/packages
   script:
     - dotnet restore Eventiy.sln
+    # `dotnet test` accepts only ONE project/solution as a positional argument
+    # (error MSB1008 if you pass two). Run the whole solution but filter by
+    # namespace so this job stays fast and Testcontainers-free.
+    #   FullyQualifiedName filter is case-sensitive on the namespace segment,
+    #   so we anchor on the canonical test project roots.
     - >
-      dotnet test
-      tests/Eventy.Domain.UnitTests/Eventy.Domain.UnitTests.csproj
-      tests/Eventy.Application.UnitTests/Eventy.Application.UnitTests.csproj
+      dotnet test Eventiy.sln
       --configuration Release
       --logger "trx;LogFileName=tests.trx"
       --logger "console;verbosity=normal"
       --collect:"XPlat Code Coverage"
       --settings tests/Eventy.Tests.runsettings
+      --filter "FullyQualifiedName!~Eventy.IntegrationTests&FullyQualifiedName!~Eventy.ConcurrencyTests&FullyQualifiedName!~Eventy.Testing.Foundation"
       --
       RunConfiguration.ResultsDirectory=${CI_PROJECT_DIR}/test-results/unit
     - |
@@ -160,14 +164,16 @@ backend-integration-tests:
       - ~/.nuget/packages
   script:
     - dotnet restore Eventiy.sln
+    # `dotnet test` accepts only ONE project/solution as a positional argument
+    # (error MSB1008 if you pass two). Run the solution and select only the
+    # Docker-dependent (Testcontainers) namespaces.
     - >
-      dotnet test
-      tests/Eventy.IntegrationTests/Eventy.IntegrationTests.csproj
-      tests/Eventy.ConcurrencyTests/Eventy.ConcurrencyTests.csproj
+      dotnet test Eventiy.sln
       --configuration Release
       --logger "trx;LogFileName=integration.trx"
       --logger "console;verbosity=normal"
       --settings tests/Eventy.Tests.runsettings
+      --filter "FullyQualifiedName~Eventy.IntegrationTests|FullyQualifiedName~Eventy.ConcurrencyTests"
       --
       RunConfiguration.ResultsDirectory=${CI_PROJECT_DIR}/test-results/integration
   artifacts:
