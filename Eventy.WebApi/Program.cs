@@ -1,8 +1,10 @@
+using System.Net;
 using System.Text.Json;
 using Application;
 using Eventy.WebApi.Middlewares;
 using Infrastructure;
 using Infrastructure.Seed;
+using Microsoft.AspNetCore.HttpOverrides;
 using Scalar.AspNetCore;
 
 namespace Eventy.WebApi
@@ -56,6 +58,24 @@ namespace Eventy.WebApi
                 options.MultipartBodyLengthLimit = 60 * 1024 * 1024;
             });
 
+            // Forwarded Headers: behind Azure Front Door / App Gateway / Nginx,
+            // the backend sees the proxy's IP & http (not the client's). This
+            // restores the original scheme/host/remote IP so HTTPS-related
+            // decisions (UseHttpsRedirection, auth callbacks) work correctly.
+            //
+            // KnownNetworks/Proxies are cleared so any trusted proxy is accepted.
+            // Tighten this to your Azure egress ranges if you expose the backend
+            // directly to the internet (not recommended — keep it internal).
+            builder.Services.Configure<ForwardedHeadersOptions>(options =>
+            {
+                options.ForwardedHeaders =
+                    ForwardedHeaders.XForwardedFor |
+                    ForwardedHeaders.XForwardedProto |
+                    ForwardedHeaders.XForwardedHost;
+                options.KnownNetworks.Clear();
+                options.KnownProxies.Clear();
+            });
+
             var app = builder.Build();
 
             if (app.Environment.IsDevelopment())
@@ -68,6 +88,10 @@ namespace Eventy.WebApi
                 });
             }
 
+            // Apply Forwarded Headers early — must run before anything that
+            // inspects the request scheme (UseHttpsRedirection, CORS, auth).
+            app.UseForwardedHeaders();
+
             app.UseMiddleware<CorrelationIdMiddleware>();
             app.UseWebSockets(new WebSocketOptions
             {
@@ -77,8 +101,20 @@ namespace Eventy.WebApi
             app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
 
             app.UseStaticFiles();
-            app.UseHttpsRedirection();
-            app.UseCors("AllowAngular");  
+
+            // HTTPS redirect: behind a TLS-terminating proxy (Azure App Service,
+            // Front Door, our Nginx image) this would cause an infinite redirect
+            // loop, because the proxy talks http to the container while the
+            // client connection is https. With ForwardedHeaders configured above,
+            // ASP.NET Core already sees the correct scheme — so we only redirect
+            // in Development (local Kestrel with real certs). In Production, TLS
+            // is terminated upstream and there is nothing to redirect to.
+            if (app.Environment.IsDevelopment())
+            {
+                app.UseHttpsRedirection();
+            }
+
+            app.UseCors("AllowAngular");
             app.UseAuthorization();
             app.MapControllers();
 

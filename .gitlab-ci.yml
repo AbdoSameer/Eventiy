@@ -1,0 +1,263 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Eventy — GitLab CI/CD pipeline
+#
+# Builds, tests, containerizes, and pushes both the .NET 9 backend and the
+# Angular 19 frontend to Azure Container Registry (ACR).
+#
+# Required CI/CD variables (Settings → CI/CD → Variables, masked & protected):
+#   AZURE_ACR_SERVER     e.g. eventiy.azurecr.io
+#   AZURE_ACR_USERNAME   service principal / admin user
+#   AZURE_ACR_PASSWORD   (masked)
+#
+# Runner requirement: jobs that use Docker (DinD) need a runner tagged with
+# `docker` (GitLab shared runners on Linux provide this by default). If you use
+# a private runner, ensure it has the `docker` executor and `privileged = true`
+# for DinD to work.
+# ─────────────────────────────────────────────────────────────────────────────
+
+variables:
+  # Use BuildKit for better layer caching + secrets during build.
+  DOCKER_BUILDKIT: "1"
+  # Docker-in-Docker config (TLS disabled, simpler on GitLab shared runners).
+  DOCKER_TLS_CERTDIR: ""
+  DOCKER_DRIVER: overlay2
+  # Backend & frontend image names (without registry prefix).
+  BACKEND_IMAGE: eventy-backend
+  FRONTEND_IMAGE: eventy-frontend
+  # .NET / Node version pins (also baked into Dockerfiles).
+  DOTNET_SDK_IMAGE: mcr.microsoft.com/dotnet/sdk:9.0
+  NODE_IMAGE: node:22-alpine
+  GIT_DEPTH: "0"  # needed for commit-based versioning / SemVer tags
+
+# Run the full pipeline only on the main branch and version tags. Feature
+# branches still get the cheap test stages (rules per-job below).
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "master"
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH =~ /^release\//
+
+# ── Caches shared across jobs ────────────────────────────────────────────────
+default:
+  interruptible: true
+  retry:
+    max: 1
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 1: Backend unit tests (Domain + Application layers — no Docker needed)
+# Run the unit-test projects directly (faster, no Testcontainers, no DinD).
+# ─────────────────────────────────────────────────────────────────────────────
+backend-unit-tests:
+  stage: test
+  image: ${DOTNET_SDK_IMAGE}
+  cache:
+    key:
+      files:
+        - Eventiy.sln
+        - Domain/Domain.csproj
+        - Application/Application.csproj
+      prefix: nuget-unit
+    paths:
+      - ~/.nuget/packages
+  script:
+    - dotnet restore Eventiy.sln
+    # Run only the fast unit-test projects (skip integration/concurrency which
+    # need Testcontainers → they run in the test-integration stage with DinD).
+    - >
+      dotnet test
+      tests/Eventy.Domain.UnitTests/Eventy.Domain.UnitTests.csproj
+      tests/Eventy.Application.UnitTests/Eventy.Application.UnitTests.csproj
+      --configuration Release
+      --logger "trx;LogFileName=tests.trx"
+      --logger "console;verbosity=normal"
+      --collect:"XPlat Code Coverage"
+      --settings tests/Eventy.Tests.runsettings
+      --
+      RunConfiguration.ResultsDirectory=${CI_PROJECT_DIR}/test-results/unit
+    # Flatten coverage file so GitLab's coverage_report glob matches it.
+    - |
+      if [ -d test-results/unit ]; then
+        find test-results/unit -name "coverage.cobertura.xml" \
+          -exec cp {} test-results/unit/coverage.cobertura.xml \; || true
+      fi
+  coverage: '/Total\s*\|\s*([0-9]+\.[0-9]+)%/'
+  artifacts:
+    when: always
+    paths:
+      - test-results/unit/**/*.trx
+      - test-results/unit/**/coverage.cobertura.xml
+    reports:
+      junit: test-results/unit/**/*.trx
+      coverage_report:
+        coverage_format: cobertura
+        path: test-results/unit/**/coverage.cobertura.xml
+    expire_in: 7 days
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "master"
+    - if: $CI_COMMIT_TAG
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 1 (parallel): Frontend lint + build sanity check
+# ─────────────────────────────────────────────────────────────────────────────
+frontend-build-check:
+  stage: test
+  image: ${NODE_IMAGE}
+  cache:
+    key:
+      files:
+        - EventiyApp/package-lock.json
+      prefix: npm-frontend
+    paths:
+      - EventiyApp/.npm-cache
+  before_script:
+    - cd EventiyApp
+    - npm config set cache $(pwd)/.npm-cache --global
+  script:
+    - npm ci --no-audit --no-fund --ignore-scripts
+    - npm run build -- --configuration production
+  artifacts:
+    when: on_success
+    paths:
+      - EventiyApp/dist/
+    expire_in: 1 day
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "master"
+    - if: $CI_COMMIT_TAG
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 2: Backend integration / concurrency tests (Testcontainers → needs DinD)
+# Run only on master & tags to keep MR pipelines fast.
+# ─────────────────────────────────────────────────────────────────────────────
+backend-integration-tests:
+  stage: test-integration
+  image: ${DOTNET_SDK_IMAGE}
+  services:
+    - name: docker:24-dind
+      alias: docker
+      command: ["--tls=false"]
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+  cache:
+    key:
+      files:
+        - Eventiy.sln
+      prefix: nuget-int
+    paths:
+      - ~/.nuget/packages
+  script:
+    - dotnet restore Eventiy.sln
+    # Run the Docker-dependent projects directly (Testcontainers spins up MSSQL).
+    - >
+      dotnet test
+      tests/Eventy.IntegrationTests/Eventy.IntegrationTests.csproj
+      tests/Eventy.ConcurrencyTests/Eventy.ConcurrencyTests.csproj
+      --configuration Release
+      --logger "trx;LogFileName=integration.trx"
+      --logger "console;verbosity=normal"
+      --settings tests/Eventy.Tests.runsettings
+      --
+      RunConfiguration.ResultsDirectory=${CI_PROJECT_DIR}/test-results/integration
+  artifacts:
+    when: always
+    paths:
+      - test-results/integration/**/*.trx
+    reports:
+      junit: test-results/integration/**/*.trx
+    expire_in: 7 days
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
+    - if: $CI_COMMIT_TAG
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 3: Build & push Docker images to ACR
+# Uses BuildKit cache exports to GitLab's cache registry for fast rebuilds.
+# ─────────────────────────────────────────────────────────────────────────────
+.docker-push:
+  stage: build-push
+  image: docker:24
+  services:
+    - name: docker:24-dind
+      alias: docker
+      command: ["--tls=false"]
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+  before_script:
+    - echo "Logging in to $AZURE_ACR_SERVER"
+    - echo "$AZURE_ACR_PASSWORD" | docker login "$AZURE_ACR_SERVER" -u "$AZURE_ACR_USERNAME" --password-stdin
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
+    - if: $CI_COMMIT_TAG
+
+backend:image:
+  extends: .docker-push
+  needs: ["backend-unit-tests"]
+  script:
+    - export TAG_SHA="${AZURE_ACR_SERVER}/${BACKEND_IMAGE}:${CI_COMMIT_SHORT_SHA}"
+    - export TAG_LATEST="${AZURE_ACR_SERVER}/${BACKEND_IMAGE}:latest"
+    - >
+      docker buildx build
+      --file Dockerfile.backend
+      --tag "$TAG_SHA"
+      --tag "$TAG_LATEST"
+      --build-arg BUILDKIT_INLINE_CACHE=1
+      --cache-from "type=registry,ref=${AZURE_ACR_SERVER}/${BACKEND_IMAGE}:buildcache"
+      --cache-to   "type=registry,ref=${AZURE_ACR_SERVER}/${BACKEND_IMAGE}:buildcache,mode=max"
+      --push
+      .
+    - echo "Pushed $TAG_SHA"
+
+frontend:image:
+  extends: .docker-push
+  needs: ["frontend-build-check"]
+  script:
+    - export TAG_SHA="${AZURE_ACR_SERVER}/${FRONTEND_IMAGE}:${CI_COMMIT_SHORT_SHA}"
+    - export TAG_LATEST="${AZURE_ACR_SERVER}/${FRONTEND_IMAGE}:latest"
+    - >
+      docker buildx build
+      --file Dockerfile.frontend
+      --tag "$TAG_SHA"
+      --tag "$TAG_LATEST"
+      --build-arg BUILDKIT_INLINE_CACHE=1
+      --cache-from "type=registry,ref=${AZURE_ACR_SERVER}/${FRONTEND_IMAGE}:buildcache"
+      --cache-to   "type=registry,ref=${AZURE_ACR_SERVER}/${FRONTEND_IMAGE}:buildcache,mode=max"
+      --push
+      .
+    - echo "Pushed $TAG_SHA"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 4 (optional): Tag-gated release marker
+# Enable when you tag commits with v1.2.3. Promotes :latest → :<tag>.
+# ─────────────────────────────────────────────────────────────────────────────
+release:tag:
+  stage: release
+  image: docker:24
+  services:
+    - name: docker:24-dind
+      alias: docker
+      command: ["--tls=false"]
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+  before_script:
+    - echo "$AZURE_ACR_PASSWORD" | docker login "$AZURE_ACR_SERVER" -u "$AZURE_ACR_USERNAME" --password-stdin
+  script:
+    - docker pull "${AZURE_ACR_SERVER}/${BACKEND_IMAGE}:${CI_COMMIT_SHORT_SHA}"
+    - docker tag  "${AZURE_ACR_SERVER}/${BACKEND_IMAGE}:${CI_COMMIT_SHORT_SHA}" "${AZURE_ACR_SERVER}/${BACKEND_IMAGE}:${CI_COMMIT_TAG}"
+    - docker push "${AZURE_ACR_SERVER}/${BACKEND_IMAGE}:${CI_COMMIT_TAG}"
+    - docker pull "${AZURE_ACR_SERVER}/${FRONTEND_IMAGE}:${CI_COMMIT_SHORT_SHA}"
+    - docker tag  "${AZURE_ACR_SERVER}/${FRONTEND_IMAGE}:${CI_COMMIT_SHORT_SHA}" "${AZURE_ACR_SERVER}/${FRONTEND_IMAGE}:${CI_COMMIT_TAG}"
+    - docker push "${AZURE_ACR_SERVER}/${FRONTEND_IMAGE}:${CI_COMMIT_TAG}"
+  rules:
+    - if: $CI_COMMIT_TAG
+
+# ── Stage order ──────────────────────────────────────────────────────────────
+stages:
+  - test
+  - test-integration
+  - build-push
+  - release

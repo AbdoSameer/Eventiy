@@ -847,6 +847,55 @@ Content-Type: application/json
 - Angular HTTP services stay thin; application services map, cache, and orchestrate.
 - Angular components should use standalone APIs, signals where appropriate, and route guards for protected pages.
 
+## Containerization & CI/CD
+
+Both the backend (.NET 9 Web API) and the frontend (Angular 19) are containerized via multi-stage Dockerfiles at the repository root. The build context for **both** is the repo root — this is required for the backend because `Eventy.WebApi.csproj` references its sibling Clean Architecture projects (`../Application`, `../Domain`, `../Infrastructure`).
+
+| File | Purpose | Build context |
+| --- | --- | --- |
+| `Dockerfile.backend` | Multi-stage .NET 9 build → `aspnet:9.0` runtime on port 8080 (non-root) | repo root |
+| `Dockerfile.frontend` | Node 22 build → `nginxinc/nginx-unprivileged:1.27-alpine` serving Angular + reverse-proxying `/api` to the backend | repo root |
+| `EventiyApp/nginx.conf` | SPA fallback (`try_files … /index.html`), hashed-asset caching, `/api/` reverse proxy with WebSocket upgrade | consumed by `Dockerfile.frontend` |
+| `.dockerignore` | Trims `bin/`, `obj/`, `node_modules/`, `dist/`, `.git/`, IDE folders from the build context | repo root |
+| `.gitlab-ci.yml` | Pipeline: unit tests → (integration tests w/ DinD) → build & push to ACR | repo root |
+
+### Local builds
+
+```bash
+# Backend — build & run on http://localhost:8080
+docker build -f Dockerfile.backend  -t eventy-backend  .
+docker run --rm -p 8080:8080 \
+  -e ConnectionStrings__DefaultConnection="..." \
+  -e ConnectionStrings__Redis="host.docker.internal:6379" \
+  eventy-backend
+
+# Frontend — build & run on http://localhost:8080
+docker build -f Dockerfile.frontend -t eventy-frontend .
+docker run --rm -p 8080:8080 \
+  -e EVENTY_API_UPSTREAM=backend:8080 \
+  eventy-frontend
+```
+
+To run them together locally, give the backend container the network alias `backend` (e.g. `docker run --name backend --network eventy eventy-backend`), so the frontend's default `EVENTY_API_UPSTREAM=backend:8080` resolves.
+
+### Production topology
+
+- TLS is terminated at the Azure edge (Front Door / App Gateway / App Service front-end). The backend listens on plain HTTP (8080) inside the container and uses `ForwardedHeaders` middleware (`Program.cs`) to recover the original client scheme/IP. `UseHttpsRedirection` is **disabled outside Development** to avoid redirect loops behind the proxy.
+- The frontend image is the public entry point. Nginx serves the SPA and proxies `/api/*`, `/scalar/`, `/openapi.json` to the backend container over the internal network. The backend should **not** be exposed directly to the internet.
+- Override the backend upstream at deploy time via the `EVENTY_API_UPSTREAM` env var (no rebuild needed): e.g. `EVENTY_API_UPSTREAM=10.0.0.5:8080`.
+
+### GitLab CI
+
+Required CI/CD variables (Settings → CI/CD → Variables, masked & protected):
+
+- `AZURE_ACR_SERVER` — e.g. `eventiy.azurecr.io`
+- `AZURE_ACR_USERNAME` — service principal or admin user
+- `AZURE_ACR_PASSWORD` — (masked)
+
+The pipeline runs: `backend-unit-tests` + `frontend-build-check` (every MR) → `backend-integration-tests` w/ Docker-in-Docker (master/tags only) → `backend:image` + `frontend:image` buildx build & push to ACR with registry layer caching → `release:tag` promotes `:latest` → `:<tag>` on version tags.
+
+Image tags pushed: `:<commit-sha>` (immutable, deployable) and `:latest` (rolling).
+
 ## Documentation
 
 - [`EVENTIY_ARCHITECTURE.md`](EVENTIY_ARCHITECTURE.md): full enterprise architecture specification, pattern matrix, and end-to-end booking workflow trace.

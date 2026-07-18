@@ -1,0 +1,73 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Eventy Backend — ASP.NET Core 9 Web API (Clean Architecture solution)
+#
+# Build context MUST be the repository root, because Eventy.WebApi.csproj
+# references its sibling projects (../Application, ../Domain, ../Infrastructure):
+#
+#     docker build -f Dockerfile.backend -t eventy-backend .
+#
+# Run:
+#     docker run --rm -p 8080:8080 eventy-backend
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Stage 1: base runtime image (reused by the final stage) ──────────────────
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
+# Kestrel listens on 8080 (non-root friendly; the aspnet image already runs as
+# the `app` user with UID 1654).
+ENV ASPNETCORE_URLS=http://+:8080 \
+    ASPNETCORE_HTTP_PORTS=8080 \
+    ASPNETCORE_ENVIRONMENT=Production
+WORKDIR /app
+EXPOSE 8080
+
+
+# ── Stage 2: restore — layer-cached unless a .csproj/.sln changes ────────────
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS restore
+WORKDIR /src
+
+# Copy only the solution + project manifests so `dotnet restore` is cached.
+COPY Eventiy.sln ./
+COPY Eventy.WebApi/Eventy.WebApi.csproj   ./Eventy.WebApi/
+COPY Application/Application.csproj       ./Application/
+COPY Domain/Domain.csproj                 ./Domain/
+COPY Infrastructure/Infrastructure.csproj ./Infrastructure/
+
+# Tests are restored as part of the solution (if a tests project is added later).
+RUN dotnet restore Eventiy.sln
+
+
+# ── Stage 3: build the whole solution ────────────────────────────────────────
+FROM restore AS build
+WORKDIR /src
+# Copy the rest of the source on top of the manifests already restored.
+COPY . ./
+RUN dotnet build Eventiy.sln -c Release -o /app/build --no-restore
+
+
+# ── Stage 4: publish the Web API (the startup project pulls the rest in) ─────
+FROM build AS publish
+RUN dotnet publish Eventy.WebApi/Eventy.WebApi.csproj \
+      -c Release \
+      -o /app/publish \
+      --no-restore \
+      /p:UseAppHost=false
+
+
+# ── Stage 5: final runtime image ─────────────────────────────────────────────
+FROM base AS final
+WORKDIR /app
+
+# Runtime config exposed via environment for flexibility.
+# Connection strings / secrets should be injected at deploy time (env vars or
+# Azure Key Vault references), NOT baked into the image.
+ENV ASPNETCORE_FORWARDEDHEADERS_ENABLED=true
+
+COPY --from=publish /app/publish ./
+
+# UseStaticFiles serves wwwroot (your wwwroot/uploads folder). Ensure it exists
+# and is writable by the non-root `app` user.
+RUN mkdir -p /app/wwwroot/uploads \
+    && chown -R app:app /app/wwwroot
+
+USER app
+ENTRYPOINT ["dotnet", "Eventy.WebApi.dll"]

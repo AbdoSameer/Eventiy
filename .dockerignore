@@ -1,0 +1,45 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Shared .dockerignore for both Dockerfile.backend and Dockerfile.frontend.
+# Build context is the repo root; this file trims build-irrelevant paths so
+# `docker build` uploads less, caches better, and runs faster in GitLab CI.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Version control & IDE
+.git/
+.gitignore
+.github/
+.gitlab-ci.yml
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+# .NET build artifacts (huge — never ship to the build context)
+**/bin/
+**/obj/
+**/TestResults/
+**/*.user
+*.md
+EVENTIY_ARCHITECTURE.md
+README.md
+ABOUT.md
+
+# User secrets (NEVER bake into images)
+**/secrets.json
+**/appsettings.*.Development.json
+
+# Angular build state & deps (npm ci will reinstall clean)
+**/node_modules/
+EventiyApp/dist/
+EventiyApp/.angular/
+EventiyApp/coverage/
+
+# Local Docker / runtime artifacts
+*.log
+docker-compose*.yml
+
+# Misc
+obj/
+Dockerfile.*
+!.dockerignore
