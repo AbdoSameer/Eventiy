@@ -112,16 +112,20 @@ public class CreateBookingPendingFirstTests
         // assert CommitAsync preceded InitiatePaymentAsync.
         var callOrder = new List<string>();
         _unitOfWork.CommitAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.Run(() => { lock (callOrder) callOrder.Add("commit"); return 1; }));
+            .Returns(_ =>
+            {
+                lock (callOrder) callOrder.Add("commit");
+                return Task.FromResult(1);
+            });
         _paymentService.InitiatePaymentAsync(
                 Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<decimal>(), Arg.Any<string>(),
                 Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(Task.Run(() =>
+            .Returns(_ =>
             {
                 lock (callOrder) callOrder.Add("payment");
-                return Result<PaymentInitiationResult>.Success(
-                    new PaymentInitiationResult("https://pay.example.com/success", null));
-            }));
+                return Task.FromResult(Result<PaymentInitiationResult>.Success(
+                    new PaymentInitiationResult("https://pay.example.com/success", null)));
+            });
 
         // Act
         var result = await _bookingHandler.Handle(InstantCommand(), CancellationToken.None);
