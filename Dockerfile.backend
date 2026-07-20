@@ -90,7 +90,8 @@ WORKDIR /app
 # Runtime config exposed via environment for flexibility.
 # Connection strings / secrets should be injected at deploy time (env vars or
 # Azure Key Vault references), NOT baked into the image.
-ENV ASPNETCORE_FORWARDEDHEADERS_ENABLED=true
+ENV ASPNETCORE_FORWARDEDHEADERS_ENABLED=true \
+    ConnectionStrings__Redis=localhost:6379
 
 COPY --from=publish /app/publish ./
 

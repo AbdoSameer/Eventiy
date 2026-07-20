@@ -4,6 +4,12 @@
 # Builds, tests, containerizes, and pushes both the .NET 9 backend and the
 # Angular 19 frontend to the GitLab Container Registry ($CI_REGISTRY_IMAGE).
 #
+# Pipeline stages:
+#   1. test-unit:        Backend unit tests (Domain + Application) + frontend build
+#   2. test-integration: Backend integration + concurrency tests (Testcontainers + DinD)
+#   3. docker-build-push: Build & push Docker images to the GitLab registry
+#   4. release:          Tag-gated release marker (promote :<sha> → :<tag>)
+#
 # No manual registry variables needed: $CI_REGISTRY, $CI_REGISTRY_IMAGE,
 # $CI_REGISTRY_USER, $CI_REGISTRY_PASSWORD are auto-injected by GitLab.
 #
@@ -132,10 +138,20 @@ backend-integration-tests:
   services:
     - name: docker:24-dind
       alias: docker
+    # Redis service container for integration tests that exercise the
+    # AtomicRedisReservationStrategy and InventoryReconciliationJob.
+    # The test factory replaces ConnectionMultiplexer with FakeCacheService,
+    # but future tests may require a real Redis instance.
+    - name: redis:7-alpine
+      alias: redis
+      command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
   variables:
     DOCKER_HOST: tcp://docker:2376
     DOCKER_TLS_VERIFY: "1"
     DOCKER_CERT_PATH: /certs/client
+    # Expose Redis to the test process (the test factory overrides this, but
+    # production code paths that read ConnectionStrings:Redis will find it).
+    ConnectionStrings__Redis: "redis:6379"
   before_script:
     # Testcontainers discovers Docker via the CLI, so install it inside the SDK
     # image. `docker.io` is the Debian-friendly package name.
@@ -237,6 +253,11 @@ backend:image:
       --push
       .
     - echo "Pushed ${CI_REGISTRY_IMAGE}/${BACKEND_IMAGE}:${CI_COMMIT_SHORT_SHA} and :latest"
+  after_script:
+    # Clean up the builder so nothing leaks between jobs/runners. Guarded so
+    # aborted/canceled jobs (where the builder may never have been created)
+    # don't print spurious "no builder found" errors.
+    - if docker buildx ls 2>/dev/null | grep -q "builder-${CI_JOB_ID}"; then docker buildx rm "builder-${CI_JOB_ID}"; fi || true
 
 frontend:image:
   extends: .docker-push
@@ -254,6 +275,8 @@ frontend:image:
       --push
       .
     - echo "Pushed ${CI_REGISTRY_IMAGE}/${FRONTEND_IMAGE}:${CI_COMMIT_SHORT_SHA} and :latest"
+  after_script:
+    - if docker buildx ls 2>/dev/null | grep -q "builder-${CI_JOB_ID}"; then docker buildx rm "builder-${CI_JOB_ID}"; fi || true
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 4 (optional): Tag-gated release marker — promote :<sha> → :<tag>.
