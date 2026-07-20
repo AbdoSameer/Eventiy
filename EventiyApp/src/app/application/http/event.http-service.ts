@@ -8,6 +8,7 @@ import {
   PaginatedEventResponse,
   CreateEventCommand,
   AddTicketTypeRequest,
+  ToggleHighDemandResponse,
 } from '../../core/models/event.model';
 import { Result } from '../../core/models/result.model';
 import { HttpClientBase } from './http-client-base';
@@ -58,6 +59,13 @@ export class EventHttpService extends HttpClientBase {
   cancelEvent(id: string): Observable<Result<boolean>> {
     return this.http.put<void>(`${this.baseUrl}/${id}/cancel`, {}).pipe(
       map((): Result<boolean> => ({ isSuccess: true, isFailure: false, value: true })),
+      catchError((err) => this.toErrorResult(err)),
+    );
+  }
+
+  setHighDemand(id: string, enabled: boolean): Observable<Result<ToggleHighDemandResponse>> {
+    return this.http.put<ToggleHighDemandResponse>(`${this.baseUrl}/${id}/high-demand`, { enabled }).pipe(
+      map((value): Result<ToggleHighDemandResponse> => ({ isSuccess: true, isFailure: false, value })),
       catchError((err) => this.toErrorResult(err)),
     );
   }

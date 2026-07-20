@@ -18,6 +18,7 @@ export function eventCardToEvent(dto: EventCardDto): Event {
     currency: dto.currency,
     latitude: dto.latitude,
     longitude: dto.longitude,
+    isHighDemand: dto.isHighDemand ?? false,
   };
 }
 
@@ -41,5 +42,6 @@ export function eventDetailsToEvent(dto: EventDetailsDto): Event {
     currency: dto.ticketDetails[0]?.currency ?? 'USD',
     latitude: dto.location.latitude,
     longitude: dto.location.longitude,
+    isHighDemand: dto.isHighDemand ?? false,
   };
 }

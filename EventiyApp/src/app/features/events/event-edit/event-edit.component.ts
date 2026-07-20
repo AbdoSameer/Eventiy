@@ -119,6 +119,41 @@ import type { EventStatus } from '../../../core/models/event.model';
           }
         </form>
 
+        @if (eventStatus === 'Published') {
+          <div class="bg-white rounded-2xl shadow-md p-6 sm:p-8 mb-8">
+            <h2 class="text-xl font-bold text-text-primary mb-4">Inventory mode</h2>
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div class="flex-1">
+                <p class="text-text-secondary mb-1">
+                  Switch inventory management between standard SQL and high-performance Redis mode.
+                </p>
+                <p class="text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">
+                  ⚠ Enabling High-Demand mode switches seat/inventory reservations to Redis for faster throughput during peak periods.
+                </p>
+              </div>
+              <button
+                type="button"
+                (click)="toggleHighDemand()"
+                [disabled]="togglingHighDemand()"
+                class="inline-flex items-center gap-2 rounded-full px-5 py-2.5 font-semibold border-2 transition-colors whitespace-nowrap disabled:opacity-60 self-start"
+                [class]="highDemand()
+                  ? 'bg-red-100 text-red-700 border-red-300 hover:bg-red-200'
+                  : 'bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200'"
+              >
+                @if (togglingHighDemand()) {
+                  <span aria-hidden="true">…</span>
+                  <span>Toggling…</span>
+                } @else if (highDemand()) {
+                  <span aria-hidden="true">⚠</span>
+                  <span>High-Demand: ON</span>
+                } @else {
+                  <span>High-Demand: OFF</span>
+                }
+              </button>
+            </div>
+          </div>
+        }
+
         @if (canEdit) {
           <div class="bg-white rounded-2xl shadow-md p-6 sm:p-8">
             <h2 class="text-xl font-bold text-text-primary mb-4">Ticket types</h2>
@@ -198,6 +233,8 @@ export class EventEditComponent implements OnInit {
   readonly saving = signal(false);
   readonly addingTickets = signal(false);
   readonly publishing = signal(false);
+  readonly highDemand = signal(false);
+  readonly togglingHighDemand = signal(false);
 
   protected eventStatus: EventStatus | null = null;
 
@@ -246,6 +283,7 @@ export class EventEditComponent implements OnInit {
           this.eventDate = result.value.date;
           this.eventStreet = result.value.location.street;
           this.eventStatus = result.value.status;
+          this.highDemand.set(result.value.isHighDemand ?? false);
           this.form.patchValue({
             name: result.value.name,
             description: result.value.description,
@@ -315,6 +353,30 @@ export class EventEditComponent implements OnInit {
       },
       error: () => {
         this.publishing.set(false);
+        this.toast.showError('Could not reach the server.');
+      },
+    });
+  }
+
+  toggleHighDemand(): void {
+    this.togglingHighDemand.set(true);
+    const enabled = !this.highDemand();
+    this.eventHttp.setHighDemand(this.eventId, enabled).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (result) => {
+        this.togglingHighDemand.set(false);
+        if (result.isSuccess && result.value) {
+          this.highDemand.set(result.value.isHighDemand);
+          this.toast.showSuccess(
+            result.value.isHighDemand
+              ? 'High-demand mode enabled. Inventory now runs on Redis.'
+              : 'High-demand mode disabled. Inventory reverted to SQL.',
+          );
+        } else {
+          this.toast.showError(result.errors?.[0]?.message ?? 'Could not toggle high-demand mode.');
+        }
+      },
+      error: () => {
+        this.togglingHighDemand.set(false);
         this.toast.showError('Could not reach the server.');
       },
     });

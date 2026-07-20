@@ -6,6 +6,7 @@ import { forkJoin, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { AuthApplicationService } from '../../../application/services/auth-application.service';
 import { EventApplicationService } from '../../../application/services/event-application.service';
+import { EventHttpService } from '../../../application/http/event.http-service';
 import { BookingApplicationService } from '../../../application/services/booking-application.service';
 import { ToastService } from '../../../infrastructure/services/toast.service';
 import { Event } from '../../../core/models/event.model';
@@ -69,6 +70,7 @@ type Tab = 'events' | 'bookings' | 'analytics';
                     <th class="px-5 py-3 font-semibold">Date</th>
                     <th class="px-5 py-3 font-semibold">Capacity</th>
                     <th class="px-5 py-3 font-semibold">Status</th>
+                    <th class="px-5 py-3 font-semibold">High-Demand</th>
                     <th class="px-5 py-3 font-semibold text-right">Actions</th>
                   </tr>
                 </thead>
@@ -83,6 +85,29 @@ type Tab = 'events' | 'bookings' | 'analytics';
                       <td class="px-5 py-4 text-text-secondary">{{ event.attendeeCount }} / {{ event.capacity }}</td>
                       <td class="px-5 py-4">
                         <span class="rounded-full px-3 py-1 text-xs font-semibold" [class]="eventStatusClass(event.status)">{{ event.status || 'Published' }}</span>
+                      </td>
+                      <td class="px-5 py-4">
+                        @if (event.status === 'Published') {
+                          <button
+                            type="button"
+                            (click)="toggleHighDemand(event)"
+                            [disabled]="togglingId() === event.id"
+                            title="⚠ Switches inventory strategy to high-performance Redis mode."
+                            class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold border transition-colors disabled:opacity-60"
+                            [class]="event.isHighDemand
+                              ? 'bg-red-100 text-red-700 border-red-200 hover:bg-red-200'
+                              : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'"
+                          >
+                            @if (togglingId() === event.id) {
+                              <span aria-hidden="true">…</span>
+                            } @else {
+                              <span aria-hidden="true">⚠</span>
+                              {{ event.isHighDemand ? 'On' : 'Off' }}
+                            }
+                          </button>
+                        } @else {
+                          <span class="text-text-secondary text-sm" title="Publish the event first.">—</span>
+                        }
                       </td>
                       <td class="px-5 py-4 text-right space-x-2 whitespace-nowrap">
                         @if (isAdmin || event.status === 'Draft') {
@@ -193,6 +218,7 @@ type Tab = 'events' | 'bookings' | 'analytics';
 })
 export class OrganizerDashboardComponent implements OnInit {
   private eventApp = inject(EventApplicationService);
+  private eventHttp = inject(EventHttpService);
   private bookingApp = inject(BookingApplicationService);
   private auth = inject(AuthApplicationService);
   private toast = inject(ToastService);
@@ -212,6 +238,7 @@ export class OrganizerDashboardComponent implements OnInit {
   readonly bookings = signal<Booking[]>([]);
   readonly loading = signal(false);
   readonly statusFilter = signal('');
+  readonly togglingId = signal<string | null>(null);
 
   readonly totalAttendees = computed(() => this.events().reduce((sum, e) => sum + (e.attendeeCount ?? 0), 0));
   readonly totalCapacity = computed(() => this.events().reduce((sum, e) => sum + (e.capacity ?? 0), 0));
@@ -298,6 +325,29 @@ export class OrganizerDashboardComponent implements OnInit {
         this.events.update((list) => list.filter((e) => e.id !== event.id));
       } else {
         this.toast.showError(result.errors?.[0]?.message ?? 'Could not cancel the event.');
+      }
+    });
+  }
+
+  toggleHighDemand(event: Event): void {
+    if (this.togglingId() !== null) {
+      return;
+    }
+    this.togglingId.set(event.id);
+    this.eventHttp.setHighDemand(event.id, !event.isHighDemand).subscribe((result) => {
+      this.togglingId.set(null);
+      if (result.isSuccess && result.value) {
+        const isHighDemand = result.value.isHighDemand;
+        this.events.update((list) =>
+          list.map((e) => (e.id === event.id ? { ...e, isHighDemand } : e)),
+        );
+        this.toast.showSuccess(
+          isHighDemand
+            ? 'High-demand mode enabled. Inventory now runs on Redis.'
+            : 'High-demand mode disabled. Inventory reverted to SQL.',
+        );
+      } else {
+        this.toast.showError(result.errors?.[0]?.message ?? 'Could not toggle high-demand mode.');
       }
     });
   }

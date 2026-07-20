@@ -2,7 +2,7 @@ using Domain.Aggregates.EventAggregate.Enums;
 
 namespace Application.Features.Events.Queries.GetEvents
 {
-     public record EventCardResponse(
+             public record EventCardResponse(
         Guid Id,
         string Title,
         DateTime Date,
@@ -18,5 +18,6 @@ namespace Application.Features.Events.Queries.GetEvents
         string? CoverPhotoUrl,
         EventType Type,
         double? Latitude,
-        double? Longitude);
+        double? Longitude,
+        bool IsHighDemand);
 }

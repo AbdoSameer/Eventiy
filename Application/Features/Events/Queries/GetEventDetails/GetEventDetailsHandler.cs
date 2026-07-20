@@ -83,7 +83,8 @@ public class GetEventDetailsHandler
                     .OrderByDescending(p => p.IsCover)
                     .ThenBy(p => p.DisplayOrder)
                     .Select(p => p.PublicUrl)
-                    .FirstOrDefault()
+                    .FirstOrDefault(),
+                IsHighDemand = e.IsHighDemand
             });
 
         var result = await _context.FirstOrDefaultAsync(query, cancellationToken);

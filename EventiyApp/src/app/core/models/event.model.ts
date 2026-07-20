@@ -54,6 +54,7 @@ export interface EventCardDto {
   type: string;
   latitude?: number | null;
   longitude?: number | null;
+  isHighDemand?: boolean;
 }
 
 export interface EventDetailsDto {
@@ -70,6 +71,11 @@ export interface EventDetailsDto {
   ticketDetails: TicketDetailsDto[];
   coverPhotoUrl?: string;
   photos?: EventPhotoResponse[];
+  isHighDemand?: boolean;
+}
+
+export interface ToggleHighDemandResponse {
+  isHighDemand: boolean;
 }
 
 export interface CreateEventCommand {
@@ -123,6 +129,7 @@ export interface Event {
   currency?: string;
   latitude?: number | null;
   longitude?: number | null;
+  isHighDemand?: boolean;
 }
 
 export const EVENT_CATEGORIES = [

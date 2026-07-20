@@ -8,4 +8,6 @@
     public record UpdatePhotoMetadataRequest(string? Caption, int? DisplayOrder);
 
     public record ReorderPhotosRequest(List<Guid> OrderedPhotoIds);
+
+    public record ToggleHighDemandRequest(bool Enabled);
 }

@@ -1,5 +1,6 @@
 ﻿using Application.Features.Events.Commands.CreateEvent;
 using Application.Features.Events.Commands.CancelEvent;
+using Application.Features.Events.Commands.ToggleHighDemand;
 using Application.Features.Events.Commands.UpdateEvent;
 using Application.Features.Events.Commands.AddTicketType;
 using Application.Features.Events.Commands.DeleteEventPhoto;
@@ -96,6 +97,16 @@ namespace Eventy.WebApi.Controllers
         public async Task<IActionResult> CancelEvent(Guid id, CancellationToken ct)
         {
             var result = await _sender.Send(new CancelEventCommand(id), ct);
+            return result.ToActionResult();
+        }
+
+        [HttpPut("{id:guid}/high-demand")]
+        [Authorize(Roles = "Organizer,Admin")]
+        public async Task<IActionResult> ToggleHighDemand(
+            Guid id, [FromBody] ToggleHighDemandRequest request, CancellationToken ct)
+        {
+            var result = await _sender.Send(
+                new ToggleHighDemandCommand { EventId = id, Enabled = request.Enabled }, ct);
             return result.ToActionResult();
         }
 

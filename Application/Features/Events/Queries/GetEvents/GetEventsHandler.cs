@@ -94,7 +94,8 @@ public class GetEventsHandler
                     .FirstOrDefault(),
                 e.Type,
                 e.Location.Latitude,
-                e.Location.Longitude
+                e.Location.Longitude,
+                e.IsHighDemand
             ));
 
         var items = await _context.ToListAsync(selectQuery, cancellationToken);

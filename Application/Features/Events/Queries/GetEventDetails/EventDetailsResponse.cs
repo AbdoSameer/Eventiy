@@ -21,6 +21,7 @@ namespace Application.Features.Events.Queries.GetEventDetails
         public List<EventPhotoResponse> Photos { get; init; }
                                             = new List<EventPhotoResponse>();
         public string? CoverPhotoUrl { get; init; }
+        public bool IsHighDemand { get; init; }
     }
 }
 
