@@ -90,15 +90,25 @@ namespace Application.Features.Bookings.Command.CreateBooking
 
             // ===== FENCING TOKEN (Layer 2) =====
             // Capture the Event's RowVersion at the start of this attempt.
-            // EF Core's IsRowVersion() mapping automatically emits
-            //   UPDATE ... WHERE Id = @id AND RowVersion = @captured
-            // during CommitAsync → SaveChangesAsync. If a ToggleHighDemand
-            // command commits between this point and CommitAsync, the
-            // RowVersion will have changed, the UPDATE affects 0 rows,
+            // The Event aggregate is loaded via GetByIdAsync and tracked by
+            // the DbContext. When the optimistic strategy calls
+            // Event.ReserveSeats(), it mutates the TicketType child entity
+            // (ReservedCount += quantity) but does NOT modify any scalar
+            // property on the Event root itself. Without explicit enforcement,
+            // EF Core's change tracker would NOT include the Events table in
+            // the UPDATE batch — only TicketTypes — so the RowVersion check
+            // would never fire, making the fencing token dead code.
+            //
+            // EnforceFencingToken forces EF Core to:
+            //   1. Track the Event as Modified (even though no scalar changed)
+            //   2. Stamp the OriginalValue of RowVersion to the captured token
+            // This guarantees EF Core emits:
+            //   UPDATE Events SET ... WHERE Id = @id AND RowVersion = @fencingToken
+            // If a ToggleHighDemand command committed between GetByIdAsync and
+            // CommitAsync, the RowVersion changed, the UPDATE affects 0 rows,
             // and EF throws DbUpdateConcurrencyException → ConcurrencyException.
-            // The ConcurrencyRetryHelper wrapping AttemptBooking catches it
-            // and retries — the retry re-reads the event with the new
-            // IsHighDemand flag and routes to the correct strategy.
+            // The ConcurrencyRetryHelper catches it and retries — the retry
+            // re-reads the event with the new IsHighDemand flag.
             var fencingToken = eventResult.RowVersion;
 
             var ticketType = eventResult.TicketTypes.FirstOrDefault(t => t.Id == ticketTypeId);
@@ -134,6 +144,11 @@ namespace Application.Features.Bookings.Command.CreateBooking
                 return Result<CreateBookingResponse>.Failure(booking.Errors.ToArray());
 
             await bookingRepo.AddBookingAsync(booking.Value, cancellationToken);
+
+            // Force the Event aggregate root into the UPDATE batch with the
+            // captured fencing token as the RowVersion OriginalValue. This is
+            // the critical call that makes Layer 2 actually work.
+            uow.EnforceFencingToken(eventResult, fencingToken);
 
             // ===== PHASE 1: Atomic Commit — Save Booking as Pending (seats reserved) =====
             int rowsAffected;

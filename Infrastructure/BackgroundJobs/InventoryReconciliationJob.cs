@@ -16,11 +16,14 @@ namespace Infrastructure.BackgroundJobs;
 /// reconciliation loop that detects oversold inventory and compensates.
 ///
 /// Every 30 seconds the job scans all high-demand events (IsHighDemand=1),
-/// compares each TicketType's SQL AvailableCount with the Redis counter,
-/// and if the Redis counter is negative (oversold due to a split-brain
-/// during the handover), it cancels the most recent pending bookings for
-/// that ticket type and stages a durable <c>CompensateOversoldBooking</c>
-/// compensation log so the CompensationProcessor can process refunds.
+/// compares each TicketType's Redis counter against the actual SQL
+/// AvailableCount fetched in the same iteration. If the Redis counter
+/// is LESS than the SQL AvailableCount, true overselling has occurred
+/// (e.g., Redis was seeded with 100 but SQL dropped to 95 due to
+/// concurrent successful requests that bypassed the Redis counter).
+/// The job cancels the most recent pending bookings for that ticket
+/// type and stages a durable <c>CompensateOversoldBooking</c>
+/// compensation log.
 /// </summary>
 public sealed class InventoryReconciliationJob : BackgroundService
 {
@@ -113,17 +116,40 @@ public sealed class InventoryReconciliationJob : BackgroundService
                 if (!long.TryParse(redisValue, out var redisRemaining))
                     continue;
 
-                if (redisRemaining >= 0)
+                // Cross-reference the Redis counter against the actual SQL
+                // AvailableCount, not just zero. If Redis was seeded with a
+                // stale higher number (e.g., 100) but SQL dropped to 95 due
+                // to concurrent successful requests that bypassed Redis,
+                // redisRemaining (e.g., 97) would be > 95 — meaning
+                // 2 more tickets were "sold" via Redis than SQL can fulfill.
+                // Conversely, if redisRemaining < 0, the counter went
+                // negative (classic oversell). Both cases need compensation.
+                //
+                // Skip ONLY if Redis <= SQL (in sync — Redis has fewer or
+                // equal remaining tickets than SQL, meaning no oversell).
+                // If Redis > SQL, oversell occurred (Redis allowed bookings
+                // that SQL can't fulfill).
+                var sqlAvailableCount = ticketType.AvailableCount;
+
+                if (redisRemaining >= 0 && redisRemaining <= sqlAvailableCount)
                     continue;
 
-                var oversoldCount = (int)Math.Abs(redisRemaining);
+                // Oversell detected — compute how many bookings to cancel.
+                // If redisRemaining < 0: oversold by |redisRemaining|.
+                // If redisRemaining >= sqlAvailableCount (but >= 0): the
+                //   Redis counter is higher than what SQL can fulfill, meaning
+                //   (redisRemaining - sqlAvailableCount) extra tickets were
+                //   reserved via Redis but SQL doesn't have the inventory.
+                var oversoldCount = redisRemaining < 0
+                    ? (int)Math.Abs(redisRemaining)
+                    : redisRemaining - sqlAvailableCount;
 
                 _logger.LogWarning(
-                    "Oversell detected: event {EventId}, ticket {TicketTypeId}, Redis remaining {RedisRemaining}, oversold by {OversoldCount}",
-                    @event.Id.Value, ticketType.Id.Value, redisRemaining, oversoldCount);
+                    "Oversell detected: event {EventId}, ticket {TicketTypeId}, Redis remaining {RedisRemaining}, SQL available {SqlAvailable}, oversold by {OversoldCount}",
+                    @event.Id.Value, ticketType.Id.Value, redisRemaining, sqlAvailableCount, oversoldCount);
 
                 var latestBookings = await bookingRepo.GetLatestPendingByTicketTypeAsync(
-                    ticketType.Id, oversoldCount, ct);
+                    ticketType.Id, (int)oversoldCount, ct);
 
                 if (latestBookings.Count == 0)
                 {
@@ -174,7 +200,10 @@ public sealed class InventoryReconciliationJob : BackgroundService
                     anyCompensated = true;
                 }
 
-                await db.StringSetAsync(key, 0);
+                // Reset the Redis counter to the SQL AvailableCount — the
+                // authoritative value after compensation. This resyncs the
+                // counter so future reservations are accurate.
+                await db.StringSetAsync(key, sqlAvailableCount);
             }
         }
 

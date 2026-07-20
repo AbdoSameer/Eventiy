@@ -60,6 +60,28 @@ public sealed class UnitOfWork : IUnitOfWork
     public async Task<int> CommitWithoutEventsAsync(CancellationToken cancellationToken = default)
         => await _context.SaveChangesAsync(cancellationToken);
 
+    public void EnforceFencingToken(
+        IAggregateRoot aggregateRoot,
+        byte[] rowVersion,
+        string concurrencyTokenPropertyName = "RowVersion")
+    {
+        var entry = _context.Entry(aggregateRoot);
+
+        // If the entity is detached (loaded via a different DbContext scope),
+        // attach it so the change tracker includes it in the next SaveChanges.
+        if (entry.State == EntityState.Detached)
+            entry.State = EntityState.Unchanged;
+
+        // Stamp the original RowVersion so EF Core emits
+        //   UPDATE ... WHERE Id = @id AND RowVersion = @rowVersion
+        entry.Property(concurrencyTokenPropertyName).OriginalValue = rowVersion;
+
+        // Mark as Modified so EF Core includes the aggregate root in the
+        // UPDATE batch even if no scalar property on it changed (only child
+        // entities like TicketType were mutated by ReserveSeats).
+        entry.State = EntityState.Modified;
+    }
+
     public async Task ExecuteInTransactionAsync(
         Func<IApplicationDbTransaction, CancellationToken, Task> operation,
         CancellationToken cancellationToken = default)

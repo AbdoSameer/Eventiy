@@ -28,10 +28,15 @@ namespace Infrastructure.Persistence.Repositories
         }
 
         /// <summary>
-        /// Loads the Event and its TicketTypes with a pessimistic lock
-        /// (UPDLOCK, HOLDLOCK) to prevent concurrent reservations from
-        /// sneaking in during a high-demand toggle. The lock is held until
-        /// the ambient transaction commits or rolls back.
+        /// Loads the Event and its TicketTypes with an exclusive lock
+        /// (XLOCK, HOLDLOCK) to prevent ALL concurrent access — including
+        /// shared (S) lock reads from GetByIdAsync — during a high-demand
+        /// toggle. UPDLOCK is compatible with S locks, so readers could
+        /// still see a stale IsHighDemand=false while the toggle is in
+        /// progress. XLOCK is incompatible with S locks, forcing any
+        /// incoming read transaction to wait until the toggle commits.
+        /// The lock is held until the ambient transaction commits or
+        /// rolls back.
         /// </summary>
         public async Task<Event?> GetByIdWithLockAsync(EventId id, CancellationToken cancellationToken)
         {
@@ -39,7 +44,7 @@ namespace Infrastructure.Persistence.Repositories
 
             var @event = await _applicationDbContext.Events
                 .FromSqlInterpolated(
-                    $"SELECT * FROM Events WITH (UPDLOCK, HOLDLOCK) WHERE Id = {idValue}")
+                    $"SELECT * FROM Events WITH (XLOCK, HOLDLOCK) WHERE Id = {idValue}")
                 .Include(e => e.TicketTypes)
                 .Include(e => e.Photos)
                 .FirstOrDefaultAsync(cancellationToken);
