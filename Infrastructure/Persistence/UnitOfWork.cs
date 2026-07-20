@@ -2,6 +2,7 @@
 using Application.Abstractions.Persistence;
 using Domain.Common;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging;
 
 namespace Infrastructure.Persistence.Repositories;
@@ -59,6 +60,31 @@ public sealed class UnitOfWork : IUnitOfWork
     public async Task<int> CommitWithoutEventsAsync(CancellationToken cancellationToken = default)
         => await _context.SaveChangesAsync(cancellationToken);
 
+    public async Task ExecuteInTransactionAsync(
+        Func<IApplicationDbTransaction, CancellationToken, Task> operation,
+        CancellationToken cancellationToken = default)
+    {
+        var strategy = _context.Database.CreateExecutionStrategy();
+
+        await strategy.ExecuteAsync(async () =>
+        {
+            await using var tx = await _context.Database
+                .BeginTransactionAsync(cancellationToken);
+
+            var appTx = new EfDbTransaction(tx);
+            try
+            {
+                await operation(appTx, cancellationToken);
+                await tx.CommitAsync(cancellationToken);
+            }
+            catch
+            {
+                await tx.RollbackAsync(cancellationToken);
+                throw;
+            }
+        });
+    }
+
     private List<IDomainEvent> ExtractDomainEvents()
     {
         var aggregates = _context.ChangeTracker
@@ -93,5 +119,20 @@ public sealed class UnitOfWork : IUnitOfWork
         {
             entry.State = EntityState.Detached;
         }
+    }
+
+    private sealed class EfDbTransaction : IApplicationDbTransaction
+    {
+        private readonly IDbContextTransaction _tx;
+
+        public EfDbTransaction(IDbContextTransaction tx) => _tx = tx;
+
+        public Task CommitAsync(CancellationToken cancellationToken = default)
+            => _tx.CommitAsync(cancellationToken);
+
+        public Task RollbackAsync(CancellationToken cancellationToken = default)
+            => _tx.RollbackAsync(cancellationToken);
+
+        public async ValueTask DisposeAsync() => await _tx.DisposeAsync();
     }
 }

@@ -27,5 +27,24 @@ namespace Infrastructure.Persistence.Repositories
                 .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
         }
 
+        /// <summary>
+        /// Loads the Event and its TicketTypes with a pessimistic lock
+        /// (UPDLOCK, HOLDLOCK) to prevent concurrent reservations from
+        /// sneaking in during a high-demand toggle. The lock is held until
+        /// the ambient transaction commits or rolls back.
+        /// </summary>
+        public async Task<Event?> GetByIdWithLockAsync(EventId id, CancellationToken cancellationToken)
+        {
+            var idValue = id.Value;
+
+            var @event = await _applicationDbContext.Events
+                .FromSqlInterpolated(
+                    $"SELECT * FROM Events WITH (UPDLOCK, HOLDLOCK) WHERE Id = {idValue}")
+                .Include(e => e.TicketTypes)
+                .Include(e => e.Photos)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            return @event;
+        }
     }
 }

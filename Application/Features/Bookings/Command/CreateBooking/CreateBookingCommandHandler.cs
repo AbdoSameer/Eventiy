@@ -88,6 +88,19 @@ namespace Application.Features.Bookings.Command.CreateBooking
             if (eventResult is null)
                 return Result<CreateBookingResponse>.Failure(EventErrors.EventNotFound(eventId));
 
+            // ===== FENCING TOKEN (Layer 2) =====
+            // Capture the Event's RowVersion at the start of this attempt.
+            // EF Core's IsRowVersion() mapping automatically emits
+            //   UPDATE ... WHERE Id = @id AND RowVersion = @captured
+            // during CommitAsync → SaveChangesAsync. If a ToggleHighDemand
+            // command commits between this point and CommitAsync, the
+            // RowVersion will have changed, the UPDATE affects 0 rows,
+            // and EF throws DbUpdateConcurrencyException → ConcurrencyException.
+            // The ConcurrencyRetryHelper wrapping AttemptBooking catches it
+            // and retries — the retry re-reads the event with the new
+            // IsHighDemand flag and routes to the correct strategy.
+            var fencingToken = eventResult.RowVersion;
+
             var ticketType = eventResult.TicketTypes.FirstOrDefault(t => t.Id == ticketTypeId);
             if (ticketType is null)
                 return Result<CreateBookingResponse>.Failure(EventErrors.TicketTypeNotFound(request.TicketTypeId));

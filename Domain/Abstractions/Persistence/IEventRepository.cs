@@ -12,4 +12,15 @@ public interface IEventRepository
     Task<Event?> GetByIdAsync(
         EventId id,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Loads the Event aggregate with its TicketTypes using a pessimistic
+    /// lock (UPDLOCK, HOLDLOCK) so no concurrent reservation can modify the
+    /// ticket-type rows until the current transaction commits. Used by the
+    /// ToggleHighDemandCommandHandler to atomically read the inventory
+    /// counts, force-seed Redis, and flip the IsHighDemand flag.
+    /// </summary>
+    Task<Event?> GetByIdWithLockAsync(
+        EventId id,
+        CancellationToken cancellationToken);
 }

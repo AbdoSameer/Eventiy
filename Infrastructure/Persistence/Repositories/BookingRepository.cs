@@ -85,5 +85,19 @@ namespace Infrastructure.Persistence.Repositories
             return _applicationDbContext.Bookings
                 .FirstOrDefaultAsync(b => b.ReferenceCode == referenceCode, ct);
         }
+
+        public async Task<IReadOnlyList<Booking>> GetLatestPendingByTicketTypeAsync(
+            TicketTypeId ticketTypeId,
+            int batchSize,
+            CancellationToken ct = default)
+        {
+            return await _applicationDbContext.Bookings
+                .Where(b => b.TicketTypeId == ticketTypeId
+                    && (b.Status == BookingStatusEnum.Pending
+                        || b.Status == BookingStatusEnum.PendingPayment))
+                .OrderByDescending(b => b.BookingDate)
+                .Take(batchSize)
+                .ToListAsync(ct);
+        }
     }
 }

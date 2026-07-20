@@ -405,6 +405,9 @@ namespace Domain.Aggregates.EventAggregate
             int quantity,
             DateTime utcNow)
         {
+            if (Status != EventStatus.Published)
+                return Result.Failure(EventErrors.CannotReserveOnUnpublishedEvent());
+
             var ticketType = _ticketTypes.FirstOrDefault(t => t.Id == ticketTypeId);
             if (ticketType is null)
                 return Result.Failure(TicketTypeErrors.TicketTypeNotFound(ticketTypeId));

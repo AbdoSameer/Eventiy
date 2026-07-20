@@ -178,6 +178,9 @@ public sealed class CompensationProcessor : BackgroundService
         if (log.CompensationType == "CancelPayment")
             return await paymentService.CancelPaymentAsync(log.BookingId, ct);
 
+        if (log.CompensationType == "CompensateOversoldBooking")
+            return Result.Success();
+
         return Result.Failure(Error.Failure(
             "Compensation.UnknownType",
             $"Unknown compensation type: {log.CompensationType}"));

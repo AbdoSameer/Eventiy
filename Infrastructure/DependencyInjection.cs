@@ -82,6 +82,7 @@ public static class DependencyInjection
         services.AddHostedService<BookingExpirationJob>();
         services.AddHostedService<PaymentReconciliationJob>();
         services.AddHostedService<CompensationProcessor>();
+        services.AddHostedService<InventoryReconciliationJob>();
         services.AddSingleton(TimeProvider.System);
 
 
@@ -107,6 +108,9 @@ public static class DependencyInjection
         // High-demand inventory strategy (atomic Redis DECR)
         services.AddKeyedTransient<IInventoryReservationStrategy, AtomicRedisReservationStrategy>(
             Application.DependencyInjection.AtomicRedisStrategyKey);
+
+        // Inventory seeder for atomic handover (ToggleHighDemand)
+        services.AddScoped<IInventorySeeder, RedisInventorySeeder>();
 
         // Real-time seat sync
         services.AddSingleton<IWebSocketConnectionManager, WebSocketConnectionManager>();
