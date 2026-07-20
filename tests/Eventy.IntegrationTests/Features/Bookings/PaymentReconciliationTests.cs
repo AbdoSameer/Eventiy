@@ -1,44 +1,36 @@
-using System.Net;
-using System.Net.Http.Json;
 using Application.Abstractions.Payments;
 using Domain.Abstractions.Persistence;
 using Domain.Aggregates.BookingAggregate.Enums;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Eventy.IntegrationTests.Fixtures;
 using FluentAssertions;
-using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using System.Net;
+using System.Net.Http.Json;
 using Xunit;
+using Xunit.Abstractions;
 using EventId = Domain.Aggregates.EventAggregate.ValueObject.EventId;
 
 namespace Eventy.IntegrationTests.Features.Bookings;
 
 /// <summary>
-/// Verifies that the PaymentReconciliationJob correctly identifies and cancels
-/// orphaned Instant bookings past their hold expiry.
+/// Verifies that the PaymentReconciliationJob correctly identifies and
+/// cancels orphaned Instant bookings past their hold expiry.
+///
+/// Migrated to IntegrationTestBase for consistent DB reset + state logging.
 /// </summary>
-[Collection("Integration")]
-public class PaymentReconciliationTests : IAsyncLifetime
+public class PaymentReconciliationTests : IntegrationTestBase
 {
-    private readonly IntegrationTestFixture _fixture;
-    private readonly HttpClient _client;
-
-    public PaymentReconciliationTests(IntegrationTestFixture fixture)
-    {
-        _fixture = fixture;
-        _client = fixture.Client;
-    }
-
-    public async Task InitializeAsync() => await _fixture.ResetDatabaseAsync();
-    public Task DisposeAsync() => Task.CompletedTask;
+    public PaymentReconciliationTests(IntegrationTestFixture fixture, ITestOutputHelper output)
+        : base(fixture, output) { }
 
     [Fact]
     public async Task PaymentReconciliation_WhenOrphanedInstantBookingPastHold_ShouldCancelPayment()
     {
-        var (eventId, ticketTypeId) = await _fixture.SeedPublishedEventAsync();
+        var (eventId, ticketTypeId) = await Data.CreatePublishedEventAsync();
 
-        var createResponse = await _client.PostAsJsonAsync("/api/booking", new
+        var createResponse = await Client.PostAsJsonAsync("/api/booking", new
         {
             EventId = eventId,
             TicketTypeId = ticketTypeId,
@@ -47,7 +39,9 @@ public class PaymentReconciliationTests : IAsyncLifetime
         });
         createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
 
-        await using var dbBefore = _fixture.CreateDbContext();
+        await State.LogAsync("After booking (Instant payment)", eventId, ticketTypeId);
+
+        await using var dbBefore = Fixture.CreateDbContext();
         var booking = await dbBefore.Db.Bookings
             .FirstOrDefaultAsync(b => b.EventId == EventId.FromDatabase(eventId));
         booking.Should().NotBeNull();
@@ -57,9 +51,9 @@ public class PaymentReconciliationTests : IAsyncLifetime
         var holdExpiresAt = booking.HoldExpiresAt!.Value;
         var now = holdExpiresAt.AddSeconds(1);
 
-        using var scope = _fixture.Factory.Services.CreateScope();
+        using var scope = Fixture.Factory.Services.CreateScope();
         var bookingRepo = scope.ServiceProvider.GetRequiredService<IBookingRepository>();
-        var paymentService = scope.ServiceProvider.GetRequiredService<Application.Abstractions.Payments.IPaymentService>();
+        var paymentService = scope.ServiceProvider.GetRequiredService<IPaymentService>();
 
         var orphanedBookings = await bookingRepo.GetPendingInstantBookingsPastHoldAsync(
             now, 50, CancellationToken.None);
@@ -72,5 +66,7 @@ public class PaymentReconciliationTests : IAsyncLifetime
 
         cancelResult.IsSuccess.Should().BeTrue(
             "payment service should successfully cancel the orphaned payment session");
+
+        await State.LogAsync("After payment cancellation", eventId, ticketTypeId);
     }
 }
