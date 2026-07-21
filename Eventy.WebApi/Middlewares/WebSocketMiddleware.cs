@@ -4,16 +4,12 @@ using System.Net;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
+using Application.Abstractions.Persistence;
 using Domain.Abstractions.Persistence;
-using Domain.Aggregates.EventAggregate;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Common;
 using Domain.Errors;
-using Infrastructure.Persistence;
 using Infrastructure.RealTime;
-using MediatR;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Eventy.WebApi.Middlewares;
@@ -32,10 +28,19 @@ public class WebSocketMiddleware
     private static readonly ConcurrentDictionary<string, DateTime> _lastPong =
         new(StringComparer.Ordinal);
 
-    public WebSocketMiddleware(RequestDelegate next, ILogger<WebSocketMiddleware> logger)
+    private readonly TokenValidationParameters _tokenValidationParameters;
+    private readonly TimeProvider _timeProvider;
+
+    public WebSocketMiddleware(
+        RequestDelegate next,
+        ILogger<WebSocketMiddleware> logger,
+        TokenValidationParameters tokenValidationParameters,
+        TimeProvider timeProvider)
     {
         _next = next;
         _logger = logger;
+        _tokenValidationParameters = tokenValidationParameters;
+        _timeProvider = timeProvider;
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -65,14 +70,17 @@ public class WebSocketMiddleware
 
         var ct = context.RequestAborted;
         WebSocket? socket = null;
+        IRedisPubSubBroadcaster? broadcaster = null;
+        IWebSocketConnectionManager? connectionManager = null;
+        var connectionId = string.Empty;
 
         try
         {
             socket = await context.WebSockets.AcceptWebSocketAsync();
-            var connectionManager = context.RequestServices.GetRequiredService<IWebSocketConnectionManager>();
-            var broadcaster = context.RequestServices.GetRequiredService<IRedisPubSubBroadcaster>();
+            connectionManager = context.RequestServices.GetRequiredService<IWebSocketConnectionManager>();
+            broadcaster = context.RequestServices.GetRequiredService<IRedisPubSubBroadcaster>();
 
-            var connectionId = connectionManager.Add(socket, eventId, userId);
+            connectionId = connectionManager.Add(socket, eventId, userId);
             _logger.LogInformation("WS connected: {Id} event={EventId} user={User}",
                 connectionId, eventId, userId);
 
@@ -92,7 +100,7 @@ public class WebSocketMiddleware
             }, ct);
 
             // ── Heartbeat + message loop ──
-            _lastPong[connectionId] = DateTime.UtcNow;
+            _lastPong[connectionId] = _timeProvider.GetUtcNow().UtcDateTime;
             var heartbeatCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             var heartbeatTask = RunHeartbeatAsync(socket, connectionId, connectionManager, heartbeatCts.Token);
 
@@ -130,7 +138,17 @@ public class WebSocketMiddleware
                 catch { /* best-effort */ }
             }
 
-            // Cleanup is handled by connectionManager.Remove on close
+            if (connectionManager is not null && !string.IsNullOrEmpty(connectionId))
+            {
+                connectionManager.Remove(connectionId);
+            }
+
+            if (broadcaster is not null)
+            {
+                try { await broadcaster.UnsubscribeFromEventAsync(eventId); }
+                catch { /* best-effort */ }
+            }
+
             _logger.LogInformation("WS disconnected for event {EventId}", eventId);
         }
     }
@@ -184,7 +202,7 @@ public class WebSocketMiddleware
         switch (type)
         {
             case "PONG":
-                _lastPong[connectionId] = DateTime.UtcNow;
+                _lastPong[connectionId] = _timeProvider.GetUtcNow().UtcDateTime;
                 break;
 
             case "LOCK":
@@ -222,14 +240,14 @@ public class WebSocketMiddleware
         var scopeFactory = context.RequestServices.GetRequiredService<IServiceScopeFactory>();
 
         using var scope = scopeFactory.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var eventRepo = scope.ServiceProvider.GetRequiredService<IEventRepository>();
+        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<WebSocketMiddleware>>();
 
         try
         {
-            var eventEntity = await dbContext.Events
-                .Include(e => e.TicketTypes)
-                .FirstOrDefaultAsync(e => e.Id == Domain.Aggregates.EventAggregate.ValueObject.EventId.FromDatabase(eventId), ct);
+            var eventIdValue = Domain.Aggregates.EventAggregate.ValueObject.EventId.FromDatabase(eventId);
+            var eventEntity = await eventRepo.GetByIdAsync(eventIdValue, ct);
 
             if (eventEntity is null)
             {
@@ -238,8 +256,8 @@ public class WebSocketMiddleware
                 return;
             }
 
-            var ticketTypeId = Domain.Aggregates.EventAggregate.ValueObject.TicketTypeId.FromDatabase(ticketTypeGuid);
-            var utcNow = DateTime.UtcNow;
+            var ticketTypeId = TicketTypeId.FromDatabase(ticketTypeGuid);
+            var utcNow = _timeProvider.GetUtcNow().UtcDateTime;
 
             var reserveResult = eventEntity.ReserveSeats(ticketTypeId, 1, utcNow);
             if (reserveResult.IsFailure)
@@ -249,10 +267,12 @@ public class WebSocketMiddleware
                 return;
             }
 
-            await dbContext.SaveChangesAsync(ct);
+            uow.EnforceFencingToken(eventEntity, eventEntity.RowVersion);
+
+            await uow.CommitAsync(ct);
 
             // ── Broadcast DELTA to all subscribers ──
-            var delta = SeatStateDelta.Delta(seatId, "RESERVED", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+            var delta = SeatStateDelta.Delta(seatId, "RESERVED", _timeProvider.GetUtcNow().ToUnixTimeMilliseconds());
             var deltaJson = JsonSerializer.Serialize(delta, JsonOptions);
             await broadcaster.PublishAsync(eventId, deltaJson);
 
@@ -265,9 +285,8 @@ public class WebSocketMiddleware
             }, JsonOptions);
             await connectionManager.SendToConnectionAsync(connectionId, ack, ct);
         }
-        catch (DbUpdateConcurrencyException)
+        catch (ConcurrencyException)
         {
-            // Another process modified the same row – collision
             logger.LogWarning("Concurrency conflict on LOCK seat {Seat} event {Event}", seatId, eventId);
             await SendCollisionAsync(connectionManager, connectionId, seatId,
                 "RESERVED_BY_OTHER", ct);
@@ -280,17 +299,17 @@ public class WebSocketMiddleware
         }
     }
 
-    private static async Task SendCollisionAsync(
+    private async Task SendCollisionAsync(
         IWebSocketConnectionManager manager, string connectionId,
         string seatId, string reason, CancellationToken ct)
     {
         var collision = SeatStateDelta.Collision(seatId, reason,
-            DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+            _timeProvider.GetUtcNow().ToUnixTimeMilliseconds());
         var json = JsonSerializer.Serialize(collision, JsonOptions);
         await manager.SendToConnectionAsync(connectionId, json, ct);
     }
 
-    private static async Task RunHeartbeatAsync(
+    private async Task RunHeartbeatAsync(
         WebSocket socket, string connectionId,
         IWebSocketConnectionManager manager, CancellationToken ct)
     {
@@ -303,7 +322,7 @@ public class WebSocketMiddleware
             await Task.Delay(HeartbeatInterval, ct);
 
             if (_lastPong.TryGetValue(connectionId, out var last)
-                && DateTime.UtcNow - last > HeartbeatTimeout)
+                && _timeProvider.GetUtcNow().UtcDateTime - last > HeartbeatTimeout)
             {
                 manager.Remove(connectionId);
                 break;
@@ -327,9 +346,10 @@ public class WebSocketMiddleware
         try
         {
             var handler = new JwtSecurityTokenHandler();
-            var jwt = handler.ReadJwtToken(token);
-            userId = jwt.Subject ?? jwt.Claims
-                .FirstOrDefault(c => c.Type is "sub" or JwtRegisteredClaimNames.Sub)?.Value ?? string.Empty;
+            var principal = handler.ValidateToken(token, _tokenValidationParameters, out _);
+            var sub = principal.FindFirst(JwtRegisteredClaimNames.Sub)
+                      ?? principal.FindFirst("sub");
+            userId = sub?.Value ?? string.Empty;
             return !string.IsNullOrEmpty(userId);
         }
         catch

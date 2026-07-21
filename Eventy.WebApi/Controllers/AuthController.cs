@@ -14,13 +14,19 @@ namespace Eventy.WebApi.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [AllowAnonymous]
     public sealed class AuthController(
         ISender sender,
         IOptions<JwtSettings> jwtOptions) : ControllerBase
     {
         private readonly JwtSettings _jwtSettings = jwtOptions.Value;
+        private static readonly CookieOptions _cookieOpts = new()
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Strict,
+        };
 
+        [AllowAnonymous]
         [HttpPost("register")]
         [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -37,6 +43,7 @@ namespace Eventy.WebApi.Controllers
             return result.ToActionResult();
         }
 
+        [AllowAnonymous]
         [HttpPost("login")]
         [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -52,6 +59,7 @@ namespace Eventy.WebApi.Controllers
             return result.ToActionResult();
         }
 
+        [AllowAnonymous]
         [HttpPost("refresh")]
         [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -71,23 +79,18 @@ namespace Eventy.WebApi.Controllers
 
         [Authorize]
         [HttpPost("revoke")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> Revoke(CancellationToken cancellationToken)
         {
             var refreshToken = Request.Cookies["refreshToken"];
             if (string.IsNullOrEmpty(refreshToken))
-                return Ok();
+                return NoContent();
 
-            Response.Cookies.Delete("refreshToken", new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict
-            });
+            Response.Cookies.Delete("refreshToken", _cookieOpts);
 
-            await sender.Send(new RefreshTokenCommand(refreshToken), cancellationToken);
-            return Ok();
+            await sender.Send(new RevokeRefreshTokenCommand(refreshToken), cancellationToken);
+            return NoContent();
         }
 
         [Authorize(Roles = "Admin")]

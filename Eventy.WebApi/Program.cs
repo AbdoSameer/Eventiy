@@ -1,10 +1,12 @@
 using System.Net;
 using System.Text.Json;
+using System.Threading.RateLimiting;
 using Application;
 using Eventy.WebApi.Middlewares;
 using Infrastructure;
 using Infrastructure.Seed;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
 using Scalar.AspNetCore;
 
 namespace Eventy.WebApi
@@ -52,6 +54,16 @@ namespace Eventy.WebApi
             builder.Services.AddApplication();
             builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
             builder.Services.AddHostedService<DatabaseSeederService>();
+
+            builder.Services.AddRateLimiter(rateLimiter =>
+            {
+                rateLimiter.AddFixedWindowLimiter("Booking", options =>
+                {
+                    options.PermitLimit = 10;
+                    options.Window = TimeSpan.FromSeconds(1);
+                    options.QueueLimit = 0;
+                });
+            });
 
             builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
             {
@@ -109,13 +121,20 @@ namespace Eventy.WebApi
             // ASP.NET Core already sees the correct scheme — so we only redirect
             // in Development (local Kestrel with real certs). In Production, TLS
             // is terminated upstream and there is nothing to redirect to.
+            if (!app.Environment.IsDevelopment())
+            {
+                app.UseHsts();
+            }
+
             if (app.Environment.IsDevelopment())
             {
                 app.UseHttpsRedirection();
             }
 
             app.UseCors("AllowAngular");
+            app.UseAuthentication();
             app.UseAuthorization();
+            app.UseRateLimiter();
             app.MapControllers();
 
             app.Run();
