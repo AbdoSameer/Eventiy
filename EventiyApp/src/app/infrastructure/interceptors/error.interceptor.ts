@@ -24,11 +24,6 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
           }
           break;
         }
-        case 401: {
-          toastService.showError('Your session has expired. Please log in again.');
-          authService.logout();
-          break;
-        }
         case 403: {
           toastService.showError('You are not authorized to perform this action.');
           authService.navigateToUnauthorized();

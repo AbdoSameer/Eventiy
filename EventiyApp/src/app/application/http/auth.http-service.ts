@@ -21,4 +21,11 @@ export class AuthHttpService extends HttpClientBase {
       catchError((err) => this.toErrorResult(err)),
     );
   }
+
+  refresh(): Observable<Result<AuthResponse>> {
+    return this.http.post<AuthResponse>(`${this.apiUrl}/auth/refresh`, {}).pipe(
+      map((value): Result<AuthResponse> => ({ isSuccess: true, isFailure: false, value })),
+      catchError((err) => this.toErrorResult(err)),
+    );
+  }
 }

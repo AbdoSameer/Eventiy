@@ -45,6 +45,16 @@ export class SeatLockOrchestratorService {
   private ticketTypeId = '';
   private eventId = '';
 
+  constructor() {
+    this.sync.acks$.subscribe(seatId => {
+      this._pendingLocks.update(s => {
+        const next = new Set(s);
+        next.delete(seatId);
+        return next;
+      });
+    });
+  }
+
   public setContext(eventId: string, ticketTypeId: string): void {
     this.eventId = eventId;
     this.ticketTypeId = ticketTypeId;
@@ -61,6 +71,12 @@ export class SeatLockOrchestratorService {
       ticketTypeId: this.ticketTypeId,
       eventId: this.eventId,
     }));
+
+    setTimeout(() => {
+      if (this._pendingLocks().has(seatId)) {
+        this.release(seatId);
+      }
+    }, 3000);
 
     return true;
   }

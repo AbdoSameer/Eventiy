@@ -162,17 +162,27 @@ export class VenueViewStore {
   applyServerDelta(seatId: string, status: SeatStatus): SeatNode | null {
     const data = this._venueData();
     if (!data) return null;
-    for (const z of data.zones) {
-      for (const b of z.blocks) {
-        for (const s of b.seats) {
+
+    let updatedSeat: SeatNode | null = null;
+
+    const newZones = data.zones.map(z => ({
+      ...z,
+      blocks: z.blocks.map(b => ({
+        ...b,
+        seats: b.seats.map(s => {
           if (s.id === seatId) {
-            s.status = status;
-            return s;
+            updatedSeat = { ...s, status };
+            return updatedSeat;
           }
-        }
-      }
-    }
-    return null;
+          return s;
+        }),
+      })),
+    }));
+
+    if (!updatedSeat) return null;
+
+    this._venueData.set({ ...data, zones: newZones });
+    return updatedSeat;
   }
 
   setFilter(partial: Partial<VenueFilterState>): void {

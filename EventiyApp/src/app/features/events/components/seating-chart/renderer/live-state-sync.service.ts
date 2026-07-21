@@ -152,7 +152,7 @@ export class LiveStateSyncService {
   private startHeartbeat(): void {
     this.heartbeatTimer = setInterval(() => {
       if (this.socket?.readyState === WebSocket.OPEN) {
-        this.send(JSON.stringify({ type: 'PONG' }));
+        this.send(JSON.stringify({ type: 'PING' }));
       }
     }, 25_000);
   }

@@ -1,6 +1,7 @@
 import { ApplicationConfig, provideZoneChangeDetection } from '@angular/core';
 import { provideRouter, withComponentInputBinding, withInMemoryScrolling } from '@angular/router';
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
+import { provideAnimations } from '@angular/platform-browser/animations';
 import { routes } from './app.routes';
 import { authInterceptor } from './infrastructure/interceptors/auth.interceptor';
 import { errorInterceptor } from './infrastructure/interceptors/error.interceptor';
@@ -24,8 +25,10 @@ export const appConfig: ApplicationConfig = {
         anchorScrolling: 'enabled',
       }),
     ),
+    provideAnimations(),
     provideHttpClient(
-      withInterceptors([authInterceptor, errorInterceptor]),
+      withFetch(),
+      withInterceptors([errorInterceptor, authInterceptor]),
     ),
   ],
 };

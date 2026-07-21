@@ -1,7 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { Observable, of } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 import { AuthHttpService } from '../http/auth.http-service';
 import { AuthResponse, LoginRequest, RegisterRequest } from '../../core/models/auth.model';
 import { Result } from '../../core/models/result.model';
@@ -57,6 +57,26 @@ export class AuthApplicationService {
 
   getToken(): string | null {
     return this.currentUser()?.token ?? null;
+  }
+
+  refreshToken(): Observable<string | null> {
+    const current = this.currentUser();
+    if (!current) return of(null);
+
+    return this.authHttp.refresh().pipe(
+      map(result => {
+        if (result.isSuccess && result.value?.token) {
+          this.applySession({ ...current, ...result.value });
+          return result.value.token;
+        }
+        this.logout();
+        return null;
+      }),
+      catchError(() => {
+        this.logout();
+        return of(null);
+      }),
+    );
   }
 
   /**

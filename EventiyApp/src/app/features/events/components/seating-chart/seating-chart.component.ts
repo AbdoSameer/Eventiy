@@ -286,17 +286,7 @@ export class SeatingChartComponent implements AfterViewInit, OnDestroy {
 
     this.submitting.set(true);
 
-    // 1. Send LOCK messages over WebSocket (best-effort; backend WS handler may not exist yet).
-    for (const seat of seats) {
-      this.liveSync.send(JSON.stringify({
-        type: 'LOCK',
-        seatId: seat.id,
-        ticketTypeId,
-        eventId,
-      }));
-    }
-
-    // 2. Create booking via REST API.
+    // Create booking via REST API.
     this.bookingApp.createBooking({
       eventId,
       ticketTypeId,

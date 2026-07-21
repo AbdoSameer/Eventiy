@@ -22,4 +22,5 @@ export interface AuthResponse {
   token: string | null;
   expiresAt: string | null;
   requiresApproval: boolean;
+  refreshToken?: string | null;
 }
