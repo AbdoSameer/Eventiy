@@ -87,6 +87,7 @@ namespace Application.Features.Bookings.Command.ConfirmBooking
             if (confirmSeatsResult.IsFailure)
                 return Result<bool>.Failure(confirmSeatsResult.Errors.ToArray());
 
+            uow.EnforceFencingToken(eventResult, eventResult.RowVersion);
             var rowsAffected = await uow.CommitAsync(cancellationToken);
 
             if (rowsAffected <= 0)

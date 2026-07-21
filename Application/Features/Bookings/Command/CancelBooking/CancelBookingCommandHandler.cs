@@ -108,6 +108,7 @@ namespace Application.Features.Bookings.Command.CancelBooking
             if (seatsResult.IsFailure)
                 return Result<bool>.Failure(seatsResult.Errors.ToArray());
 
+            uow.EnforceFencingToken(eventResult, eventResult.RowVersion);
             var result = await uow.CommitAsync(cancellationToken);
 
             if (result <= 0)

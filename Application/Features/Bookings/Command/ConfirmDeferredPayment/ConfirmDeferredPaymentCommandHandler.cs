@@ -55,6 +55,7 @@ public sealed class ConfirmDeferredPaymentCommandHandler(
         if (seatResult.IsFailure)
             return seatResult;
 
+        uow.EnforceFencingToken(evt, evt.RowVersion);
         var rows = await uow.CommitAsync(cancellationToken);
         if (rows <= 0)
             return Result.Failure(BookingErrors.BookingConfirmationFailed());

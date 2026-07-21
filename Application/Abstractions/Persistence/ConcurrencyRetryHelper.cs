@@ -6,6 +6,7 @@ namespace Application.Abstractions.Persistence;
 public static class ConcurrencyRetryHelper
 {
     private const int MaxRetries = 3;
+    private const int BaseDelayMs = 100;
 
     public static async Task<Result> ExecuteWithConcurrencyRetryAsync(
         Func<Task<Result>> operation,
@@ -17,8 +18,20 @@ public static class ConcurrencyRetryHelper
             {
                 return await operation();
             }
-            catch (ConcurrencyException) when (attempt < MaxRetries)
+            catch (ConcurrencyException)
             {
+                if (attempt < MaxRetries)
+                {
+                    if (cancellationToken.IsCancellationRequested)
+                        return Result.Failure(BookingErrors.ConcurrencyConflict());
+
+                    var delayMs = BaseDelayMs * (int)Math.Pow(2, attempt - 1);
+                    await Task.Delay(delayMs, cancellationToken);
+                }
+                else
+                {
+                    return Result.Failure(BookingErrors.ConcurrencyConflict());
+                }
             }
         }
 
@@ -35,8 +48,20 @@ public static class ConcurrencyRetryHelper
             {
                 return await operation();
             }
-            catch (ConcurrencyException) when (attempt < MaxRetries)
+            catch (ConcurrencyException)
             {
+                if (attempt < MaxRetries)
+                {
+                    if (cancellationToken.IsCancellationRequested)
+                        return Result<T>.Failure(BookingErrors.ConcurrencyConflict());
+
+                    var delayMs = BaseDelayMs * (int)Math.Pow(2, attempt - 1);
+                    await Task.Delay(delayMs, cancellationToken);
+                }
+                else
+                {
+                    return Result<T>.Failure(BookingErrors.ConcurrencyConflict());
+                }
             }
         }
 

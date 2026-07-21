@@ -76,8 +76,8 @@ public class BookingCreatedEventHandler : IDomainEventHandler<BookingCreatedEven
         var booking = await _bookingRepo.GetByIdAsync(@event.BookingId, cancellationToken);
         if (booking is null)
         {
-            _logger.LogWarning("Booking {BookingId} not found — skipping", bookingIdValue);
-            return Result.Success();
+            _logger.LogWarning("Booking {BookingId} not found — will retry", bookingIdValue);
+            return Result.Failure(BookingErrors.BookingNotFound(bookingIdValue));
         }
 
         if (booking.Status != BookingStatusEnum.Pending)

@@ -86,6 +86,8 @@ public class ConfirmBookingFromWebhookCommandHandler
         if (confirmSeatsResult.IsFailure)
             return Result<bool>.Failure(confirmSeatsResult.Errors.ToArray());
 
+        uow.EnforceFencingToken(eventResult, eventResult.RowVersion);
+
         idempotencyStore.MarkAsProcessed(
             DeterministicGuid(stripeEventId),
             stripeEventKey,

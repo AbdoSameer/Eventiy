@@ -32,7 +32,7 @@ public sealed class ValidationPipelineBehavior<TRequest, TResponse>
 
         var failures = validationResults
             .SelectMany(x => x.Errors)
-            .Where(x => x is not null)
+            .Where(x => x is not null && x.Severity == Severity.Error)
             .ToList();
 
         if (!failures.Any())
