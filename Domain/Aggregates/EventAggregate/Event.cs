@@ -189,7 +189,7 @@ namespace Domain.Aggregates.EventAggregate
             CancellationReason = reason;
             LastModifiedAt = dateTime;
 
-            RaiseDomainEvent(new EventCancelledEvent(
+            RaiseDomainEvent(new EventAdminCancelledEvent(
                 Id,
                 dateTime,
                 reason));
@@ -210,6 +210,9 @@ namespace Domain.Aggregates.EventAggregate
 
             if (Date > dateTime)
                 return Result.Failure(EventErrors.CannotCompleteFutureEvent(Date));
+
+            if (_ticketTypes.Any(t => t.ReservedCount > 0))
+                return Result.Failure(EventErrors.CannotCompleteWithPendingReservations());
 
             Status = EventStatus.Completed;
             CompletedAt = dateTime;
@@ -233,6 +236,10 @@ namespace Domain.Aggregates.EventAggregate
             Status = EventStatus.Published;
             CompletedAt = null;
             LastModifiedAt = dateTime;
+
+            RaiseDomainEvent(new EventReopenedEvent(
+                Id,
+                dateTime));
 
             return Result.Success();
         }
@@ -598,12 +605,15 @@ namespace Domain.Aggregates.EventAggregate
             var locationResult = Address.Create(
                 newLocation.Country,
                 newLocation.City,
-                newLocation.Street ?? string.Empty);
+                newLocation.Street ?? string.Empty,
+                newLocation.PostalCode,
+                newLocation.Latitude,
+                newLocation.Longitude);
             if (locationResult.IsFailure)
                 return Result.Failure(locationResult.Errors.ToArray());
 
             Location = locationResult.Value;
-            LastModifiedAt = utcNow; 
+            LastModifiedAt = utcNow;
 
             return Result.Success();
         }
@@ -680,7 +690,10 @@ namespace Domain.Aggregates.EventAggregate
             var locationResult = Address.Create(
                 newLocation.Country,
                 newLocation.City,
-                newLocation.Street ?? string.Empty);
+                newLocation.Street ?? string.Empty,
+                newLocation.PostalCode,
+                newLocation.Latitude,
+                newLocation.Longitude);
             if (locationResult.IsFailure)
                 return Result.Failure(locationResult.Errors.ToArray());
 

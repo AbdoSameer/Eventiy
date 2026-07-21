@@ -58,6 +58,10 @@ namespace Domain.Aggregates.UserAggregate
         {
             var token = RefreshToken.Create(tokenHash, expiresOnUtc, utcNow);
             _refreshTokens.Add(token);
+
+            RaiseDomainEvent(new RefreshTokenIssuedEvent(
+                Id, tokenHash, expiresOnUtc, utcNow));
+
             return token;
         }
 
@@ -68,14 +72,25 @@ namespace Domain.Aggregates.UserAggregate
                 return Result.Failure(UserErrors.RefreshTokenNotFoundOrInactive());
 
             token.Revoke(utcNow);
+
+            RaiseDomainEvent(new RefreshTokenRevokedEvent(
+                Id, tokenHash, utcNow));
+
             return Result.Success();
         }
 
         public void RevokeAllRefreshTokens(DateTime utcNow)
         {
-            foreach (var token in _refreshTokens.Where(t => t.IsActiveAt(utcNow)))
+            var activeTokens = _refreshTokens.Where(t => t.IsActiveAt(utcNow)).ToList();
+            foreach (var token in activeTokens)
             {
                 token.Revoke(utcNow);
+            }
+
+            if (activeTokens.Count > 0)
+            {
+                RaiseDomainEvent(new AllRefreshTokensRevokedEvent(
+                    Id, activeTokens.Count, utcNow));
             }
         }
     }

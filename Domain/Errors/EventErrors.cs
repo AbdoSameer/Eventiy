@@ -119,6 +119,11 @@ public static class EventErrors
             "Event.CannotCompleteFuture",
             $"Cannot complete event with future date {eventDate:yyyy-MM-dd}.");
 
+    public static Error CannotCompleteWithPendingReservations()
+        => Error.Conflict(
+            "Event.CannotCompleteWithPendingReservations",
+            "Cannot complete event while there are pending seat reservations.");
+
     public static Error CanOnlyReopenCompletedEvent()
         => Error.Conflict(
             "Event.CanOnlyReopenCompleted",

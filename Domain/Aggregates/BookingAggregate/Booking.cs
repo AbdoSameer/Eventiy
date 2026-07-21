@@ -59,15 +59,10 @@ namespace Domain.Aggregates.BookingAggregate
             BookingDate = utcNow;
             PaymentMethod = paymentMethod;
 
-            if (paymentMethod == PaymentMethod.Deferred)
-            {
-                ReferenceCode = GenerateReferenceCode();
-                HoldExpiresAt = utcNow.AddMinutes(30);
-            }
-            else
-            {
-                HoldExpiresAt = utcNow.AddMinutes(2);
-            }
+            ReferenceCode = GenerateReferenceCode();
+            HoldExpiresAt = paymentMethod == PaymentMethod.Deferred
+                ? utcNow.AddMinutes(15)
+                : utcNow.AddMinutes(10);
         }
 
         private static string GenerateReferenceCode()

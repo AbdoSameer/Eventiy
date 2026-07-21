@@ -21,12 +21,13 @@ namespace Domain.Aggregates.EventAggregate.Entities
         public string? SectionCode { get; private set; }
         public string? VenueType { get; private set; }
         public byte[] RowVersion { get; private set; } = Array.Empty<byte>();
+        public bool IsRemoved { get; private set; }
         public DateTime CreatedAt { get; private set; }
         public DateTime? LastModifiedAt { get; private set; }
 
         // Computed Properties
 
-        public int AvailableCount => Capacity - SoldCount - ReservedCount;
+        public int AvailableCount => IsRemoved ? 0 : Capacity - SoldCount - ReservedCount;
 
         public double OccupancyRate => Capacity > 0
             ? (double)SoldCount / Capacity * 100 : 0;
@@ -200,6 +201,9 @@ namespace Domain.Aggregates.EventAggregate.Entities
 
         internal Result ReserveSeats(int quantity, DateTime utcNow)
         {
+            if (IsRemoved)
+                return Result.Failure(TicketTypeErrors.TicketTypeRemoved());
+
             if (quantity <= 0)
                 return Result.Failure(TicketTypeErrors.QuantityMustBeGreaterThanZero());
 
@@ -214,6 +218,9 @@ namespace Domain.Aggregates.EventAggregate.Entities
 
         internal Result ReleaseSeats(int quantity, DateTime utcNow)
         {
+            if (IsRemoved)
+                return Result.Failure(TicketTypeErrors.TicketTypeRemoved());
+
             if (quantity <= 0)
                 return Result.Failure(TicketTypeErrors.QuantityMustBeGreaterThanZero());
 
@@ -229,6 +236,9 @@ namespace Domain.Aggregates.EventAggregate.Entities
 
         internal Result ConfirmReservation(int quantity, DateTime utcNow)
         {
+            if (IsRemoved)
+                return Result.Failure(TicketTypeErrors.TicketTypeRemoved());
+
             if (quantity <= 0)
                 return Result.Failure(TicketTypeErrors.QuantityMustBeGreaterThanZero());
 
@@ -249,6 +259,9 @@ namespace Domain.Aggregates.EventAggregate.Entities
 
         internal Result SellDirect(int quantity, DateTime utcNow)
         {
+            if (IsRemoved)
+                return Result.Failure(TicketTypeErrors.TicketTypeRemoved());
+
             if (quantity <= 0)
                 return Result.Failure(TicketTypeErrors.QuantityMustBeGreaterThanZero());
 
@@ -263,6 +276,9 @@ namespace Domain.Aggregates.EventAggregate.Entities
 
         internal Result RefundSeats(int quantity, DateTime utcNow)
         {
+            if (IsRemoved)
+                return Result.Failure(TicketTypeErrors.TicketTypeRemoved());
+
             if (quantity <= 0)
                 return Result.Failure(TicketTypeErrors.QuantityMustBeGreaterThanZero());
 
@@ -280,12 +296,16 @@ namespace Domain.Aggregates.EventAggregate.Entities
 
         internal Result Remove()
         {
+            if (IsRemoved)
+                return Result.Failure(TicketTypeErrors.TicketTypeRemoved());
+
             if (SoldCount > 0)
                 return Result.Failure(TicketTypeErrors.CannotRemoveTicketTypeWithBookings(SoldCount));
 
             if (ReservedCount > 0)
                 return Result.Failure(TicketTypeErrors.CannotRemoveTicketTypeWithReservations(ReservedCount));
 
+            IsRemoved = true;
             return Result.Success();
         }
 
