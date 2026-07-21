@@ -156,6 +156,98 @@ public class EventTests
         @event.CancellationReason.Should().Be("Low attendance");
     }
 
+    [Fact]
+    public void AdminCancel_WhenPublished_ShouldRaiseEventAdminCancelledEvent()
+    {
+        var @event = CreateValidEvent().Value;
+        @event.AddTicketType("General", Money.FromDecimal(50m, "EGP").Value, 50, UtcNow);
+        @event.Publish(UtcNow);
+        @event.ClearDomainEvents();
+
+        @event.AdminCancel(UtcNow, "Admin decision");
+
+        @event.DomainEvents.Should().ContainSingle(e =>
+            e.Name == "EventAdminCancelledEvent");
+    }
+
+    [Fact]
+    public void AdminCancel_WhenPublished_ShouldNotRaiseEventCancelledEvent()
+    {
+        var @event = CreateValidEvent().Value;
+        @event.AddTicketType("General", Money.FromDecimal(50m, "EGP").Value, 50, UtcNow);
+        @event.Publish(UtcNow);
+        @event.ClearDomainEvents();
+
+        @event.AdminCancel(UtcNow, "Admin decision");
+
+        @event.DomainEvents.Should().NotContain(e =>
+            e.Name == "EventCancelledEvent");
+    }
+
+    [Fact]
+    public void Cancel_WhenDraft_ShouldRaiseEventCancelledEvent()
+    {
+        var @event = CreateValidEvent().Value;
+
+        @event.Cancel(UtcNow, "No longer needed");
+
+        @event.DomainEvents.Should().ContainSingle(e =>
+            e.Name == "EventCancelledEvent");
+    }
+
+    #endregion
+
+    #region Reopen
+
+    [Fact]
+    public void Reopen_WhenCompleted_ShouldTransitionToPublished()
+    {
+        var now = UtcNow;
+        var createResult = Event.Create("Reopen Test", 10, now, DefaultAddress, "Desc", EventType.Music, now);
+        createResult.IsSuccess.Should().BeTrue();
+        var @event = createResult.Value;
+        var addResult = @event.AddTicketType("General", Money.FromDecimal(50m, "EGP").Value, 10, now);
+        addResult.IsSuccess.Should().BeTrue();
+        var publishResult = @event.Publish(now);
+        publishResult.IsSuccess.Should().BeTrue();
+        @event.Status.Should().Be(EventStatus.Published);
+        var completeResult = @event.Complete(now);
+        completeResult.IsSuccess.Should().BeTrue();
+        @event.Status.Should().Be(EventStatus.Completed);
+
+        var result = @event.Reopen(now);
+
+        result.IsSuccess.Should().BeTrue();
+        @event.Status.Should().Be(EventStatus.Published);
+        @event.CompletedAt.Should().BeNull();
+    }
+
+    [Fact]
+    public void Reopen_WhenCompleted_ShouldRaiseEventReopenedEvent()
+    {
+        var now = UtcNow;
+        var @event = Event.Create("Reopen Test", 10, now, DefaultAddress, "Desc", EventType.Music, now).Value;
+        @event.AddTicketType("General", Money.FromDecimal(50m, "EGP").Value, 10, now);
+        @event.Publish(now);
+        @event.Complete(now);
+        @event.ClearDomainEvents();
+
+        @event.Reopen(now);
+
+        @event.DomainEvents.Should().ContainSingle(e =>
+            e.Name == "EventReopenedEvent");
+    }
+
+    [Fact]
+    public void Reopen_WhenNotCompleted_ShouldReturnFailure()
+    {
+        var @event = CreateValidEvent().Value;
+
+        var result = @event.Reopen(UtcNow);
+
+        result.IsFailure.Should().BeTrue();
+    }
+
     #endregion
 
     #region AddTicketType
@@ -399,6 +491,69 @@ public class EventTests
 
         @event.TicketTypes.First().ReservedCount.Should().Be(reservedBefore,
             "Redis is the source of truth; in-memory count is synced later by the background processor");
+    }
+
+    #endregion
+
+    #region Complete
+
+    [Fact]
+    public void Complete_WhenHasPendingReservations_ShouldReturnFailure()
+    {
+        var now = UtcNow;
+        var @event = Event.Create("Reserved Event", 10, now, DefaultAddress, "Desc", EventType.Music, now).Value;
+        @event.AddTicketType("General", Money.FromDecimal(50m, "EGP").Value, 10, now);
+        @event.Publish(now);
+        var ticketTypeId = @event.TicketTypes.First().Id;
+        @event.ReserveSeats(ticketTypeId, 3, now);
+
+        var result = @event.Complete(now);
+
+        result.IsFailure.Should().BeTrue();
+        result.Errors[0].Code.Should().Be("Event.CannotCompleteWithPendingReservations");
+    }
+
+    [Fact]
+    public void Complete_WhenNoPendingReservations_ShouldSucceed()
+    {
+        var now = UtcNow;
+        var @event = Event.Create("Complete Test", 10, now, DefaultAddress, "Desc", EventType.Music, now).Value;
+        @event.AddTicketType("General", Money.FromDecimal(50m, "EGP").Value, 10, now);
+        @event.Publish(now);
+
+        var result = @event.Complete(now);
+
+        result.IsSuccess.Should().BeTrue();
+        @event.Status.Should().Be(EventStatus.Completed);
+    }
+
+    #endregion
+
+    #region UpdateLocation
+
+    [Fact]
+    public void UpdateLocation_ShouldPreserveLatitudeAndLongitude()
+    {
+        var @event = CreateValidEvent().Value;
+        var newLocation = Address.Create("Egypt", "Alexandria", "Corniche", latitude: 31.2001, longitude: 29.9187).Value;
+
+        var result = @event.UpdateLocation(newLocation, UtcNow);
+
+        result.IsSuccess.Should().BeTrue();
+        @event.Location.Latitude.Should().Be(31.2001);
+        @event.Location.Longitude.Should().Be(29.9187);
+    }
+
+    [Fact]
+    public void UpdateLocation_ShouldPreservePostalCode()
+    {
+        var @event = CreateValidEvent().Value;
+        var newLocation = Address.Create("Egypt", "Alexandria", "Corniche", postalCode: "21500").Value;
+
+        var result = @event.UpdateLocation(newLocation, UtcNow);
+
+        result.IsSuccess.Should().BeTrue();
+        @event.Location.PostalCode.Should().Be("21500");
     }
 
     #endregion

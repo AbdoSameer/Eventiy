@@ -59,6 +59,44 @@ public class BookingTests
         result.IsFailure.Should().BeTrue();
     }
 
+    [Fact]
+    public void Create_WithInstantPayment_ShouldGenerateReferenceCode()
+    {
+        var result = CreateValidBooking(payment: PaymentMethod.Instant);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.ReferenceCode.Should().NotBeNullOrWhiteSpace();
+        result.Value.ReferenceCode.Should().StartWith("FAW-");
+    }
+
+    [Fact]
+    public void Create_WithDeferredPayment_ShouldGenerateReferenceCode()
+    {
+        var result = CreateValidBooking(payment: PaymentMethod.Deferred);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.ReferenceCode.Should().NotBeNullOrWhiteSpace();
+        result.Value.ReferenceCode.Should().StartWith("FAW-");
+    }
+
+    [Fact]
+    public void Create_WithInstantPayment_ShouldSetHoldDurationTo10Minutes()
+    {
+        var result = CreateValidBooking(payment: PaymentMethod.Instant);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.HoldExpiresAt.Should().BeCloseTo(UtcNow.AddMinutes(10), TimeSpan.FromSeconds(1));
+    }
+
+    [Fact]
+    public void Create_WithDeferredPayment_ShouldSetHoldDurationTo15Minutes()
+    {
+        var result = CreateValidBooking(payment: PaymentMethod.Deferred);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.HoldExpiresAt.Should().BeCloseTo(UtcNow.AddMinutes(15), TimeSpan.FromSeconds(1));
+    }
+
     #endregion
 
     #region Confirm
