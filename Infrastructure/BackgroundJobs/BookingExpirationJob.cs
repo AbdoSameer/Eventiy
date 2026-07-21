@@ -95,9 +95,15 @@ public sealed class BookingExpirationJob : BackgroundService
                         booking.Id.Value,
                         string.Join("; ", releaseResult.Errors.Select(e => e.Code)));
                 }
+                else
+                {
+                    uow.EnforceFencingToken(evt, evt.RowVersion);
+                }
             }
         }
 
-        await uow.CommitAsync(ct);
+        var rowsAffected = await uow.CommitAsync(ct);
+        _logger.LogInformation("Expired {Count} bookings ({Rows} rows affected)",
+            expiredBookings.Count, rowsAffected);
     }
 }
