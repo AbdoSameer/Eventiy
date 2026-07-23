@@ -84,11 +84,11 @@ namespace Infrastructure.Persistence.Configuration
                      .IsRequired();
             });
 
-            // TotalAmount
+            // TotalAmount (computed from Amount * Quantity)
             builder.Property(b => b.TotalAmount)
                    .HasColumnName("TotalAmount")
                    .HasPrecision(18, 2)
-                   .IsRequired();
+                   .HasComputedColumnSql("[Amount] * [Quantity]");
 
             // ConfirmationDate
             builder.Property(b => b.ConfirmationDate)

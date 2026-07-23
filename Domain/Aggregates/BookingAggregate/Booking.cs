@@ -23,7 +23,7 @@ namespace Domain.Aggregates.BookingAggregate
         public DateTime BookingDate { get; private set; }
         public BookingStatusEnum Status { get; private set; }
         public Money Money { get; private set; }
-        public decimal TotalAmount { get; private set; }
+        public decimal TotalAmount => Money.Amount * Quantity;
         public DateTime? HoldExpiresAt { get; private set; }
         public DateTime? ConfirmationDate { get; private set; }
         public DateTime? CancellationDate { get; private set; }
@@ -55,7 +55,6 @@ namespace Domain.Aggregates.BookingAggregate
             Quantity = quantity;
             Status = BookingStatusEnum.Pending;
             Money = money;
-            TotalAmount = money.Amount * quantity;
             BookingDate = utcNow;
             PaymentMethod = paymentMethod;
 
@@ -115,7 +114,7 @@ namespace Domain.Aggregates.BookingAggregate
                 booking.EventId,
                 booking.TicketTypeId,   
                 booking.Quantity,
-                booking.TotalAmount,
+                booking.Money,
                 utcNow));
 
             return Result<Booking>.Success(booking);
@@ -216,7 +215,7 @@ namespace Domain.Aggregates.BookingAggregate
             Status = BookingStatusEnum.Refunded;
             RefundDate = utcNow;
 
-            RaiseDomainEvent(new BookingRefundedEvent(Id, UserId, EventId, TotalAmount, utcNow));
+            RaiseDomainEvent(new BookingRefundedEvent(Id, UserId, EventId, Money, utcNow));
 
             return Result.Success();
         }

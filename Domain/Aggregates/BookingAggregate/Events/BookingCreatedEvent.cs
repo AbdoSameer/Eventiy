@@ -2,6 +2,7 @@ using Domain.Aggregates.BookingAggregate.ValueObject;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Aggregates.UserAggregate.ValueObject;
 using Domain.Common;
+using Domain.Primitives;
 
 namespace Domain.Aggregates.BookingAggregate.Events
 {
@@ -15,7 +16,7 @@ namespace Domain.Aggregates.BookingAggregate.Events
         public EventId EventId { get; }
         public TicketTypeId TicketTypeId { get; }  
         public int Quantity { get; }
-        public decimal TotalAmount { get; }
+        public Money Money { get; }
 
         [System.Text.Json.Serialization.JsonConstructor]
         public BookingCreatedEvent(
@@ -24,7 +25,7 @@ namespace Domain.Aggregates.BookingAggregate.Events
             EventId eventId,
             TicketTypeId ticketTypeId, 
             int quantity,
-            decimal totalAmount,
+            Money money,
             DateTime occurredOnUtc) : base(occurredOnUtc)
         {
             BookingId = bookingId;
@@ -32,7 +33,7 @@ namespace Domain.Aggregates.BookingAggregate.Events
             EventId = eventId;
             TicketTypeId = ticketTypeId; 
             Quantity = quantity;
-            TotalAmount = totalAmount;
+            Money = money;
         }
     }
 }
