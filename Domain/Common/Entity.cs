@@ -5,7 +5,7 @@ namespace Domain.Primitives
     public abstract class Entity<TId> : IEquatable<Entity<TId>>
         where TId : ValueObjectBase
     {
-        public TId Id { get; protected set; }
+        public TId Id { get; init; }
 
         protected Entity(TId id)
         {
