@@ -59,7 +59,7 @@ namespace Application.Features.Bookings.Command.ConfirmBooking
 
             var booking = await bookingRepo.GetByIdAsync(bookingId, cancellationToken);
             if (booking is null)
-                return Result<bool>.Failure(BookingErrors.BookingNotFound(bookingId));
+                return Result<bool>.Failure(BookingErrors.BookingNotFound(bookingId.Value));
 
             var userResult = await userRepo.GetByIdAsync(currentUserId, cancellationToken);
             if (userResult is null)

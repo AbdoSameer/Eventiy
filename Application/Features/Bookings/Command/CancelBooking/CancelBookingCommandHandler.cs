@@ -59,7 +59,7 @@ namespace Application.Features.Bookings.Command.CancelBooking
 
             var booking = await bookingRepo.GetByIdAsync(bookingId, cancellationToken);
             if (booking is null)
-                return Result<bool>.Failure(BookingErrors.BookingNotFound(bookingId));
+                return Result<bool>.Failure(BookingErrors.BookingNotFound(bookingId.Value));
 
             var userResult = await userRepo.GetByIdAsync(currentUserId, cancellationToken);
             if (userResult is null)
@@ -76,7 +76,7 @@ namespace Application.Features.Bookings.Command.CancelBooking
                     "You can only cancel your own bookings."));
 
             if (!isAdminOrOrg && isOwnBooking && booking.Status != BookingStatusEnum.Pending)
-                return Result<bool>.Failure(BookingErrors.CannotCancelBooking(bookingId, booking.Status));
+                return Result<bool>.Failure(BookingErrors.CannotCancelBooking(bookingId.Value, booking.Status));
 
             var utcNow = _dateTimeProvider.GetUtcNow().UtcDateTime;
             var wasConfirmed = booking.Status == BookingStatusEnum.Confirmed;
@@ -112,7 +112,7 @@ namespace Application.Features.Bookings.Command.CancelBooking
             var result = await uow.CommitAsync(cancellationToken);
 
             if (result <= 0)
-                return Result<bool>.Failure(BookingErrors.CannotCancelBooking(bookingId, booking.Status));
+                return Result<bool>.Failure(BookingErrors.CannotCancelBooking(bookingId.Value, booking.Status));
 
             await _cache.RemoveAsync($"event:details:{booking.EventId.Value}", cancellationToken);
 

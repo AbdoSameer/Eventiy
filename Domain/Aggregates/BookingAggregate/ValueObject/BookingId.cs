@@ -30,7 +30,5 @@ namespace Domain.Aggregates.BookingAggregate.ValueObject
         }
 
         public override string ToString() => Value.ToString();
-
-        public static implicit operator Guid(BookingId bookingId) => bookingId.Value;
     }
 }

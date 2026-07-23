@@ -64,7 +64,7 @@ public class ConfirmBookingFromWebhookCommandHandler
 
         var booking = await bookingRepo.GetByIdAsync(bookingId, cancellationToken);
         if (booking is null)
-            return Result<bool>.Failure(BookingErrors.BookingNotFound(bookingId));
+            return Result<bool>.Failure(BookingErrors.BookingNotFound(bookingId.Value));
 
         if (booking.Status == Domain.Aggregates.BookingAggregate.Enums.BookingStatusEnum.Confirmed)
             return Result<bool>.Success(true);
