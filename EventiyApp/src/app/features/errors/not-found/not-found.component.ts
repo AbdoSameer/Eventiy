@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
-/** 404 page for the catch-all `**` route. */
 @Component({
   selector: 'app-not-found',
   standalone: true,

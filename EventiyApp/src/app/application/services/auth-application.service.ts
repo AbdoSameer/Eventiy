@@ -11,12 +11,14 @@ export class AuthApplicationService {
   private readonly authHttp = inject(AuthHttpService);
   private readonly router = inject(Router);
 
+  private readonly tokenSignal = signal<string | null>(null);
+
   readonly currentUser = signal<AuthResponse | null>(null);
-  readonly isAuthenticated = computed(() => this.currentUser() !== null && !!this.currentUser()?.token);
+  readonly isAuthenticated = computed(() => this.tokenSignal() !== null);
   readonly userRole = computed(() => this.currentUser()?.role ?? null);
 
   constructor() {
-    this.restoreSession();
+    this.tryRestoreSession();
   }
 
   login(credentials: LoginRequest): Observable<Result<AuthResponse>> {
@@ -46,8 +48,8 @@ export class AuthApplicationService {
   }
 
   logout(): void {
+    this.tokenSignal.set(null);
     this.currentUser.set(null);
-    sessionStorage.removeItem('auth_user');
     this.router.navigateByUrl('/');
   }
 
@@ -56,7 +58,7 @@ export class AuthApplicationService {
   }
 
   getToken(): string | null {
-    return this.currentUser()?.token ?? null;
+    return this.tokenSignal();
   }
 
   refreshToken(): Observable<string | null> {
@@ -79,28 +81,18 @@ export class AuthApplicationService {
     );
   }
 
-  /**
-   * Persists the auth session into sessionStorage (not localStorage).
-   *
-   * sessionStorage is cleared when the tab is closed, which limits the
-   * exposure window in case of XSS. The ideal long-term fix is to have
-   * the backend issue the JWT via an HttpOnly cookie so the token is
-   * never accessible to JavaScript at all.
-   */
   private applySession(response: AuthResponse): void {
+    this.tokenSignal.set(response.token);
     this.currentUser.set(response);
-    sessionStorage.setItem('auth_user', JSON.stringify(response));
   }
 
-  private restoreSession(): void {
-    try {
-      const stored = sessionStorage.getItem('auth_user');
-      if (stored) {
-        const parsed = JSON.parse(stored) as AuthResponse;
-        this.currentUser.set(parsed);
+  private tryRestoreSession(): void {
+    this.authHttp.refresh().pipe(
+      catchError(() => of({ isSuccess: false, isFailure: true, errors: [] } as Result<AuthResponse>)),
+    ).subscribe(result => {
+      if (result.isSuccess && result.value?.token) {
+        this.applySession(result.value);
       }
-    } catch {
-      sessionStorage.removeItem('auth_user');
-    }
+    });
   }
 }

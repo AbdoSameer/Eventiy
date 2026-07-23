@@ -198,8 +198,6 @@ export class RegisterComponent implements OnInit {
     if (this.auth.isAuthenticated()) {
       this.router.navigateByUrl('/');
     }
-    // Recompute strength on every password change.
-    this.form.get('password')?.valueChanges.subscribe(() => this.updateStrength());
   }
 
   /** Cross-field validator: password === confirmPassword. */

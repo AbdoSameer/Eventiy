@@ -14,7 +14,6 @@ import { EventCardComponent } from '../../../shared/components/event-card/event-
 import { PhotoUploaderComponent } from '../../../shared/components/photo-uploader/photo-uploader.component';
 import { LightboxComponent } from '../../../shared/components/lightbox/lightbox.component';
 import { environment } from '../../../../environments/environment';
-import { EventSeatingChartComponent } from '../../../shared/components/event-seating-chart/event-seating-chart.component';
 import { VenueZone } from '../../../core/models/ticket.model';
 import { ImgFallbackDirective } from '../../../infrastructure/directives/img-fallback.directive';
 import { interval } from 'rxjs';
@@ -22,7 +21,7 @@ import { interval } from 'rxjs';
 @Component({
   selector: 'app-event-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, DateFormatPipe, SkeletonLoaderComponent, EventCardComponent, PhotoUploaderComponent, LightboxComponent, EventSeatingChartComponent, ImgFallbackDirective],
+  imports: [CommonModule, FormsModule, RouterLink, DateFormatPipe, SkeletonLoaderComponent, EventCardComponent, PhotoUploaderComponent, LightboxComponent, ImgFallbackDirective],
   templateUrl: './event-detail.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -156,7 +155,7 @@ export class EventDetailComponent implements OnInit {
 
     this.booking.set(true);
     this.bookingApp
-      .createBooking({
+      .createBookingFlow({
         eventId: evt.id,
         ticketTypeId: this.selectedTicketTypeId,
         quantity: this.quantity(),
@@ -167,60 +166,34 @@ export class EventDetailComponent implements OnInit {
         next: (result) => {
           this.booking.set(false);
           if (result.isSuccess && result.value) {
-            if (this.paymentMethod() === 'Instant') {
-              const { bookingId, paymentUrl } = result.value;
-              if (paymentUrl && !paymentUrl.startsWith('mock://')) {
-                sessionStorage.setItem(`paymentUrl:${bookingId}`, paymentUrl);
-                this.toast.showInfo('Redirecting to payment gateway...');
-                window.open(paymentUrl, '_blank');
-                this.toast.showSuccess('Booking created! Complete payment in the new tab.');
-                this.router.navigateByUrl('/dashboard/attendee');
-              } else {
-                this.bookingApp.confirmBooking(bookingId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-                  next: (confirmResult) => {
-                    if (confirmResult.isSuccess) {
-                      this.toast.showSuccess('Payment successful! Booking confirmed.');
-                    } else {
-                      this.toast.showInfo('Booking created. Confirmation pending.');
-                    }
-                    this.router.navigateByUrl('/dashboard/attendee');
-                  },
-                  error: () => {
-                    this.toast.showInfo('Booking created. Confirmation pending.');
-                    this.router.navigateByUrl('/dashboard/attendee');
-                  },
-                });
-              }
-            } else {
-              this.loadDeferredBooking(result.value.bookingId);
+            const flow = result.value;
+            if (flow.type === 'instant' && flow.paymentUrl) {
+              sessionStorage.setItem(`paymentUrl:${flow.bookingId}`, flow.paymentUrl);
+              this.toast.showInfo('Redirecting to payment gateway...');
+              window.open(flow.paymentUrl, '_blank');
+              this.toast.showSuccess('Booking created! Complete payment in the new tab.');
+            } else if (flow.type === 'mock') {
+              this.toast.showSuccess('Payment successful! Booking confirmed.');
+            } else if (flow.type === 'deferred') {
+              this.deferredResult.set({
+                bookingId: flow.bookingId,
+                referenceCode: flow.referenceCode,
+                holdExpiresAt: flow.holdExpiresAt,
+              });
+              this.startCountdown(flow.holdExpiresAt);
+              sessionStorage.setItem('deferredBooking', JSON.stringify({
+                bookingId: flow.bookingId,
+                referenceCode: flow.referenceCode,
+                holdExpiresAt: flow.holdExpiresAt,
+              }));
+              return;
             }
+            this.router.navigateByUrl('/dashboard/attendee');
           } else if (result.isFailure) {
             this.toast.showError(result.errors?.[0]?.message ?? 'Booking failed.');
           }
         },
         error: () => this.booking.set(false),
-      });
-  }
-
-  private loadDeferredBooking(bookingId: string): void {
-    this.bookingApp.getBooking(bookingId)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (result) => {
-          if (result.isSuccess && result.value) {
-            const d = result.value;
-            if (d.referenceCode && d.holdExpiresAt) {
-              const dr = {
-                bookingId: d.id,
-                referenceCode: d.referenceCode,
-                holdExpiresAt: d.holdExpiresAt,
-              };
-              this.deferredResult.set(dr);
-              this.startCountdown(d.holdExpiresAt);
-              sessionStorage.setItem('deferredBooking', JSON.stringify(dr));
-            }
-          }
-        },
       });
   }
 

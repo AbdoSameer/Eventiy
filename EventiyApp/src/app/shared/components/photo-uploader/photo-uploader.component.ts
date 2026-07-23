@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, inject, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, input, output, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { EventPhotoHttpService } from '../../../application/http/event-photo.http-service';
@@ -106,6 +107,7 @@ interface UploadingFile {
   `,
 })
 export class PhotoUploaderComponent {
+  private destroyRef = inject(DestroyRef);
   private photoService = inject(EventPhotoHttpService);
   private toast = inject(ToastService);
 
@@ -161,7 +163,7 @@ export class PhotoUploaderComponent {
     }));
     this.uploadingFiles.set(previews);
 
-    this.photoService.uploadPhotos(this.eventId(), files).subscribe({
+    this.photoService.uploadPhotos(this.eventId(), files).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (result) => {
         this.uploadingFiles.set([]);
         previews.forEach(p => URL.revokeObjectURL(p.previewUrl));
@@ -181,7 +183,7 @@ export class PhotoUploaderComponent {
   }
 
   setCover(photoId: string): void {
-    this.photoService.setCoverPhoto(this.eventId(), photoId).subscribe({
+    this.photoService.setCoverPhoto(this.eventId(), photoId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (result) => {
         if (result.isSuccess) {
           const updated = this.photos().map(p => ({ ...p, isCover: p.id === photoId }));
@@ -195,7 +197,7 @@ export class PhotoUploaderComponent {
   }
 
   deletePhoto(photoId: string): void {
-    this.photoService.deletePhoto(this.eventId(), photoId).subscribe({
+    this.photoService.deletePhoto(this.eventId(), photoId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (result) => {
         if (result.isSuccess) {
           const updated = this.photos().filter(p => p.id !== photoId);
@@ -210,7 +212,7 @@ export class PhotoUploaderComponent {
 
   updateCaption(photoId: string, event: Event): void {
     const caption = (event.target as HTMLInputElement).value;
-    this.photoService.updatePhotoMetadata(this.eventId(), photoId, { caption, displayOrder: null }).subscribe({
+    this.photoService.updatePhotoMetadata(this.eventId(), photoId, { caption, displayOrder: null }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (result) => {
         if (result.isSuccess) {
           const updated = this.photos().map(p => p.id === photoId ? { ...p, caption } : p);
@@ -225,7 +227,7 @@ export class PhotoUploaderComponent {
     moveItemInArray(ordered, event.previousIndex, event.currentIndex);
     this.photosChange.emit(ordered);
 
-    this.photoService.reorderPhotos(this.eventId(), ordered.map(p => p.id)).subscribe({
+    this.photoService.reorderPhotos(this.eventId(), ordered.map(p => p.id)).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       error: () => this.toast.showError('Failed to save new order.'),
     });
   }

@@ -55,10 +55,10 @@ export class LiveStateSyncService {
 
     const token = this.auth.getToken();
     const wsBase = environment.wsUrl ?? `wss://${location.host}`;
-    const url = `${wsBase}/ws/venues/${venueId}?token=${encodeURIComponent(token ?? '')}`;
+    const url = `${wsBase}/ws/venues/${venueId}`;
 
     try {
-      this.socket = new WebSocket(url);
+      this.socket = new WebSocket(url, token ? [`Bearer_${token}`] : []);
     } catch {
       this.status.set('ERROR');
       this.scheduleReconnect();

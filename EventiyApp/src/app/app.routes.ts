@@ -82,12 +82,12 @@ export const routes: Routes = [
   },
   {
     path: 'unauthorized',
-    loadComponent: () => import('./presentation/features/errors/unauthorized/unauthorized.component').then((m) => m.UnauthorizedComponent),
+    loadComponent: () => import('./features/errors/unauthorized/unauthorized.component').then((m) => m.UnauthorizedComponent),
     title: 'Unauthorized — Eventiy',
   },
   {
     path: '**',
-    loadComponent: () => import('./presentation/features/errors/not-found/not-found.component').then((m) => m.NotFoundComponent),
+    loadComponent: () => import('./features/errors/not-found/not-found.component').then((m) => m.NotFoundComponent),
     title: 'Page Not Found — Eventiy',
   },
 ];

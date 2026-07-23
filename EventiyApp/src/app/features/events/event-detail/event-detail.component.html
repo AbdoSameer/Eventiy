@@ -166,7 +166,10 @@
       @if (evt.type === 'Sports' || evt.type === 'Music' || evt.type === 'Theater') {
         <section>
           <h2 class="text-2xl font-bold text-text-primary mb-4">Venue Seating Chart</h2>
-          <app-event-seating-chart [event]="evt" (zoneSelected)="onZoneSelected($event)" />
+          <a [routerLink]="['/events', evt.id, 'seats']"
+             class="inline-flex items-center gap-2 rounded-full bg-primary text-white px-6 py-3 font-semibold hover:bg-primary-dark transition-colors">
+            🪑 Open Interactive Seating Chart
+          </a>
         </section>
       }
     </div>

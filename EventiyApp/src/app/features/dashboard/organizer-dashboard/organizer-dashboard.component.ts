@@ -1,16 +1,14 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { forkJoin, of } from 'rxjs';
-import { catchError, map } from 'rxjs/operators';
 import { AuthApplicationService } from '../../../application/services/auth-application.service';
 import { EventApplicationService } from '../../../application/services/event-application.service';
-import { EventHttpService } from '../../../application/http/event.http-service';
 import { BookingApplicationService } from '../../../application/services/booking-application.service';
 import { ToastService } from '../../../infrastructure/services/toast.service';
 import { Event } from '../../../core/models/event.model';
-import { Booking, BookingStatus, BookingByEventResponse } from '../../../core/models/booking.model';
+import { Booking, BookingStatus } from '../../../core/models/booking.model';
 import { DateFormatPipe } from '../../../shared/pipes/date-format.pipe';
 import { SkeletonLoaderComponent } from '../../../shared/components/skeleton-loader/skeleton-loader.component';
 
@@ -217,8 +215,8 @@ type Tab = 'events' | 'bookings' | 'analytics';
   `,
 })
 export class OrganizerDashboardComponent implements OnInit {
+  private destroyRef = inject(DestroyRef);
   private eventApp = inject(EventApplicationService);
-  private eventHttp = inject(EventHttpService);
   private bookingApp = inject(BookingApplicationService);
   private auth = inject(AuthApplicationService);
   private toast = inject(ToastService);
@@ -268,7 +266,7 @@ export class OrganizerDashboardComponent implements OnInit {
 
   private loadEvents(): void {
     this.loading.set(true);
-    this.eventApp.getEvents().subscribe({
+    this.eventApp.getEvents().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (result) => {
         if (result.isSuccess && result.value) {
           this.events.set(result.value);
@@ -286,40 +284,16 @@ export class OrganizerDashboardComponent implements OnInit {
   }
 
   private loadBookingsForEvents(events: Event[]): void {
-    if (events.length === 0) {
-      return;
-    }
-    const eventMap = new Map(events.map((e) => [e.id, e]));
-    const bookingRequests = events.map((event) =>
-      this.bookingApp.getBookingsByEvent(event.id).pipe(
-        map((result) => (result.isSuccess && result.value ? result.value : [])),
-        catchError(() => of([])),
-      ),
-    );
-
-    forkJoin(bookingRequests).subscribe((results) => {
-      const allBookings: Booking[] = results.flat().map((b: BookingByEventResponse) => {
-        const evt = eventMap.get(b.eventId);
-        return {
-          id: b.id,
-          eventId: b.eventId,
-          eventTitle: evt?.title ?? 'Unknown Event',
-          ticketTypeName: '',
-          quantity: b.quantity,
-          totalAmount: b.totalAmount,
-          status: (b.status as BookingStatus) ?? 'Pending',
-          createdAt: b.bookingDate,
-        };
-      });
-      this.bookings.set(allBookings);
-    });
+    this.bookingApp.getBookingsForOrganizer(events)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(bookings => this.bookings.set(bookings));
   }
 
   cancelEvent(event: Event): void {
     if (!confirm(`Cancel "${event.title}"? This will remove it from the listings.`)) {
       return;
     }
-    this.eventApp.cancelEvent(event.id).subscribe((result) => {
+    this.eventApp.cancelEvent(event.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe((result) => {
       if (result.isSuccess) {
         this.toast.showSuccess('Event cancelled.');
         this.events.update((list) => list.filter((e) => e.id !== event.id));
@@ -334,7 +308,7 @@ export class OrganizerDashboardComponent implements OnInit {
       return;
     }
     this.togglingId.set(event.id);
-    this.eventHttp.setHighDemand(event.id, !event.isHighDemand).subscribe((result) => {
+    this.eventApp.setHighDemand(event.id, !event.isHighDemand).pipe(takeUntilDestroyed(this.destroyRef)).subscribe((result) => {
       this.togglingId.set(null);
       if (result.isSuccess && result.value) {
         const isHighDemand = result.value.isHighDemand;
@@ -353,7 +327,7 @@ export class OrganizerDashboardComponent implements OnInit {
   }
 
   confirmBooking(booking: Booking): void {
-    this.bookingApp.confirmBooking(booking.id).subscribe((result) => {
+    this.bookingApp.confirmBooking(booking.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe((result) => {
       if (result.isSuccess) {
         this.toast.showSuccess('Booking confirmed.');
         this.updateBookingStatus(booking.id, 'Confirmed');
@@ -364,7 +338,7 @@ export class OrganizerDashboardComponent implements OnInit {
   }
 
   cancelBooking(booking: Booking): void {
-    this.bookingApp.cancelBooking(booking.id).subscribe((result) => {
+    this.bookingApp.cancelBooking(booking.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe((result) => {
       if (result.isSuccess) {
         this.toast.showSuccess('Booking cancelled.');
         this.updateBookingStatus(booking.id, 'Cancelled');

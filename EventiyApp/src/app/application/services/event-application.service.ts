@@ -1,11 +1,15 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { Observable, forkJoin, of } from 'rxjs';
 import { map, catchError, shareReplay } from 'rxjs/operators';
 import { EventHttpService, EventQuery } from '../http/event.http-service';
+import { AdminEventHttpService } from '../http/admin-event.http-service';
 import { EventPhotoHttpService } from '../http/event-photo.http-service';
+import { AuthApplicationService } from './auth-application.service';
 import {
   Event,
   EventPhotoResponse,
+  AddTicketTypeRequest,
+  EventDetailsDto,
 } from '../../core/models/event.model';
 import { eventCardToEvent, eventDetailsToEvent } from '../../core/mappers/event.mapper';
 import { Result } from '../../core/models/result.model';
@@ -22,6 +26,9 @@ export class EventApplicationService {
 
   readonly userLocation = signal<{ lat: number; lng: number } | null>(null);
   readonly nearbyEnabled = signal(false);
+
+  private readonly adminEventHttp = inject(AdminEventHttpService);
+  private readonly auth = inject(AuthApplicationService);
 
   constructor(
     private readonly eventHttp: EventHttpService,
@@ -155,5 +162,31 @@ export class EventApplicationService {
 
   getPhotos(eventId: string): Observable<Result<EventPhotoResponse[]>> {
     return this.photoHttp.getPhotos(eventId);
+  }
+
+  setHighDemand(id: string, enabled: boolean): Observable<Result<{ isHighDemand: boolean }>> {
+    return this.eventHttp.setHighDemand(id, enabled);
+  }
+
+  updateEvent(id: string, data: { name: string; capacity: number; date: string; location: { country: string; city: string; street: string; latitude?: number | null; longitude?: number | null }; description: string; type?: string; latitude?: number | null; longitude?: number | null }): Observable<Result<boolean>> {
+    const isAdmin = this.auth.userRole() === 'Admin';
+    return isAdmin
+      ? this.adminEventHttp.updateEvent(id, data as any)
+      : this.eventHttp.updateEvent(id, data);
+  }
+
+  addTicketType(eventId: string, data: AddTicketTypeRequest): Observable<Result<boolean>> {
+    const isAdmin = this.auth.userRole() === 'Admin';
+    return isAdmin
+      ? this.adminEventHttp.addTicketType(eventId, data)
+      : this.eventHttp.addTicketType(eventId, data);
+  }
+
+  publishEvent(eventId: string): Observable<Result<boolean>> {
+    return this.adminEventHttp.publishEvent(eventId);
+  }
+
+  getEventDetails(id: string): Observable<Result<EventDetailsDto>> {
+    return this.eventHttp.getEvent(id);
   }
 }

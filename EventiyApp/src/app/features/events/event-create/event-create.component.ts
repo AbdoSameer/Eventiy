@@ -4,8 +4,6 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, UntypedFormArray, UntypedFormBuilder, UntypedFormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthApplicationService } from '../../../application/services/auth-application.service';
-import { AdminEventHttpService } from '../../../application/http/admin-event.http-service';
-import { EventHttpService } from '../../../application/http/event.http-service';
 import { EventApplicationService } from '../../../application/services/event-application.service';
 import { ToastService } from '../../../infrastructure/services/toast.service';
 import { PhotoUploaderComponent } from '../../../shared/components/photo-uploader/photo-uploader.component';
@@ -322,8 +320,6 @@ export class EventCreateComponent {
   private destroyRef = inject(DestroyRef);
   private fb = inject(UntypedFormBuilder);
   private eventApp = inject(EventApplicationService);
-  private adminHttp = inject(AdminEventHttpService);
-  private eventHttp = inject(EventHttpService);
   private auth = inject(AuthApplicationService);
   private toast = inject(ToastService);
 
@@ -497,9 +493,7 @@ export class EventCreateComponent {
   }
 
   private addTicketsToEvent(tickets: AddTicketTypeRequest[]): void {
-    const addFn = this.isAdmin
-      ? (t: AddTicketTypeRequest) => this.adminHttp.addTicketType(this.createdEventId, t)
-      : (t: AddTicketTypeRequest) => this.eventHttp.addTicketType(this.createdEventId, t);
+    const addFn = (t: AddTicketTypeRequest) => this.eventApp.addTicketType(this.createdEventId, t);
 
     let completed = 0;
     let hasError = false;

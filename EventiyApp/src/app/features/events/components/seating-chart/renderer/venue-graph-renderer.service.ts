@@ -24,8 +24,8 @@ export type HoverHandler = (event: MouseEvent, target: SeatNode | StageFloorPit 
  */
 @Injectable({ providedIn: 'root' })
 export class VenueGraphRendererService {
-  private svgSelection!: d3.Selection<SVGSVGElement, unknown, null, undefined>;
-  private mainGroup!: d3.Selection<SVGGElement, unknown, null, undefined>;
+  private svgSelection!: d3.Selection<SVGSVGElement, unknown, any, any>;
+  private mainGroup!: d3.Selection<SVGGElement, unknown, any, any>;
   private zoomBehavior!: d3.ZoomBehavior<SVGSVGElement, unknown>;
   private initialized = false;
   private currentMode: VenueMode = 'SPORT';
@@ -75,7 +75,7 @@ export class VenueGraphRendererService {
         }
       });
 
-    this.svgSelection.call(this.zoomBehavior as any);
+    this.svgSelection.call(this.zoomBehavior);
     this.initialized = true;
   }
 
@@ -383,7 +383,7 @@ export class VenueGraphRendererService {
     this.svgSelection
       .transition()
       .duration(500)
-      .call(this.zoomBehavior.transform as any, d3.zoomIdentity);
+      .call(this.zoomBehavior.transform, d3.zoomIdentity);
   }
 
   /** Returns the current zoom transform for badge clusterization. */

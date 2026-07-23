@@ -1,8 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { AuthApplicationService } from '../../../../application/services/auth-application.service';
+import { AuthApplicationService } from '../../../application/services/auth-application.service';
 
-/** Shown when a roleGuard rejects navigation. */
 @Component({
   selector: 'app-unauthorized',
   standalone: true,

@@ -4,8 +4,7 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, UntypedFormArray, UntypedFormBuilder, UntypedFormGroup, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AuthApplicationService } from '../../../application/services/auth-application.service';
-import { AdminEventHttpService } from '../../../application/http/admin-event.http-service';
-import { EventHttpService } from '../../../application/http/event.http-service';
+import { EventApplicationService } from '../../../application/services/event-application.service';
 import { ToastService } from '../../../infrastructure/services/toast.service';
 import { AddTicketTypeRequest, EVENT_CATEGORIES } from '../../../core/models/event.model';
 import type { EventStatus } from '../../../core/models/event.model';
@@ -224,8 +223,7 @@ export class EventEditComponent implements OnInit {
   private router = inject(Router);
   private fb = inject(UntypedFormBuilder);
   private auth = inject(AuthApplicationService);
-  private eventHttp = inject(EventHttpService);
-  private adminHttp = inject(AdminEventHttpService);
+  private eventApp = inject(EventApplicationService);
   private toast = inject(ToastService);
 
   private eventId = '';
@@ -277,7 +275,7 @@ export class EventEditComponent implements OnInit {
       return;
     }
 
-    this.eventHttp.getEvent(this.eventId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+    this.eventApp.getEventDetails(this.eventId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (result) => {
         if (result.isSuccess && result.value) {
           this.eventDate = result.value.date;
@@ -319,11 +317,7 @@ export class EventEditComponent implements OnInit {
       longitude,
     };
 
-    const request = this.isAdmin
-      ? this.adminHttp.updateEvent(this.eventId, data)
-      : this.eventHttp.updateEvent(this.eventId, data);
-
-    request.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+    this.eventApp.updateEvent(this.eventId, data).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (result) => {
         this.saving.set(false);
         if (result.isSuccess) {
@@ -341,7 +335,7 @@ export class EventEditComponent implements OnInit {
 
   publishEvent(): void {
     this.publishing.set(true);
-    this.adminHttp.publishEvent(this.eventId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+    this.eventApp.publishEvent(this.eventId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (result) => {
         this.publishing.set(false);
         if (result.isSuccess) {
@@ -361,7 +355,7 @@ export class EventEditComponent implements OnInit {
   toggleHighDemand(): void {
     this.togglingHighDemand.set(true);
     const enabled = !this.highDemand();
-    this.eventHttp.setHighDemand(this.eventId, enabled).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+    this.eventApp.setHighDemand(this.eventId, enabled).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (result) => {
         this.togglingHighDemand.set(false);
         if (result.isSuccess && result.value) {
@@ -405,9 +399,7 @@ export class EventEditComponent implements OnInit {
     let completed = 0;
     let hasError = false;
 
-    const addFn = this.isAdmin
-      ? (t: AddTicketTypeRequest) => this.adminHttp.addTicketType(this.eventId, t)
-      : (t: AddTicketTypeRequest) => this.eventHttp.addTicketType(this.eventId, t);
+    const addFn = (t: AddTicketTypeRequest) => this.eventApp.addTicketType(this.eventId, t);
 
     for (const ticket of tickets) {
       addFn(ticket).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
