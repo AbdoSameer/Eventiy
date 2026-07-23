@@ -4,6 +4,8 @@ using Application.Abstractions.Persistence;
 using Application.Features.Bookings.Events.BookingCancelled;
 using Application.Features.Bookings.Events.BookingCreated;
 using Application.Features.Bookings.Inventory;
+using Application.Features.Compensation;
+using Application.Features.Inventory;
 using Domain.Aggregates.BookingAggregate.Events;
 using FluentValidation;
 using MediatR;
@@ -38,6 +40,9 @@ public static class DependencyInjection
             config.AddBehavior(typeof(IPipelineBehavior<,>), typeof(AuthorizationPipelineBehavior<,>));
             config.AddBehavior(typeof(IPipelineBehavior<,>), typeof(ConcurrencyRetryPipelineBehavior<,>));
         });
+
+        services.AddScoped<IInventoryReconciliationService, InventoryReconciliationService>();
+        services.AddScoped<ICompensationExecutionService, CompensationExecutionService>();
 
         return services;
     }

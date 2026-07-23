@@ -26,11 +26,9 @@ public sealed class CancelEventCommandHandler(
 
         var utcNow = dateTimeProvider.GetUtcNow().UtcDateTime;
 
-        Result cancelResult;
-        if (currentUser.GetCurrentUserRole() == "Admin")
-            cancelResult = @event.AdminCancel(utcNow);
-        else
-            cancelResult = @event.Cancel(utcNow);
+        var isAdmin = currentUser.GetCurrentUserRole() == "Admin";
+
+        var cancelResult = @event.Cancel(utcNow, isAdminOverride: isAdmin);
 
         if (cancelResult.IsFailure)
             return Result.Failure(cancelResult.Errors.ToArray());

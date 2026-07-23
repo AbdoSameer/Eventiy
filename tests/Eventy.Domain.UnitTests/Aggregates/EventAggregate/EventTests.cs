@@ -139,17 +139,17 @@ public class EventTests
         var result = @event.Cancel(UtcNow, "Low attendance");
 
         result.IsFailure.Should().BeTrue(
-            "a published event cannot be cancelled via Cancel(); use AdminCancel() instead");
+            "a published event cannot be cancelled without admin override");
     }
 
     [Fact]
-    public void AdminCancel_WhenPublished_ShouldTransitionToCancelled()
+    public void Cancel_WithAdminOverride_WhenPublished_ShouldTransitionToCancelled()
     {
         var @event = CreateValidEvent().Value;
         @event.AddTicketType("General", Money.FromDecimal(50m, "EGP").Value, 50, UtcNow);
         @event.Publish(UtcNow);
 
-        var result = @event.AdminCancel(UtcNow, "Low attendance");
+        var result = @event.Cancel(UtcNow, "Low attendance", isAdminOverride: true);
 
         result.IsSuccess.Should().BeTrue();
         @event.Status.Should().Be(EventStatus.Cancelled);
@@ -157,28 +157,28 @@ public class EventTests
     }
 
     [Fact]
-    public void AdminCancel_WhenPublished_ShouldRaiseEventAdminCancelledEvent()
+    public void Cancel_WithAdminOverride_WhenPublished_ShouldRaiseEventAdminCancelledEvent()
     {
         var @event = CreateValidEvent().Value;
         @event.AddTicketType("General", Money.FromDecimal(50m, "EGP").Value, 50, UtcNow);
         @event.Publish(UtcNow);
         @event.ClearDomainEvents();
 
-        @event.AdminCancel(UtcNow, "Admin decision");
+        @event.Cancel(UtcNow, "Admin decision", isAdminOverride: true);
 
         @event.DomainEvents.Should().ContainSingle(e =>
             e.Name == "EventAdminCancelledEvent");
     }
 
     [Fact]
-    public void AdminCancel_WhenPublished_ShouldNotRaiseEventCancelledEvent()
+    public void Cancel_WithAdminOverride_WhenPublished_ShouldNotRaiseEventCancelledEvent()
     {
         var @event = CreateValidEvent().Value;
         @event.AddTicketType("General", Money.FromDecimal(50m, "EGP").Value, 50, UtcNow);
         @event.Publish(UtcNow);
         @event.ClearDomainEvents();
 
-        @event.AdminCancel(UtcNow, "Admin decision");
+        @event.Cancel(UtcNow, "Admin decision", isAdminOverride: true);
 
         @event.DomainEvents.Should().NotContain(e =>
             e.Name == "EventCancelledEvent");

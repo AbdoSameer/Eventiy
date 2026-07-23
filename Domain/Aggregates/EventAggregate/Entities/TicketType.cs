@@ -343,6 +343,11 @@ namespace Domain.Aggregates.EventAggregate.Entities
             return SoldCount + ReservedCount >= Capacity;
         }
 
+        public void SeedSoldCount(int soldCount)
+        {
+            SoldCount = soldCount;
+        }
+
         public override string ToString()
         {
             return $"{TicketTypeName} - {Price.Amount} {Price.Currency} ({AvailableCount} available, {ReservedCount} reserved)";

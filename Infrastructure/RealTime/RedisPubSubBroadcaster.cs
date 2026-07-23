@@ -1,14 +1,8 @@
+using Application.Abstractions.RealTime;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
 namespace Infrastructure.RealTime;
-
-public interface IRedisPubSubBroadcaster
-{
-    Task SubscribeToEventAsync(Guid eventId, Func<string, Task> onMessage, CancellationToken ct);
-    Task UnsubscribeFromEventAsync(Guid eventId);
-    Task PublishAsync(Guid eventId, string message);
-}
 
 public sealed class RedisPubSubBroadcaster : IRedisPubSubBroadcaster
 {

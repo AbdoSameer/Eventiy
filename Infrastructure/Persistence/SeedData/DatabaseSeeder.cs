@@ -643,9 +643,7 @@ public static class DatabaseSeeder
 
                     if (ticketTypeToUpdate is not null)
                     {
-                        await context.Database.ExecuteSqlRawAsync(
-                            "UPDATE TicketTypes SET SoldCount = {0} WHERE Id = {1}",
-                            totalSold, ticketTypeToUpdate.Id);
+                        ticketTypeToUpdate.SeedSoldCount(totalSold);
                     }
                 }
                 catch (Exception ex)

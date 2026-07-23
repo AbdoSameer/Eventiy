@@ -1,4 +1,6 @@
 using Application.Features.Bookings.Command.ConfirmBookingFromWebhook;
+using Domain.Common;
+using Eventy.WebApi.Extensions;
 using Infrastructure.Payments;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -43,7 +45,8 @@ public class StripeWebhookController : ControllerBase
         catch (StripeException ex)
         {
             _logger.LogWarning("Stripe webhook signature verification failed: {Message}", ex.Message);
-            return BadRequest("Invalid signature");
+            return Result.Failure(Error.Unauthorized("Stripe.WebhookSignature", "Invalid signature."))
+                .ToActionResult();
         }
 
         if (stripeEvent.Type != EventTypes.CheckoutSessionCompleted)
@@ -94,16 +97,7 @@ public class StripeWebhookController : ControllerBase
                 "Failed to confirm booking {BookingId} from Stripe webhook: {Errors}",
                 bookingId,
                 string.Join("; ", result.Errors.Select(e => e.Code)));
-            return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
-            {
-                Title = "Internal Server Error",
-                Detail = $"Failed to confirm booking {bookingId} from Stripe webhook.",
-                Status = StatusCodes.Status500InternalServerError,
-                Extensions =
-                {
-                    ["errors"] = result.Errors.Select(e => new { e.Code, e.Message, e.Type })
-                }
-            });
+            return Result.Failure(result.Errors.ToArray()).ToActionResult();
         }
 
         return Ok();

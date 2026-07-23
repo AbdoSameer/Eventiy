@@ -1,3 +1,4 @@
+using Application.Abstractions.RealTime;
 using System.Collections.Concurrent;
 using System.Net.WebSockets;
 using System.Text;
@@ -5,16 +6,6 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 
 namespace Infrastructure.RealTime;
-
-public interface IWebSocketConnectionManager
-{
-    string Add(WebSocket socket, Guid eventId, string userId);
-    void Remove(string connectionId);
-    WebSocket? Get(string connectionId);
-    IReadOnlyList<(string ConnectionId, WebSocket Socket)> GetConnections(Guid eventId);
-    Task BroadcastToEventAsync(Guid eventId, string message, CancellationToken ct);
-    Task SendToConnectionAsync(string connectionId, string message, CancellationToken ct);
-}
 
 public sealed class WebSocketConnectionManager : IWebSocketConnectionManager
 {

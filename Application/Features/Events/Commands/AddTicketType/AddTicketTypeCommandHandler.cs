@@ -58,26 +58,14 @@ namespace Application.Features.Events.Commands.AddTicketType
             var utcNow = _dateTimeProvider.GetUtcNow().UtcDateTime;
 
             var isAdmin = _currentUser.GetCurrentUserRole() == "Admin";
-            Result addTicketResult;
             var venueType = @event.Type.ToString();
-            if (isAdmin)
-            {
-                addTicketResult = @event.AdminAddTicketType(request.Name,
-                    moneyResult.Value,
-                    request.Capacity,
-                    utcNow,
-                    request.SectionCode,
-                    venueType);
-            }
-            else
-            {
-                addTicketResult = @event.AddTicketType(request.Name,
-                    moneyResult.Value,
-                    request.Capacity,
-                    utcNow,
-                    request.SectionCode,
-                    venueType);
-            }
+            var addTicketResult = @event.AddTicketType(request.Name,
+                moneyResult.Value,
+                request.Capacity,
+                utcNow,
+                request.SectionCode,
+                venueType,
+                bypassDraftGuard: isAdmin);
 
             if (addTicketResult.IsFailure)
                 return Result.Failure(addTicketResult.Errors.ToArray());

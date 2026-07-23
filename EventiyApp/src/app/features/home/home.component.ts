@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { HeroComponent } from './hero/hero.component';
 import { HowItWorksComponent } from './how-it-works/how-it-works.component';
@@ -31,6 +32,7 @@ import { Event } from '../../core/models/event.model';
 export class HomeComponent implements OnInit {
   private eventApp = inject(EventApplicationService);
   private toastService = inject(ToastService);
+  private readonly destroyRef = inject(DestroyRef);
 
   /** All events fetched from the backend (unfiltered). */
   private readonly allEvents = signal<Event[]>([]);
@@ -61,7 +63,7 @@ export class HomeComponent implements OnInit {
 
   private loadEvents(): void {
     this.loading.set(true);
-    this.eventApp.getEvents().subscribe({
+    this.eventApp.getEvents().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (result) => {
         if (result.isSuccess && result.value) {
           this.allEvents.set(result.value);

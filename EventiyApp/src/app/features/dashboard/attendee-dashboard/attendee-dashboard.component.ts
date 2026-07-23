@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { BookingApplicationService } from '../../../application/services/booking-application.service';
@@ -116,6 +117,7 @@ import { CATEGORY_META } from '../../../core/models/event.model';
 export class AttendeeDashboardComponent implements OnInit {
   private bookingApp = inject(BookingApplicationService);
   private toast = inject(ToastService);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly bookings = signal<Booking[]>([]);
   readonly loading = signal(false);
@@ -127,7 +129,7 @@ export class AttendeeDashboardComponent implements OnInit {
 
   private loadBookings(): void {
     this.loading.set(true);
-    this.bookingApp.getMyBookings().subscribe({
+    this.bookingApp.getMyBookings().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (result) => {
         if (result.isSuccess && result.value) {
           this.bookings.set(result.value);
@@ -146,7 +148,7 @@ export class AttendeeDashboardComponent implements OnInit {
   cancelBooking(booking: Booking): void {
     if (!confirm(`Cancel your booking for "${booking.eventTitle}"? This will release your seats.`)) return;
     this.cancelling.set(true);
-    this.bookingApp.cancelBooking(booking.id).subscribe({
+    this.bookingApp.cancelBooking(booking.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (result) => {
         this.cancelling.set(false);
         if (result.isSuccess) {

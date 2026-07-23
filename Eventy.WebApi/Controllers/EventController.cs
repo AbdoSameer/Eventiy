@@ -12,7 +12,8 @@ using Application.Features.Events.Queries.GetEventDetails;
 using Application.Features.Events.Queries.GetEventPhotos;
 using Application.Features.Events.Queries.GetEvents;
 using System.IO;
-using Eventy.WebApi.Extensions; 
+using Domain.Common;
+using Eventy.WebApi.Extensions;
 using Eventy.WebApi.RequestsDesign;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -127,16 +128,9 @@ namespace Eventy.WebApi.Controllers
             CancellationToken ct)
         {
             if (photos == null || photos.Count == 0)
-                return BadRequest(new ProblemDetails
-                {
-                    Title = "Validation Error",
-                    Detail = "No photo files provided.",
-                    Status = StatusCodes.Status400BadRequest,
-                    Extensions =
-                    {
-                        ["errors"] = new[] { new { code = "NoFiles", message = "No photo files provided." } }
-                    }
-                });
+                return Result.Failure(
+                    Error.Validation("Event.NoFiles", "No photo files provided."))
+                    .ToActionResult();
 
             var fileData = new List<FileUploadData>();
             foreach (var f in photos)

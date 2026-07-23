@@ -143,7 +143,7 @@ namespace Domain.Aggregates.EventAggregate
             return Result.Success();
         }
 
-        public Result Cancel(DateTime dateTime, string? reason = null)
+        public Result Cancel(DateTime dateTime, string? reason = null, bool isAdminOverride = false)
         {
             if (Status == EventStatus.Cancelled)
                 return Result.Failure(EventErrors.AlreadyCancelled());
@@ -151,39 +151,19 @@ namespace Domain.Aggregates.EventAggregate
             if (Status == EventStatus.Completed)
                 return Result.Failure(EventErrors.CannotCancelCompletedEvent());
 
-            if (Status == EventStatus.Published)
+            if (!isAdminOverride && Status == EventStatus.Published)
                 return Result.Failure(EventErrors.CannotCancelPublishedEvent());
-
-            Status = EventStatus.Cancelled;
-            CancelledAt = dateTime;
-            CancellationReason = reason;
-            LastModifiedAt = dateTime; 
-
-            RaiseDomainEvent(new EventCancelledEvent(
-                Id,
-                dateTime,
-                reason));
-
-            return Result.Success();
-        }
-
-        public Result AdminCancel(DateTime dateTime, string? reason = null)
-        {
-            if (Status == EventStatus.Cancelled)
-                return Result.Failure(EventErrors.AlreadyCancelled());
-
-            if (Status == EventStatus.Completed)
-                return Result.Failure(EventErrors.CannotCancelCompletedEvent());
 
             Status = EventStatus.Cancelled;
             CancelledAt = dateTime;
             CancellationReason = reason;
             LastModifiedAt = dateTime;
 
-            RaiseDomainEvent(new EventAdminCancelledEvent(
-                Id,
-                dateTime,
-                reason));
+            IDomainEvent domainEvent = isAdminOverride
+                ? new EventAdminCancelledEvent(Id, dateTime, reason)
+                : new EventCancelledEvent(Id, dateTime, reason);
+
+            RaiseDomainEvent(domainEvent);
 
             return Result.Success();
         }
@@ -235,52 +215,6 @@ namespace Domain.Aggregates.EventAggregate
             return Result.Success();
         }
 
-
-        public Result AddTicketType(
-            string name,
-            Money price,
-            int capacity,
-            DateTime dateTime,
-            string? sectionCode = null,
-            string? venueType = null)
-        {
-            if (Status != EventStatus.Draft)
-                return Result.Failure(EventErrors.CannotModifyTicketTypesAfterDraft());
-
-            if (_ticketTypes.Count >= MAX_TICKET_TYPES)
-                return Result.Failure(EventErrors.MaxTicketTypesReached(MAX_TICKET_TYPES));
-
-            if (_ticketTypes.Any(t => t.TicketTypeName.Equals(name.Trim(), StringComparison.OrdinalIgnoreCase)))
-                return Result.Failure(TicketTypeErrors.DuplicateTicketTypeName(name));
-
-            var remainingCapacity = Capacity - _ticketTypes.Sum(t => t.Capacity);
-
-            var ticketResult = TicketType.Create(
-                Id,
-                name,
-                price,
-                capacity,
-                dateTime,
-                remainingCapacity,
-                sectionCode,
-                venueType);
-
-            if (ticketResult.IsFailure)
-                return Result.Failure(ticketResult.Errors.ToArray());
-
-            _ticketTypes.Add(ticketResult.Value);
-            LastModifiedAt = dateTime; 
-
-            RaiseDomainEvent(new TicketTypeAddedEvent(
-                Id,
-                ticketResult.Value.Id,
-                name,
-                price.Amount,
-                capacity,
-                dateTime));
-
-            return Result.Success();
-        }
 
         public Result UpdateTicketTypePrice(
             TicketTypeId ticketTypeId,
@@ -508,136 +442,11 @@ namespace Domain.Aggregates.EventAggregate
         }
 
 
-        public Result UpdateCapacity(
-            int newCapacityValue,
-            DateTime utcNow)
+        public Result UpdateCapacity(int newCapacityValue, DateTime utcNow, bool bypassDraftGuard = false)
         {
-            if (Status != EventStatus.Draft)
+            if (!bypassDraftGuard && Status != EventStatus.Draft)
                 return Result.Failure(EventErrors.CannotModifyCapacityAfterDraft());
 
-            if (newCapacityValue < MIN_CAPACITY)
-                return Result.Failure(EventErrors.InvalidTotalSeats(newCapacityValue));
-
-            var allocatedTickets = _ticketTypes.Sum(t => t.Capacity);
-            if (newCapacityValue < allocatedTickets)
-                return Result.Failure(EventErrors.TotalSeatsCannotBeLessThanAllocatedTickets(
-                    newCapacityValue, allocatedTickets));
-
-            var oldCapacity = Capacity;
-            Capacity = newCapacityValue;
-            LastModifiedAt = utcNow; 
-
-            RaiseDomainEvent(new EventCapacityUpdatedEvent(
-                Id,
-                oldCapacity,
-                newCapacityValue,
-                utcNow));
-
-            return Result.Success();
-        }
-
-        public Result UpdateDate(DateTime newDate, DateTime utcNow)
-        {
-            if (Status != EventStatus.Draft)
-                return Result.Failure(EventErrors.CannotModifyDateAfterDraft());
-
-            if (newDate < utcNow)
-                return Result.Failure(EventErrors.InvalidEventDate(newDate));
-
-            var oldDate = Date;
-            Date = newDate;
-            LastModifiedAt = utcNow;
-
-            RaiseDomainEvent(new EventDateUpdatedEvent(Id, oldDate, newDate, utcNow));
-
-            return Result.Success();
-        }
-
-        public Result UpdateDescription(string newDescription, DateTime utcNow)
-        {
-            if (Status != EventStatus.Draft)
-                return Result.Failure(EventErrors.CannotModifyDescriptionAfterDraft());
-
-            if (newDescription.Length > MAX_DESCRIPTION_LENGTH)
-                return Result.Failure(EventErrors.DescriptionTooLong(MAX_DESCRIPTION_LENGTH));
-
-            var oldDescription = Description;
-            Description = newDescription;
-            LastModifiedAt = utcNow; 
-
-            RaiseDomainEvent(new EventDescriptionUpdatedEvent(Id, oldDescription, newDescription, utcNow));
-
-            return Result.Success();
-        }
-
-        public Result UpdateName(string newName, DateTime utcNow)
-        {
-            if (Status != EventStatus.Draft)
-                return Result.Failure(EventErrors.CannotModifyNameAfterDraft());
-
-            if (string.IsNullOrWhiteSpace(newName))
-                return Result.Failure(EventErrors.NameCannotBeEmpty());
-
-            if (newName.Length > MAX_NAME_LENGTH)
-                return Result.Failure(EventErrors.NameTooLong(MAX_NAME_LENGTH));
-
-            var nameResult = EventName.Create(newName);
-            if (nameResult.IsFailure)
-                return Result.Failure(nameResult.Errors.ToArray());
-
-            var oldName = EventName.Value;
-            EventName = nameResult.Value;
-            LastModifiedAt = utcNow; 
-
-            RaiseDomainEvent(new EventNameUpdatedEvent(Id, oldName, EventName.Value, utcNow));
-
-            return Result.Success();
-        }
-
-        public Result UpdateLocation(Address newLocation, DateTime utcNow)
-        {
-            if (Status != EventStatus.Draft)
-                return Result.Failure(EventErrors.CannotModifyLocationAfterDraft());
-
-            if (newLocation is null || string.IsNullOrWhiteSpace(newLocation.City))
-                return Result.Failure(EventErrors.LocationCannotBeEmpty());
-
-            var oldLocationSummary = Location.ToString();
-            Location = newLocation;
-            LastModifiedAt = utcNow;
-
-            RaiseDomainEvent(new EventLocationUpdatedEvent(Id, oldLocationSummary, Location.ToString(), utcNow));
-
-            return Result.Success();
-        }
-
-
-
-        // ===== Admin Override Methods (bypass Draft-only restriction) ===
-
-        public Result AdminUpdateName(string newName, DateTime utcNow)
-        {
-            if (string.IsNullOrWhiteSpace(newName))
-                return Result.Failure(EventErrors.NameCannotBeEmpty());
-
-            if (newName.Length > MAX_NAME_LENGTH)
-                return Result.Failure(EventErrors.NameTooLong(MAX_NAME_LENGTH));
-
-            var nameResult = EventName.Create(newName);
-            if (nameResult.IsFailure)
-                return Result.Failure(nameResult.Errors.ToArray());
-
-            var oldName = EventName.Value;
-            EventName = nameResult.Value;
-            LastModifiedAt = utcNow;
-
-            RaiseDomainEvent(new EventNameUpdatedEvent(Id, oldName, EventName.Value, utcNow));
-
-            return Result.Success();
-        }
-
-        public Result AdminUpdateCapacity(int newCapacityValue, DateTime utcNow)
-        {
             if (newCapacityValue < MIN_CAPACITY)
                 return Result.Failure(EventErrors.InvalidTotalSeats(newCapacityValue));
 
@@ -656,8 +465,11 @@ namespace Domain.Aggregates.EventAggregate
             return Result.Success();
         }
 
-        public Result AdminUpdateDate(DateTime newDate, DateTime utcNow)
+        public Result UpdateDate(DateTime newDate, DateTime utcNow, bool bypassDraftGuard = false)
         {
+            if (!bypassDraftGuard && Status != EventStatus.Draft)
+                return Result.Failure(EventErrors.CannotModifyDateAfterDraft());
+
             if (newDate < utcNow)
                 return Result.Failure(EventErrors.InvalidEventDate(newDate));
 
@@ -670,8 +482,11 @@ namespace Domain.Aggregates.EventAggregate
             return Result.Success();
         }
 
-        public Result AdminUpdateDescription(string newDescription, DateTime utcNow)
+        public Result UpdateDescription(string newDescription, DateTime utcNow, bool bypassDraftGuard = false)
         {
+            if (!bypassDraftGuard && Status != EventStatus.Draft)
+                return Result.Failure(EventErrors.CannotModifyDescriptionAfterDraft());
+
             if (newDescription.Length > MAX_DESCRIPTION_LENGTH)
                 return Result.Failure(EventErrors.DescriptionTooLong(MAX_DESCRIPTION_LENGTH));
 
@@ -684,8 +499,35 @@ namespace Domain.Aggregates.EventAggregate
             return Result.Success();
         }
 
-        public Result AdminUpdateLocation(Address newLocation, DateTime utcNow)
+        public Result UpdateName(string newName, DateTime utcNow, bool bypassDraftGuard = false)
         {
+            if (!bypassDraftGuard && Status != EventStatus.Draft)
+                return Result.Failure(EventErrors.CannotModifyNameAfterDraft());
+
+            if (string.IsNullOrWhiteSpace(newName))
+                return Result.Failure(EventErrors.NameCannotBeEmpty());
+
+            if (newName.Length > MAX_NAME_LENGTH)
+                return Result.Failure(EventErrors.NameTooLong(MAX_NAME_LENGTH));
+
+            var nameResult = EventName.Create(newName);
+            if (nameResult.IsFailure)
+                return Result.Failure(nameResult.Errors.ToArray());
+
+            var oldName = EventName.Value;
+            EventName = nameResult.Value;
+            LastModifiedAt = utcNow;
+
+            RaiseDomainEvent(new EventNameUpdatedEvent(Id, oldName, EventName.Value, utcNow));
+
+            return Result.Success();
+        }
+
+        public Result UpdateLocation(Address newLocation, DateTime utcNow, bool bypassDraftGuard = false)
+        {
+            if (!bypassDraftGuard && Status != EventStatus.Draft)
+                return Result.Failure(EventErrors.CannotModifyLocationAfterDraft());
+
             if (newLocation is null || string.IsNullOrWhiteSpace(newLocation.City))
                 return Result.Failure(EventErrors.LocationCannotBeEmpty());
 
@@ -698,14 +540,18 @@ namespace Domain.Aggregates.EventAggregate
             return Result.Success();
         }
 
-        public Result AdminAddTicketType(
+        public Result AddTicketType(
             string name,
             Money price,
             int capacity,
             DateTime dateTime,
             string? sectionCode = null,
-            string? venueType = null)
+            string? venueType = null,
+            bool bypassDraftGuard = false)
         {
+            if (!bypassDraftGuard && Status != EventStatus.Draft)
+                return Result.Failure(EventErrors.CannotModifyTicketTypesAfterDraft());
+
             if (_ticketTypes.Count >= MAX_TICKET_TYPES)
                 return Result.Failure(EventErrors.MaxTicketTypesReached(MAX_TICKET_TYPES));
 

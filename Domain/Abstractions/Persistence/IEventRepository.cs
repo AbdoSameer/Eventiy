@@ -23,4 +23,6 @@ public interface IEventRepository
     Task<Event?> GetByIdWithLockAsync(
         EventId id,
         CancellationToken cancellationToken);
+
+    Task<List<Event>> GetHighDemandEventsAsync(CancellationToken cancellationToken);
 }

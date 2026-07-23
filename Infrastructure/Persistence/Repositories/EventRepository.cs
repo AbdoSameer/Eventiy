@@ -51,5 +51,13 @@ namespace Infrastructure.Persistence.Repositories
 
             return @event;
         }
+
+        public async Task<List<Event>> GetHighDemandEventsAsync(CancellationToken cancellationToken)
+        {
+            return await _applicationDbContext.Events
+                .Where(e => e.IsHighDemand)
+                .Include(e => e.TicketTypes)
+                .ToListAsync(cancellationToken);
+        }
     }
 }

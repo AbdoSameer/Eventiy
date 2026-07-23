@@ -7,6 +7,10 @@
  *
  * Services return Observable<Result<T>> so components can branch on isSuccess
  * before touching `value`.
+ *
+ * Note: this is a boolean-flag interface, not a discriminated union.
+ * A future refactor could convert it to `SuccessResult<T> | FailureResult`
+ * to leverage narrowing.
  */
 export interface Result<T> {
   isSuccess: boolean;

@@ -4,6 +4,7 @@ using Application.Abstractions.Inventory;
 using Application.Abstractions.Outbox;
 using Application.Abstractions.Payments;
 using Application.Abstractions.Persistence;
+using Application.Abstractions.RealTime;
 using Application.Abstractions.Security;
 using Domain.Abstractions.Persistence;
 using Domain.Abstractions.Storage;
@@ -111,6 +112,9 @@ public static class DependencyInjection
 
         // Inventory seeder for atomic handover (ToggleHighDemand)
         services.AddScoped<IInventorySeeder, RedisInventorySeeder>();
+
+        // Inventory counter store for reconciliation
+        services.AddSingleton<IInventoryCounterStore, RedisInventoryCounterStore>();
 
         // Real-time seat sync
         services.AddSingleton<IWebSocketConnectionManager, WebSocketConnectionManager>();

@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, UntypedFormBuilder, UntypedFormGroup, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -176,6 +177,7 @@ export class RegisterComponent implements OnInit {
   private auth = inject(AuthApplicationService);
   private router = inject(Router);
   private toast = inject(ToastService);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly loading = signal(false);
   readonly strength = signal(0); // 0..4
@@ -262,7 +264,9 @@ export class RegisterComponent implements OnInit {
     this.loading.set(true);
     const { firstName, lastName, email, password, role } = this.form.value;
 
-    this.auth.register({ firstName, lastName, email, password, role: role as UserRole }).subscribe({
+    this.auth.register({ firstName, lastName, email, password, role: role as UserRole })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
       next: (result) => {
         this.loading.set(false);
         if (result.isSuccess && result.value) {

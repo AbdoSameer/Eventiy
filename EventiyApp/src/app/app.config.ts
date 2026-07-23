@@ -9,8 +9,7 @@ import { errorInterceptor } from './infrastructure/interceptors/error.intercepto
 /**
  * Standalone application configuration.
  *
- * - Functional interceptors attach the JWT and translate the Result pattern
- *   failures / HTTP errors into toast notifications.
+ * - Functional interceptors attach the JWT and handle auth / 403 errors.
  * - Functional guards in app.routes.ts protect role-specific routes.
  * - Component input binding lets routes feed `id` params directly into inputs.
  */

@@ -95,9 +95,14 @@ public class StripePaymentGateway : IPaymentService
         try
         {
             var service = new SessionService();
+            var createdAfter = DateTime.UtcNow.AddDays(-1);
             var sessions = await service.ListAsync(new SessionListOptions
             {
                 Limit = 100,
+                Created = new Stripe.DateRangeOptions
+                {
+                    GreaterThan = createdAfter,
+                },
             }, cancellationToken: ct);
 
             var session = sessions.FirstOrDefault(s =>

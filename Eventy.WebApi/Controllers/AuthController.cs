@@ -3,6 +3,7 @@ using Application.Features.Authentication.Commands.Register;
 using Application.Features.Authentication.Commands.RefreshToken;
 using Application.Features.Authentication.Commands.ApproveOrganizer;
 using Application.Features.Authentication.Responses;
+using Domain.Common;
 using Infrastructure.Authentication;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -67,12 +68,9 @@ namespace Eventy.WebApi.Controllers
         {
             var refreshToken = Request.Cookies["refreshToken"];
             if (string.IsNullOrEmpty(refreshToken))
-                return Unauthorized(new ProblemDetails
-                {
-                    Title = "Unauthorized",
-                    Detail = "Refresh token is missing.",
-                    Status = StatusCodes.Status401Unauthorized
-                });
+                return Result.Failure(
+                    Error.Unauthorized("Auth.RefreshTokenMissing", "Refresh token is missing."))
+                    .ToActionResult();
 
             var result = await sender.Send(new RefreshTokenCommand(refreshToken), cancellationToken);
             if (result.IsSuccess && result.Value?.RefreshToken is not null)
