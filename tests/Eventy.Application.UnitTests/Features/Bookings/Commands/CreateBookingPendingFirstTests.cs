@@ -89,8 +89,8 @@ public class CreateBookingPendingFirstTests
         _scopeFactory.CreateScope().Returns(scope);
 
         _bookingHandler = new CreateBookingCommandHandler(
-            _scopeFactory, _timeProvider, _currentUser, _cache, _paymentService,
-            _optimisticStrategy, _atomicRedisStrategy);
+            _timeProvider, _currentUser, _cache, _paymentService,
+            _optimisticStrategy, _atomicRedisStrategy, _bookingRepo, _eventRepo, _unitOfWork, _compensationRepo);
     }
 
     private CreateBookingCommand InstantCommand() => new()
@@ -298,7 +298,7 @@ public class CreateBookingPendingFirstTests
             .Returns(false);
 
         var webhookHandler = new ConfirmBookingFromWebhookCommandHandler(
-            _scopeFactory, _timeProvider, _cache);
+            _timeProvider, _cache, _bookingRepo, _eventRepo, _unitOfWork, _idempotencyStore);
 
         var stripeEventId = "evt_test_" + Guid.NewGuid().ToString("N");
         var command = new ConfirmBookingFromWebhookCommand(booking.Id.Value, stripeEventId);

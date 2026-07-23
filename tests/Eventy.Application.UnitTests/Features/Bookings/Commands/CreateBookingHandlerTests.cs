@@ -94,8 +94,8 @@ public class CreateBookingHandlerTests
         _scopeFactory.CreateScope().Returns(scope);
 
         _handler = new CreateBookingCommandHandler(
-            _scopeFactory, _timeProvider, _currentUser, _cache, _paymentService,
-            _optimisticStrategy, _atomicRedisStrategy);
+            _timeProvider, _currentUser, _cache, _paymentService,
+            _optimisticStrategy, _atomicRedisStrategy, _bookingRepo, _eventRepo, _unitOfWork, _compensationRepo);
     }
 
     private static Event? CreateSampleEvent()

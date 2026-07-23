@@ -1,5 +1,7 @@
 using Application.Abstractions.Inventory;
 using Application.Abstractions.Messaging;
+using Application.Abstractions.Persistence;
+using Domain.Abstractions.Persistence;
 using Application.Features.Events.Commands.ToggleHighDemand;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Eventy.ConcurrencyTests.Engine;
@@ -64,9 +66,10 @@ public class StrategyHandoverRaceTests
         var (eventId, ticketTypeId) = await _fixture.SeedPublishedEventAsync(capacity: 1);
 
         var seeder = new NoOpInventorySeeder();
-        var scopeFactory = _fixture.Factory.Services.GetRequiredService<IServiceScopeFactory>();
+        var eventRepo = _fixture.Factory.Services.GetRequiredService<IEventRepository>();
+        var uow = _fixture.Factory.Services.GetRequiredService<IUnitOfWork>();
         var timeProvider = _fixture.Factory.Services.GetRequiredService<TimeProvider>();
-        var toggleHandler = new ToggleHighDemandCommandHandler(scopeFactory, timeProvider, seeder);
+        var toggleHandler = new ToggleHighDemandCommandHandler(eventRepo, uow, timeProvider, seeder);
 
         var toggleCommitted = new TaskCompletionSource<bool>();
 
@@ -145,9 +148,10 @@ public class StrategyHandoverRaceTests
         var (eventId, ticketTypeId) = await _fixture.SeedPublishedEventAsync(capacity: 5);
 
         var seeder = new NoOpInventorySeeder();
-        var scopeFactory = _fixture.Factory.Services.GetRequiredService<IServiceScopeFactory>();
+        var eventRepo = _fixture.Factory.Services.GetRequiredService<IEventRepository>();
+        var uow = _fixture.Factory.Services.GetRequiredService<IUnitOfWork>();
         var timeProvider = _fixture.Factory.Services.GetRequiredService<TimeProvider>();
-        var toggleHandler = new ToggleHighDemandCommandHandler(scopeFactory, timeProvider, seeder);
+        var toggleHandler = new ToggleHighDemandCommandHandler(eventRepo, uow, timeProvider, seeder);
 
         var executor = new ConcurrentExecutor();
         var result = await executor.ExecuteAsync(

@@ -64,7 +64,7 @@ public class CancelBookingHandlerTests
         scopeFactory.CreateScope().Returns(scope);
 
         _handler = new CancelBookingCommandHandler(
-            scopeFactory, _timeProvider, _currentUser, _cache);
+            _timeProvider, _currentUser, _cache, _bookingRepo, _eventRepo, _userRepo, _uow);
     }
 
     private static Event? CreateSampleEvent()

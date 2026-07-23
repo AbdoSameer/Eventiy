@@ -53,7 +53,7 @@ public class ConfirmDeferredPaymentHandlerTests
         scopeFactory.CreateScope().Returns(scope);
 
         _handler = new ConfirmDeferredPaymentCommandHandler(
-            scopeFactory, _timeProvider, _cache);
+            _timeProvider, _cache, _bookingRepo, _eventRepo, _uow);
     }
 
     private static Event? CreateSampleEvent()

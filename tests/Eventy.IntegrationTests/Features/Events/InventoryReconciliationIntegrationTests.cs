@@ -36,9 +36,10 @@ public class InventoryReconciliationIntegrationTests : IntegrationTestBase
             eventCapacity: ticketCapacity, ticketCapacity: ticketCapacity);
 
         var seeder = new NoOpInventorySeeder();
-        var scopeFactory = Fixture.Factory.Services.GetRequiredService<IServiceScopeFactory>();
+        var eventRepo = Fixture.Factory.Services.GetRequiredService<IEventRepository>();
+        var uow = Fixture.Factory.Services.GetRequiredService<IUnitOfWork>();
         var timeProvider = Fixture.Factory.Services.GetRequiredService<TimeProvider>();
-        var toggleHandler = new ToggleHighDemandCommandHandler(scopeFactory, timeProvider, seeder);
+        var toggleHandler = new ToggleHighDemandCommandHandler(eventRepo, uow, timeProvider, seeder);
         await toggleHandler.Handle(
             new ToggleHighDemandCommand { EventId = eventId, Enabled = true },
             CancellationToken.None);
@@ -234,9 +235,10 @@ public class InventoryReconciliationIntegrationTests : IntegrationTestBase
         // Step 3: Enable high-demand mode (simulates admin toggling after
         // the bookings already depleted the SQL inventory)
         var seeder = new NoOpInventorySeeder();
-        var scopeFactory = Fixture.Factory.Services.GetRequiredService<IServiceScopeFactory>();
+        var eventRepo = Fixture.Factory.Services.GetRequiredService<IEventRepository>();
+        var uow = Fixture.Factory.Services.GetRequiredService<IUnitOfWork>();
         var timeProvider = Fixture.Factory.Services.GetRequiredService<TimeProvider>();
-        var toggleHandler = new ToggleHighDemandCommandHandler(scopeFactory, timeProvider, seeder);
+        var toggleHandler = new ToggleHighDemandCommandHandler(eventRepo, uow, timeProvider, seeder);
         await toggleHandler.Handle(
             new ToggleHighDemandCommand { EventId = eventId, Enabled = true },
             CancellationToken.None);
@@ -327,9 +329,9 @@ public class InventoryReconciliationIntegrationTests : IntegrationTestBase
             "5 tickets are oversold — Redis allowed 5 more but SQL has 0");
 
         // Verify the compensation path works
-        using var scope = Fixture.Factory.Services.CreateScope();
-        var bookingRepo = scope.ServiceProvider.GetRequiredService<IBookingRepository>();
-        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+        using var compScope = Fixture.Factory.Services.CreateScope();
+        var bookingRepo = compScope.ServiceProvider.GetRequiredService<IBookingRepository>();
+        var compUow = compScope.ServiceProvider.GetRequiredService<IUnitOfWork>();
 
         var latestPending = await bookingRepo.GetLatestPendingByTicketTypeAsync(
             TicketTypeId.FromDatabase(ticketTypeId),
@@ -345,7 +347,7 @@ public class InventoryReconciliationIntegrationTests : IntegrationTestBase
             booking.Cancel(utcNow, "Oversold — Redis/SQL desync reconciliation");
         }
 
-        await uow.CommitAsync(CancellationToken.None);
+        await compUow.CommitAsync(CancellationToken.None);
 
         await using var verifyDb = Fixture.CreateDbContext();
         var ttIdObj = TicketTypeId.FromDatabase(ticketTypeId);

@@ -1,5 +1,7 @@
 using Application.Abstractions.Inventory;
 using Application.Abstractions.Messaging;
+using Application.Abstractions.Persistence;
+using Domain.Abstractions.Persistence;
 using Application.Features.Events.Commands.ToggleHighDemand;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Eventy.IntegrationTests.Fixtures;
@@ -29,9 +31,10 @@ public class ToggleHighDemandIntegrationTests : IntegrationTestBase
         FakeInventorySeeder? seeder = null)
     {
         seeder ??= new FakeInventorySeeder();
-        var scopeFactory = fixture.Factory.Services.GetRequiredService<IServiceScopeFactory>();
+        var eventRepo = fixture.Factory.Services.GetRequiredService<IEventRepository>();
+        var uow = fixture.Factory.Services.GetRequiredService<IUnitOfWork>();
         var timeProvider = fixture.Factory.Services.GetRequiredService<TimeProvider>();
-        return new ToggleHighDemandCommandHandler(scopeFactory, timeProvider, seeder);
+        return new ToggleHighDemandCommandHandler(eventRepo, uow, timeProvider, seeder);
     }
 
     [Fact]
