@@ -1,5 +1,5 @@
 ﻿using Application.Abstractions.Messaging;
-
+using Application.Abstractions.Security;
 
 namespace Application.Features.Events.Commands.AddTicketType
 {
@@ -11,6 +11,9 @@ namespace Application.Features.Events.Commands.AddTicketType
             string Currency,
             int Capacity,
             string? SectionCode = null
-        ) :ICommand;
-    
+        ) : ICommand, IAuthorizableRequest
+    {
+        public string[] RequiredRoles => ["Admin", "Organizer"];
+    }
+
 }

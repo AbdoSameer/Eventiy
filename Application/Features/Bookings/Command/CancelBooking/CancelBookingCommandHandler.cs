@@ -8,27 +8,36 @@ using Domain.Aggregates.UserAggregate.ValueObject;
 using Domain.Common;
 using Domain.Errors;
 using Domain.Abstractions.Persistence;
-using Microsoft.Extensions.DependencyInjection;
+using static Application.Abstractions.Caching.CacheKeys;
 
 namespace Application.Features.Bookings.Command.CancelBooking
 {
     public class CancelBookingCommandHandler : ICommandHandler<CancelBookingCommand, bool>
     {
-        private readonly IServiceScopeFactory _scopeFactory;
         private readonly TimeProvider _dateTimeProvider;
         private readonly ICurrentUserService _currentUserService;
         private readonly ICacheService _cache;
+        private readonly IBookingRepository _bookingRepo;
+        private readonly IEventRepository _eventRepo;
+        private readonly IUserRepository _userRepo;
+        private readonly IUnitOfWork _uow;
 
         public CancelBookingCommandHandler(
-            IServiceScopeFactory scopeFactory,
             TimeProvider dateTimeProvider,
             ICurrentUserService currentUserService,
-            ICacheService cache)
+            ICacheService cache,
+            IBookingRepository bookingRepo,
+            IEventRepository eventRepo,
+            IUserRepository userRepo,
+            IUnitOfWork uow)
         {
-            _scopeFactory = scopeFactory;
             _dateTimeProvider = dateTimeProvider;
             _currentUserService = currentUserService;
             _cache = cache;
+            _bookingRepo = bookingRepo;
+            _eventRepo = eventRepo;
+            _userRepo = userRepo;
+            _uow = uow;
         }
 
         public async Task<Result<bool>> Handle(CancelBookingCommand request, CancellationToken cancellationToken)
@@ -41,32 +50,19 @@ namespace Application.Features.Bookings.Command.CancelBooking
             if (currentUserIdResult.IsFailure)
                 return Result<bool>.Failure(currentUserIdResult.Errors.ToArray());
 
-            return await ConcurrencyRetryHelper.ExecuteWithConcurrencyRetryAsync(
-                () => AttemptCancel(bookingIdResult.Value, currentUserIdResult.Value, cancellationToken),
-                cancellationToken);
-        }
+            var bookingId = bookingIdResult.Value;
+            var currentUserId = currentUserIdResult.Value;
 
-        private async Task<Result<bool>> AttemptCancel(
-            BookingId bookingId,
-            UserId currentUserId,
-            CancellationToken cancellationToken)
-        {
-            using var scope = _scopeFactory.CreateScope();
-            var bookingRepo = scope.ServiceProvider.GetRequiredService<IBookingRepository>();
-            var eventRepo = scope.ServiceProvider.GetRequiredService<IEventRepository>();
-            var userRepo = scope.ServiceProvider.GetRequiredService<IUserRepository>();
-            var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-
-            var booking = await bookingRepo.GetByIdAsync(bookingId, cancellationToken);
+            var booking = await _bookingRepo.GetByIdAsync(bookingId, cancellationToken);
             if (booking is null)
                 return Result<bool>.Failure(BookingErrors.BookingNotFound(bookingId.Value));
 
-            var userResult = await userRepo.GetByIdAsync(currentUserId, cancellationToken);
+            var userResult = await _userRepo.GetByIdAsync(currentUserId, cancellationToken);
             if (userResult is null)
                 return Result<bool>.Failure(UserErrors.NotFound());
 
-            var isAdminOrOrg = userResult.Role == Domain.Aggregates.UserAggregate.ValueObject.Role.Admin
-                            || userResult.Role == Domain.Aggregates.UserAggregate.ValueObject.Role.Organizer;
+            var isAdminOrOrg = userResult.Role == Role.Admin
+                            || userResult.Role == Role.Organizer;
 
             var isOwnBooking = booking.UserId == currentUserId;
 
@@ -85,7 +81,7 @@ namespace Application.Features.Bookings.Command.CancelBooking
             if (cancelResult.IsFailure)
                 return Result<bool>.Failure(cancelResult.Errors.ToArray());
 
-            var eventResult = await eventRepo.GetByIdAsync(booking.EventId, cancellationToken);
+            var eventResult = await _eventRepo.GetByIdAsync(booking.EventId, cancellationToken);
             if (eventResult is null)
                 return Result<bool>.Failure(EventErrors.EventNotFound(booking.EventId));
 
@@ -108,13 +104,13 @@ namespace Application.Features.Bookings.Command.CancelBooking
             if (seatsResult.IsFailure)
                 return Result<bool>.Failure(seatsResult.Errors.ToArray());
 
-            uow.EnforceFencingToken(eventResult, eventResult.RowVersion);
-            var result = await uow.CommitAsync(cancellationToken);
+            _uow.EnforceFencingToken(eventResult, eventResult.RowVersion);
+            var result = await _uow.CommitAsync(cancellationToken);
 
             if (result <= 0)
                 return Result<bool>.Failure(BookingErrors.CannotCancelBooking(bookingId.Value, booking.Status));
 
-            await _cache.RemoveAsync($"event:details:{booking.EventId.Value}", cancellationToken);
+            await _cache.RemoveAsync(EventDetails(booking.EventId.Value), cancellationToken);
 
             return Result<bool>.Success(true);
         }

@@ -4,31 +4,36 @@ using Application.Abstractions.Persistence;
 using Application.Abstractions.Security;
 using Domain.Abstractions.Persistence;
 using Domain.Aggregates.BookingAggregate.ValueObject;
-using Domain.Aggregates.UserAggregate.ValueObject;
 using Domain.Common;
 using Domain.Errors;
-using Microsoft.Extensions.DependencyInjection;
+using static Application.Abstractions.Caching.CacheKeys;
 
 namespace Application.Features.Bookings.Command.ConfirmBooking
 {
     public class ConfirmBookingCommandHandler
         : ICommandHandler<ConfirmBookingCommand, bool>
     {
-        private readonly IServiceScopeFactory _scopeFactory;
         private readonly TimeProvider _dateTimeProvider;
         private readonly ICurrentUserService _currentUserService;
         private readonly ICacheService _cache;
+        private readonly IBookingRepository _bookingRepo;
+        private readonly IEventRepository _eventRepo;
+        private readonly IUnitOfWork _uow;
 
         public ConfirmBookingCommandHandler(
-            IServiceScopeFactory scopeFactory,
             TimeProvider dateTimeProvider,
             ICurrentUserService currentUserService,
-            ICacheService cache)
+            ICacheService cache,
+            IBookingRepository bookingRepo,
+            IEventRepository eventRepo,
+            IUnitOfWork uow)
         {
-            _scopeFactory = scopeFactory;
             _dateTimeProvider = dateTimeProvider;
             _currentUserService = currentUserService;
             _cache = cache;
+            _bookingRepo = bookingRepo;
+            _eventRepo = eventRepo;
+            _uow = uow;
         }
 
         public async Task<Result<bool>> Handle(ConfirmBookingCommand request, CancellationToken cancellationToken)
@@ -41,34 +46,12 @@ namespace Application.Features.Bookings.Command.ConfirmBooking
             if (currentUserIdResult.IsFailure)
                 return Result<bool>.Failure(currentUserIdResult.Errors.ToArray());
 
-            return await ConcurrencyRetryHelper.ExecuteWithConcurrencyRetryAsync(
-                () => AttemptConfirm(bookingIdResult.Value, currentUserIdResult.Value, cancellationToken),
-                cancellationToken);
-        }
+            var bookingId = bookingIdResult.Value;
+            var currentUserId = currentUserIdResult.Value;
 
-        private async Task<Result<bool>> AttemptConfirm(
-            BookingId bookingId,
-            UserId currentUserId,
-            CancellationToken cancellationToken)
-        {
-            using var scope = _scopeFactory.CreateScope();
-            var bookingRepo = scope.ServiceProvider.GetRequiredService<IBookingRepository>();
-            var eventRepo = scope.ServiceProvider.GetRequiredService<IEventRepository>();
-            var userRepo = scope.ServiceProvider.GetRequiredService<IUserRepository>();
-            var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-
-            var booking = await bookingRepo.GetByIdAsync(bookingId, cancellationToken);
+            var booking = await _bookingRepo.GetByIdAsync(bookingId, cancellationToken);
             if (booking is null)
                 return Result<bool>.Failure(BookingErrors.BookingNotFound(bookingId.Value));
-
-            var userResult = await userRepo.GetByIdAsync(currentUserId, cancellationToken);
-            if (userResult is null)
-                return Result<bool>.Failure(UserErrors.NotFound());
-
-            if (userResult.Role != Role.Admin && userResult.Role != Role.Organizer)
-                return Result<bool>.Failure(Error.Unauthorized(
-                    "Booking.UnauthorizedConfirm",
-                    "Only admins and organizers can confirm bookings."));
 
             var utcNow = _dateTimeProvider.GetUtcNow().UtcDateTime;
 
@@ -76,7 +59,7 @@ namespace Application.Features.Bookings.Command.ConfirmBooking
             if (confirmResult.IsFailure)
                 return Result<bool>.Failure(confirmResult.Errors.ToArray());
 
-            var eventResult = await eventRepo.GetByIdAsync(booking.EventId, cancellationToken);
+            var eventResult = await _eventRepo.GetByIdAsync(booking.EventId, cancellationToken);
             if (eventResult is null)
                 return Result<bool>.Failure(EventErrors.EventNotFound(booking.EventId));
 
@@ -87,13 +70,13 @@ namespace Application.Features.Bookings.Command.ConfirmBooking
             if (confirmSeatsResult.IsFailure)
                 return Result<bool>.Failure(confirmSeatsResult.Errors.ToArray());
 
-            uow.EnforceFencingToken(eventResult, eventResult.RowVersion);
-            var rowsAffected = await uow.CommitAsync(cancellationToken);
+            _uow.EnforceFencingToken(eventResult, eventResult.RowVersion);
+            var rowsAffected = await _uow.CommitAsync(cancellationToken);
 
             if (rowsAffected <= 0)
                 return Result<bool>.Failure(BookingErrors.BookingConfirmationFailed());
 
-            await _cache.RemoveAsync($"event:details:{booking.EventId.Value}", cancellationToken);
+            await _cache.RemoveAsync(EventDetails(booking.EventId.Value), cancellationToken);
 
             return Result<bool>.Success(true);
         }

@@ -5,7 +5,6 @@ using Domain.Abstractions.Persistence;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Common;
 using Domain.Errors;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Application.Features.Events.Commands.ToggleHighDemand;
 
@@ -30,16 +29,19 @@ namespace Application.Features.Events.Commands.ToggleHighDemand;
 public sealed class ToggleHighDemandCommandHandler
     : ICommandHandler<ToggleHighDemandCommand, ToggleHighDemandResponse>
 {
-    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IEventRepository _eventRepository;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly TimeProvider _timeProvider;
     private readonly IInventorySeeder _inventorySeeder;
 
     public ToggleHighDemandCommandHandler(
-        IServiceScopeFactory scopeFactory,
+        IEventRepository eventRepository,
+        IUnitOfWork unitOfWork,
         TimeProvider timeProvider,
         IInventorySeeder inventorySeeder)
     {
-        _scopeFactory = scopeFactory;
+        _eventRepository = eventRepository;
+        _unitOfWork = unitOfWork;
         _timeProvider = timeProvider;
         _inventorySeeder = inventorySeeder;
     }
@@ -52,17 +54,13 @@ public sealed class ToggleHighDemandCommandHandler
         if (eventIdResult.IsFailure)
             return Result<ToggleHighDemandResponse>.Failure(eventIdResult.Errors.ToArray());
 
-        using var scope = _scopeFactory.CreateScope();
-        var eventRepo = scope.ServiceProvider.GetRequiredService<IEventRepository>();
-        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-
         Result<ToggleHighDemandResponse>? result = null;
 
         try
         {
-            await uow.ExecuteInTransactionAsync(async (transaction, ct) =>
+            await _unitOfWork.ExecuteInTransactionAsync(async (transaction, ct) =>
             {
-                var @event = await eventRepo.GetByIdWithLockAsync(
+                var @event = await _eventRepository.GetByIdWithLockAsync(
                     eventIdResult.Value, ct);
 
                 if (@event is null)
@@ -86,7 +84,7 @@ public sealed class ToggleHighDemandCommandHandler
                 else
                     await _inventorySeeder.ClearAsync(@event, ct);
 
-                await uow.CommitAsync(ct);
+                await _unitOfWork.CommitAsync(ct);
 
                 result = Result<ToggleHighDemandResponse>.Success(
                     new ToggleHighDemandResponse(@event.IsHighDemand));

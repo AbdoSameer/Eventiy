@@ -4,6 +4,7 @@ using Application.Abstractions.Persistence;
 using Domain.Abstractions.Persistence;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Common;
+using static Application.Abstractions.Caching.CacheKeys;
 
 namespace Application.Features.Events.Commands.UpdatePhotoMetadata;
 
@@ -60,7 +61,7 @@ internal sealed class UpdatePhotoMetadataCommandHandler
         await _unitOfWork.CommitAsync(cancellationToken);
 
         // Invalidate the photo list cache (caption/display-order changed).
-        await _cache.RemoveAsync($"event:photos:{request.EventId}", cancellationToken);
+        await _cache.RemoveAsync(EventPhotos(request.EventId), cancellationToken);
 
         return Result.Success();
     }

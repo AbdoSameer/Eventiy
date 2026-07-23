@@ -1,10 +1,10 @@
 ﻿using Application.Abstractions.Behaviors;
 using Application.Abstractions.Inventory;
+using Application.Abstractions.Persistence;
 using Application.Features.Bookings.Events.BookingCancelled;
 using Application.Features.Bookings.Events.BookingCreated;
 using Application.Features.Bookings.Inventory;
 using Domain.Aggregates.BookingAggregate.Events;
-using Application.Abstractions.Persistence;
 using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,8 +23,6 @@ public static class DependencyInjection
 
         services.AddValidatorsFromAssembly(assembly, includeInternalTypes: true);
 
-        services.AddScoped<IEventValidator<BookingCreatedEvent>, BookingCreatedEventValidator>();
-
         services.AddScoped<IDomainEventHandler<BookingCreatedEvent>, BookingCreatedEventHandler>();
         services.AddScoped<IDomainEventHandler<BookingCancelledEvent>, BookingCancelledEventHandler>();
 
@@ -37,6 +35,8 @@ public static class DependencyInjection
             config.RegisterServicesFromAssembly(assembly);
 
             config.AddBehavior(typeof(IPipelineBehavior<,>), typeof(ValidationPipelineBehavior<,>));
+            config.AddBehavior(typeof(IPipelineBehavior<,>), typeof(AuthorizationPipelineBehavior<,>));
+            config.AddBehavior(typeof(IPipelineBehavior<,>), typeof(ConcurrencyRetryPipelineBehavior<,>));
         });
 
         return services;

@@ -1,4 +1,5 @@
 using Application.Abstractions.Messaging;
+using Application.Abstractions.Security;
 using Application.Features.Events.Queries.GetEventDetails;
 
 namespace Application.Features.Events.Commands.UpdateEvent;
@@ -9,4 +10,7 @@ public sealed record UpdateEventCommand(
     int Capacity,
     DateTime Date,
     AddressResponse Location,
-    string Description) : ICommand;
+    string Description) : ICommand, IAuthorizableRequest
+{
+    public string[] RequiredRoles => ["Admin", "Organizer"];
+}

@@ -4,6 +4,7 @@ using Application.Abstractions.Persistence;
 using Domain.Abstractions.Persistence;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Common;
+using static Application.Abstractions.Caching.CacheKeys;
 
 namespace Application.Features.Events.Commands.SetCoverPhoto;
 
@@ -49,8 +50,8 @@ internal sealed class SetCoverPhotoCommandHandler
         await _unitOfWork.CommitAsync(cancellationToken);
 
         // Invalidate the photo list cache (IsCover flag changed) + event details (CoverPhotoUrl changed).
-        await _cache.RemoveAsync($"event:photos:{request.EventId}", cancellationToken);
-        await _cache.RemoveAsync($"event:details:{request.EventId}", cancellationToken);
+        await _cache.RemoveAsync(EventPhotos(request.EventId), cancellationToken);
+        await _cache.RemoveAsync(EventDetails(request.EventId), cancellationToken);
 
         return Result.Success();
     }

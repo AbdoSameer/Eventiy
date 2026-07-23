@@ -3,7 +3,7 @@ using Application.Abstractions.Messaging;
 using Application.Abstractions.Persistence;
 using Domain.Aggregates.EventAggregate;
 using Domain.Common;
-using System.Globalization;
+using static Application.Abstractions.Caching.CacheKeys;
 
 namespace Application.Features.Events.Queries.GetEvents;
 
@@ -29,10 +29,7 @@ public class GetEventsHandler
         GetEventsQuery request,
         CancellationToken cancellationToken)
     {
-        var lat = request.UserLatitude?.ToString("F5", CultureInfo.InvariantCulture) ?? "null";
-        var lng = request.UserLongitude?.ToString("F5", CultureInfo.InvariantCulture) ?? "null";
-        var dist = request.DistanceInKm.ToString("F2", CultureInfo.InvariantCulture);
-        var cacheKey = $"events:list:{request.Page}:{request.PageSize}:{request.Type}:{lat}:{lng}:{dist}";
+        var cacheKey = EventsList(request.Page, request.PageSize, request.Type?.ToString(), request.UserLatitude, request.UserLongitude, request.DistanceInKm);
 
         var cached = await _cache.GetAsync<PaginatedEventResponse>(cacheKey, cancellationToken);
         if (cached is not null)

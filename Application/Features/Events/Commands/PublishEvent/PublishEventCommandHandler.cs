@@ -6,6 +6,7 @@ using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Common;
 using Domain.Errors;
 using Domain.Primitives;
+using static Application.Abstractions.Caching.CacheKeys;
 
 namespace Application.Features.Events.Commands.PublishEvent;
 
@@ -35,8 +36,8 @@ public sealed class PublishEventCommandHandler(
         if (rows <= 0)
             return Result.Failure(Error.Failure("Event.PublishFailed", "Failed to publish the event."));
 
-        await cache.RemoveAsync($"event:details:{request.EventId}", cancellationToken);
-        await cache.RemoveByPatternAsync("events:list:*", cancellationToken);
+        await cache.RemoveAsync(EventDetails(request.EventId), cancellationToken);
+        await cache.RemoveByPatternAsync(EventsListPattern, cancellationToken);
 
         return Result.Success();
     }

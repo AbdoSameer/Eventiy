@@ -8,8 +8,8 @@ using Domain.Abstractions.Persistence;
 using Domain.Aggregates.BookingAggregate;
 using Domain.Aggregates.BookingAggregate.ValueObject;
 using Domain.Aggregates.BookingAggregate.Enums;
+using static Application.Abstractions.Caching.CacheKeys;
 using Domain.Aggregates.EventAggregate.ValueObject;
-using Domain.Aggregates.UserAggregate.ValueObject;
 using Domain.Common;
 using Domain.Errors;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,16 +19,18 @@ namespace Application.Features.Bookings.Command.CreateBooking
 {
     public class CreateBookingCommandHandler : ICommandHandler<CreateBookingCommand, CreateBookingResponse>
     {
-        private readonly IServiceScopeFactory _scopeFactory;
         private readonly TimeProvider _dateTimeProvider;
         private readonly ICurrentUserService _currentUserService;
         private readonly ICacheService _cache;
         private readonly IPaymentService _paymentService;
         private readonly IInventoryReservationStrategy _optimisticStrategy;
         private readonly IInventoryReservationStrategy _atomicRedisStrategy;
+        private readonly IBookingRepository _bookingRepo;
+        private readonly IEventRepository _eventRepo;
+        private readonly IUnitOfWork _uow;
+        private readonly ICompensationLogRepository _compensationRepo;
 
         public CreateBookingCommandHandler(
-            IServiceScopeFactory scopeFactory,
             TimeProvider dateTimeProvider,
             ICurrentUserService currentUserService,
             ICacheService cache,
@@ -36,15 +38,22 @@ namespace Application.Features.Bookings.Command.CreateBooking
             [FromKeyedServices(Application.DependencyInjection.OptimisticStrategyKey)]
                 IInventoryReservationStrategy optimisticStrategy,
             [FromKeyedServices(Application.DependencyInjection.AtomicRedisStrategyKey)]
-                IInventoryReservationStrategy atomicRedisStrategy)
+                IInventoryReservationStrategy atomicRedisStrategy,
+            IBookingRepository bookingRepo,
+            IEventRepository eventRepo,
+            IUnitOfWork uow,
+            ICompensationLogRepository compensationRepo)
         {
-            _scopeFactory = scopeFactory;
             _dateTimeProvider = dateTimeProvider;
             _currentUserService = currentUserService;
             _cache = cache;
             _paymentService = paymentService;
             _optimisticStrategy = optimisticStrategy;
             _atomicRedisStrategy = atomicRedisStrategy;
+            _bookingRepo = bookingRepo;
+            _eventRepo = eventRepo;
+            _uow = uow;
+            _compensationRepo = compensationRepo;
         }
 
         public async Task<Result<CreateBookingResponse>> Handle(CreateBookingCommand request, CancellationToken cancellationToken)
@@ -61,54 +70,14 @@ namespace Application.Features.Bookings.Command.CreateBooking
             if (eventIdResult.IsFailure)
                 return Result<CreateBookingResponse>.Failure(eventIdResult.Errors.ToArray());
 
-            return await ConcurrencyRetryHelper.ExecuteWithConcurrencyRetryAsync(
-                () => AttemptBooking(
-                    userIdResult.Value,
-                    eventIdResult.Value,
-                    ticketTypeIdResult.Value,
-                    request,
-                    cancellationToken),
-                cancellationToken);
-        }
+            var userId = userIdResult.Value;
+            var eventId = eventIdResult.Value;
+            var ticketTypeId = ticketTypeIdResult.Value;
 
-        private async Task<Result<CreateBookingResponse>> AttemptBooking(
-            UserId userId,
-            EventId eventId,
-            TicketTypeId ticketTypeId,
-            CreateBookingCommand request,
-            CancellationToken cancellationToken)
-        {
-            using var scope = _scopeFactory.CreateScope();
-            var bookingRepo = scope.ServiceProvider.GetRequiredService<IBookingRepository>();
-            var eventRepo = scope.ServiceProvider.GetRequiredService<IEventRepository>();
-            var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-            var compensationRepo = scope.ServiceProvider.GetRequiredService<ICompensationLogRepository>();
-
-            var eventResult = await eventRepo.GetByIdAsync(eventId, cancellationToken);
+            var eventResult = await _eventRepo.GetByIdAsync(eventId, cancellationToken);
             if (eventResult is null)
                 return Result<CreateBookingResponse>.Failure(EventErrors.EventNotFound(eventId));
 
-            // ===== FENCING TOKEN (Layer 2) =====
-            // Capture the Event's RowVersion at the start of this attempt.
-            // The Event aggregate is loaded via GetByIdAsync and tracked by
-            // the DbContext. When the optimistic strategy calls
-            // Event.ReserveSeats(), it mutates the TicketType child entity
-            // (ReservedCount += quantity) but does NOT modify any scalar
-            // property on the Event root itself. Without explicit enforcement,
-            // EF Core's change tracker would NOT include the Events table in
-            // the UPDATE batch — only TicketTypes — so the RowVersion check
-            // would never fire, making the fencing token dead code.
-            //
-            // EnforceFencingToken forces EF Core to:
-            //   1. Track the Event as Modified (even though no scalar changed)
-            //   2. Stamp the OriginalValue of RowVersion to the captured token
-            // This guarantees EF Core emits:
-            //   UPDATE Events SET ... WHERE Id = @id AND RowVersion = @fencingToken
-            // If a ToggleHighDemand command committed between GetByIdAsync and
-            // CommitAsync, the RowVersion changed, the UPDATE affects 0 rows,
-            // and EF throws DbUpdateConcurrencyException → ConcurrencyException.
-            // The ConcurrencyRetryHelper catches it and retries — the retry
-            // re-reads the event with the new IsHighDemand flag.
             var fencingToken = eventResult.RowVersion;
 
             var ticketType = eventResult.TicketTypes.FirstOrDefault(t => t.Id == ticketTypeId);
@@ -143,33 +112,16 @@ namespace Application.Features.Bookings.Command.CreateBooking
             if (booking.IsFailure)
                 return Result<CreateBookingResponse>.Failure(booking.Errors.ToArray());
 
-            await bookingRepo.AddBookingAsync(booking.Value, cancellationToken);
+            await _bookingRepo.AddBookingAsync(booking.Value, cancellationToken);
 
-            // Force the Event aggregate root into the UPDATE batch with the
-            // captured fencing token as the RowVersion OriginalValue. This is
-            // the critical call that makes Layer 2 actually work.
-            uow.EnforceFencingToken(eventResult, fencingToken);
+            _uow.EnforceFencingToken(eventResult, fencingToken);
 
-            // ===== PHASE 1: Atomic Commit — Save Booking as Pending (seats reserved) =====
-            int rowsAffected;
-            try
-            {
-                rowsAffected = await uow.CommitAsync(cancellationToken);
-            }
-            catch (ConcurrencyException)
-            {
-                throw;
-            }
+            var rowsAffected = await _uow.CommitAsync(cancellationToken);
 
             if (rowsAffected <= 0)
                 return Result<CreateBookingResponse>.Failure(BookingErrors.BookingCreationFailed());
 
-            await _cache.RemoveAsync($"event:details:{request.EventId}", cancellationToken);
-
-            // ===== PHASE 2: Post-Commit Payment Initiation (Instant only) =====
-            // The booking is now durably persisted as Pending. If the payment call
-            // fails or the process crashes, the BookingExpirationJob will eventually
-            // expire it and release the reserved seats. No dual-write problem.
+            await _cache.RemoveAsync(EventDetails(request.EventId), cancellationToken);
 
             if (request.PaymentMethod != PaymentMethod.Instant)
                 return Result<CreateBookingResponse>.Success(new CreateBookingResponse(
@@ -192,8 +144,6 @@ namespace Application.Features.Bookings.Command.CreateBooking
                 if (paymentResult.IsFailure)
                 {
                     await StageCompensationDurally(
-                        compensationRepo,
-                        uow,
                         booking.Value.Id.Value,
                         "CancelPayment",
                         paymentResult.Errors.Select(e => e.Message).Aggregate((a, b) => $"{a}; {b}"),
@@ -212,12 +162,7 @@ namespace Application.Features.Bookings.Command.CreateBooking
             }
             catch (Exception ex)
             {
-                // Payment call threw unexpectedly — stage durable compensation
-                // instead of inline cancellation. The CompensationProcessor will
-                // retry the cancellation asynchronously.
                 await StageCompensationDurally(
-                    compensationRepo,
-                    uow,
                     booking.Value.Id.Value,
                     "CancelPayment",
                     ex.Message,
@@ -229,9 +174,7 @@ namespace Application.Features.Bookings.Command.CreateBooking
             }
         }
 
-        private static async Task StageCompensationDurally(
-            ICompensationLogRepository compensationRepo,
-            IUnitOfWork uow,
+        private async Task StageCompensationDurally(
             Guid bookingId,
             string compensationType,
             string failureReason,
@@ -255,13 +198,9 @@ namespace Application.Features.Bookings.Command.CreateBooking
                 RetryCount: 0,
                 NextRetryOnUtc: null);
 
-            compensationRepo.Add(compensationLog);
+            _compensationRepo.Add(compensationLog);
 
-            // Separate scope commit — the original booking transaction already
-            // committed successfully. This is a second atomic write to record the
-            // compensation intent. If THIS commit fails, the PaymentReconciliationJob
-            // will still find the orphaned Stripe session by polling past-hold bookings.
-            await uow.CommitWithoutEventsAsync(ct);
+            await _uow.CommitWithoutEventsAsync(ct);
         }
     }
 }

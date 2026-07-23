@@ -8,6 +8,7 @@ using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Common;
 using Domain.Errors;
 using Domain.Primitives;
+using static Application.Abstractions.Caching.CacheKeys;
 
 namespace Application.Features.Events.Commands.AddTicketType
 {
@@ -16,36 +17,28 @@ namespace Application.Features.Events.Commands.AddTicketType
         private readonly IUnitOfWork _unitOfWork;
         private readonly IEventRepository _eventRepository;
         private readonly TimeProvider _dateTimeProvider;
-        private readonly ICurrentUserService _currentUser;
         private readonly ICacheService _cache;
         private readonly IVenueLayoutValidator _venueLayout;
+        private readonly ICurrentUserService _currentUser;
 
         public AddTicketTypeCommandHandler(
             IUnitOfWork unitOfWork,
             IEventRepository eventRepository,
             TimeProvider dateTimeProvider,
-            ICurrentUserService currentUser,
             ICacheService cache,
-            IVenueLayoutValidator venueLayout)
+            IVenueLayoutValidator venueLayout,
+            ICurrentUserService currentUser)
         {
             _unitOfWork = unitOfWork;
             _eventRepository = eventRepository;
             _dateTimeProvider = dateTimeProvider;
-            _currentUser = currentUser;
             _cache = cache;
             _venueLayout = venueLayout;
+            _currentUser = currentUser;
         }
 
         public async Task<Result> Handle(AddTicketTypeCommand request, CancellationToken cancellationToken)
         {
-            var role = _currentUser.GetCurrentUserRole();
-            if (role != "Admin" && role != "Organizer")
-                return Result.Failure(Error.Unauthorized(
-                    "Event.UnauthorizedAddTicketType",
-                    "Only administrators or organizers can add ticket types."));
-
-            var isAdmin = role == "Admin";
-
             var eventIdResult = EventId.Create(request.EventId);
             if (eventIdResult.IsFailure)
                 return Result.Failure(eventIdResult.Errors.ToArray());
@@ -64,6 +57,7 @@ namespace Application.Features.Events.Commands.AddTicketType
 
             var utcNow = _dateTimeProvider.GetUtcNow().UtcDateTime;
 
+            var isAdmin = _currentUser.GetCurrentUserRole() == "Admin";
             Result addTicketResult;
             var venueType = @event.Type.ToString();
             if (isAdmin)
@@ -98,8 +92,8 @@ namespace Application.Features.Events.Commands.AddTicketType
                     "Failed to add ticket type to the event"));
             }
 
-            await _cache.RemoveAsync($"event:details:{request.EventId}", cancellationToken);
-            await _cache.RemoveByPatternAsync("events:list:*", cancellationToken);
+            await _cache.RemoveAsync(EventDetails(request.EventId), cancellationToken);
+            await _cache.RemoveByPatternAsync(EventsListPattern, cancellationToken);
 
             return Result.Success();
         }

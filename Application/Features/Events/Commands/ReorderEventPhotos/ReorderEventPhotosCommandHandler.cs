@@ -4,6 +4,7 @@ using Application.Abstractions.Persistence;
 using Domain.Abstractions.Persistence;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Common;
+using static Application.Abstractions.Caching.CacheKeys;
 
 namespace Application.Features.Events.Commands.ReorderEventPhotos;
 
@@ -58,7 +59,7 @@ internal sealed class ReorderEventPhotosCommandHandler
         await _unitOfWork.CommitAsync(cancellationToken);
 
         // Invalidate the photo list cache so the new order reflects on next read.
-        await _cache.RemoveAsync($"event:photos:{request.EventId}", cancellationToken);
+        await _cache.RemoveAsync(EventPhotos(request.EventId), cancellationToken);
 
         return Result.Success();
     }

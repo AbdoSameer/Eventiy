@@ -5,6 +5,7 @@ using Domain.Abstractions.Persistence;
 using Domain.Aggregates.EventAggregate;
 using Domain.Common;
 using Domain.Primitives;
+using static Application.Abstractions.Caching.CacheKeys;
 
 namespace Application.Features.Events.Commands.CreateEvent
 {
@@ -68,7 +69,7 @@ namespace Application.Features.Events.Commands.CreateEvent
                         "Failed to create the event. Please try again later."));
             }
 
-            await _cache.RemoveByPatternAsync("events:list:*", cancellationToken);
+            await _cache.RemoveByPatternAsync(EventsListPattern, cancellationToken);
 
             return Result<Guid>.Success(@event.Value.Id.Value);
         }

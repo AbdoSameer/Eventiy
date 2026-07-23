@@ -1,4 +1,5 @@
 ﻿using Application.Abstractions.Messaging;
+using Application.Abstractions.Security;
 using Application.Features.Events.Queries.GetEventDetails;
 using Domain.Aggregates.EventAggregate.Enums;
 using Domain.Primitives;
@@ -13,5 +14,8 @@ namespace Application.Features.Events.Commands.CreateEvent
         string Description,
         EventType Type,
         double? Latitude = null,
-        double? Longitude = null) : ICommand<Guid>;
+        double? Longitude = null) : ICommand<Guid>, IAuthorizableRequest
+    {
+        public string[] RequiredRoles => ["Admin", "Organizer"];
+    }
 }

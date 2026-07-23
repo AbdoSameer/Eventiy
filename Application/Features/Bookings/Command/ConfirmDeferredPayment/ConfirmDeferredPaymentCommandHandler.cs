@@ -5,35 +5,23 @@ using Domain.Abstractions.Persistence;
 using Domain.Aggregates.BookingAggregate.Enums;
 using Domain.Common;
 using Domain.Errors;
-using Microsoft.Extensions.DependencyInjection;
+using static Application.Abstractions.Caching.CacheKeys;
 
 namespace Application.Features.Bookings.Command.ConfirmDeferredPayment;
 
 public sealed class ConfirmDeferredPaymentCommandHandler(
-    IServiceScopeFactory scopeFactory,
     TimeProvider timeProvider,
-    ICacheService cache)
+    ICacheService cache,
+    IBookingRepository bookingRepo,
+    IEventRepository eventRepo,
+    IUnitOfWork uow)
     : ICommandHandler<ConfirmDeferredPaymentCommand>
 {
     public async Task<Result> Handle(ConfirmDeferredPaymentCommand request, CancellationToken cancellationToken)
     {
-        return await ConcurrencyRetryHelper.ExecuteWithConcurrencyRetryAsync(
-            () => AttemptConfirmDeferred(request.ReferenceCode, cancellationToken),
-            cancellationToken);
-    }
-
-    private async Task<Result> AttemptConfirmDeferred(
-        string referenceCode,
-        CancellationToken cancellationToken)
-    {
-        using var scope = scopeFactory.CreateScope();
-        var bookingRepo = scope.ServiceProvider.GetRequiredService<IBookingRepository>();
-        var eventRepo = scope.ServiceProvider.GetRequiredService<IEventRepository>();
-        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-
-        var booking = await bookingRepo.GetByReferenceCodeAsync(referenceCode, cancellationToken);
+        var booking = await bookingRepo.GetByReferenceCodeAsync(request.ReferenceCode, cancellationToken);
         if (booking is null)
-            return Result.Failure(BookingErrors.ReferenceCodeNotFound(referenceCode));
+            return Result.Failure(BookingErrors.ReferenceCodeNotFound(request.ReferenceCode));
 
         if (booking.PaymentMethod != PaymentMethod.Deferred)
             return Result.Failure(BookingErrors.NotADeferredBooking(booking.Id.Value));
@@ -60,7 +48,7 @@ public sealed class ConfirmDeferredPaymentCommandHandler(
         if (rows <= 0)
             return Result.Failure(BookingErrors.BookingConfirmationFailed());
 
-        await cache.RemoveAsync($"event:details:{booking.EventId.Value}", cancellationToken);
+        await cache.RemoveAsync(EventDetails(booking.EventId.Value), cancellationToken);
 
         return Result.Success();
     }

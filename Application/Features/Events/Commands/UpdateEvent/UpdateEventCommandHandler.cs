@@ -7,6 +7,7 @@ using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Common;
 using Domain.Errors;
 using Domain.Primitives;
+using static Application.Abstractions.Caching.CacheKeys;
 
 namespace Application.Features.Events.Commands.UpdateEvent;
 
@@ -19,13 +20,7 @@ public sealed class UpdateEventCommandHandler(
 {
     public async Task<Result> Handle(UpdateEventCommand request, CancellationToken cancellationToken)
     {
-        var role = currentUser.GetCurrentUserRole();
-        if (role != "Admin" && role != "Organizer")
-            return Result.Failure(Error.Unauthorized(
-                "Event.UnauthorizedUpdate",
-                "Only administrators or organizers can update events."));
-
-        var isAdmin = role == "Admin";
+        var isAdmin = currentUser.GetCurrentUserRole() == "Admin";
 
         var eventIdResult = EventId.Create(request.EventId);
         if (eventIdResult.IsFailure)
@@ -93,8 +88,8 @@ public sealed class UpdateEventCommandHandler(
         if (rows <= 0)
             return Result.Failure(Error.Failure("Event.UpdateFailed", "Failed to update the event."));
 
-        await cache.RemoveAsync($"event:details:{request.EventId}", cancellationToken);
-        await cache.RemoveByPatternAsync("events:list:*", cancellationToken);
+        await cache.RemoveAsync(EventDetails(request.EventId), cancellationToken);
+        await cache.RemoveByPatternAsync(EventsListPattern, cancellationToken);
 
         return Result.Success();
     }

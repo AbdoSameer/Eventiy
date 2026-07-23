@@ -1,14 +1,11 @@
 ﻿using Application.Abstractions.Messaging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Application.Abstractions.Security;
 
 namespace Application.Features.Bookings.Command.ConfirmBooking
 {
     public sealed record ConfirmBookingCommand(
-        Guid BookingId) : ICommand<bool>;
-
-
+        Guid BookingId) : ICommand<bool>, IAuthorizableRequest
+    {
+        public string[] RequiredRoles => ["Admin", "Organizer"];
+    }
 }

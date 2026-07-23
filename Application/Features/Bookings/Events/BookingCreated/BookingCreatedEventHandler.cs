@@ -1,3 +1,4 @@
+using Application.Abstractions.Caching;
 using Application.Abstractions.Persistence;
 using Domain.Abstractions.Persistence;
 using Domain.Aggregates.BookingAggregate.Enums;
@@ -5,31 +6,32 @@ using Domain.Aggregates.BookingAggregate.Events;
 using Domain.Common;
 using Domain.Errors;
 using Microsoft.Extensions.Logging;
+using static Application.Abstractions.Caching.CacheKeys;
 
 namespace Application.Features.Bookings.Events.BookingCreated;
 
 public class BookingCreatedEventHandler : IDomainEventHandler<BookingCreatedEvent>
 {
     private readonly IBookingRepository _bookingRepo;
-    private readonly IEventRepository _eventRepo;
     private readonly IUnitOfWork _uow;
     private readonly IIdempotencyStore _idempotencyStore;
     private readonly TimeProvider _timeProvider;
+    private readonly ICacheService _cache;
     private readonly ILogger<BookingCreatedEventHandler> _logger;
 
     public BookingCreatedEventHandler(
         IBookingRepository bookingRepo,
-        IEventRepository eventRepo,
         IUnitOfWork uow,
         IIdempotencyStore idempotencyStore,
         TimeProvider timeProvider,
+        ICacheService cache,
         ILogger<BookingCreatedEventHandler> logger)
     {
         _bookingRepo = bookingRepo;
-        _eventRepo = eventRepo;
         _uow = uow;
         _idempotencyStore = idempotencyStore;
         _timeProvider = timeProvider;
+        _cache = cache;
         _logger = logger;
     }
 
@@ -80,24 +82,27 @@ public class BookingCreatedEventHandler : IDomainEventHandler<BookingCreatedEven
             return Result.Failure(BookingErrors.BookingNotFound(bookingIdValue));
         }
 
+        var utcNow = _timeProvider.GetUtcNow().UtcDateTime;
+
         if (booking.Status != BookingStatusEnum.Pending)
         {
-            _logger.LogInformation("Booking {BookingId} already {Status} — skipping",
+            _logger.LogInformation("Booking {BookingId} already {Status} — marking processed and skipping",
                 bookingIdValue, booking.Status);
+            _idempotencyStore.MarkAsProcessed(bookingIdValue, idempotencyKey, utcNow);
+            await _uow.CommitWithoutEventsAsync(cancellationToken);
             return Result.Success();
         }
 
-        // Deferred payments await manual confirmation (Fawry/Cash callback).
-        // Instant payments await Stripe webhook confirmation (checkout.session.completed).
-        // Neither payment method is auto-confirmed here — the webhook is the source of truth.
-        var utcNow = _timeProvider.GetUtcNow().UtcDateTime;
-
         _logger.LogInformation(
-            "Booking {BookingId} created with {PaymentMethod} — awaiting external confirmation (webhook/deferred)",
-            bookingIdValue, booking.PaymentMethod);
+            "Booking {BookingId} created — Event {EventId}, TicketType {TicketTypeId}, Qty {Quantity}, {Amount} {Currency}",
+            bookingIdValue, @event.EventId, @event.TicketTypeId, @event.Quantity,
+            @event.Money.Amount, @event.Money.Currency);
 
         _idempotencyStore.MarkAsProcessed(bookingIdValue, idempotencyKey, utcNow);
         await _uow.CommitWithoutEventsAsync(cancellationToken);
+
+        // Invalidate cached event details so seat availability reflects new booking
+        await _cache.RemoveAsync(EventDetails(@event.EventId.Value), cancellationToken);
 
         return Result.Success();
     }

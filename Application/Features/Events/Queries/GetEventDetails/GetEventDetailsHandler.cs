@@ -6,6 +6,7 @@ using Domain.Aggregates.EventAggregate;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Common;
 using Domain.Errors;
+using static Application.Abstractions.Caching.CacheKeys;
 
 namespace Application.Features.Events.Queries.GetEventDetails;
 
@@ -28,7 +29,7 @@ public class GetEventDetailsHandler
         GetEventDetailsQuery request,
         CancellationToken cancellationToken)
     {
-        var cacheKey = $"event:details:{request.Id}";
+        var cacheKey = EventDetails(request.Id);
 
         var cached = await _cache.GetAsync<EventDetailsResponse>(cacheKey, cancellationToken);
         if (cached is not null)

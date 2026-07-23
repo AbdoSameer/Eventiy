@@ -7,6 +7,7 @@ using Domain.Abstractions.Storage;
 using Domain.Aggregates.EventAggregate.Entities;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Common;
+using static Application.Abstractions.Caching.CacheKeys;
 
 namespace Application.Features.Events.Commands.UploadEventPhotos;
 
@@ -114,7 +115,7 @@ internal sealed class UploadEventPhotosCommandHandler
             await _unitOfWork.CommitAsync(cancellationToken);
 
             // Invalidate the photo list cache so the new uploads appear on next read.
-            await _cache.RemoveAsync($"event:photos:{request.EventId}", cancellationToken);
+            await _cache.RemoveAsync(EventPhotos(request.EventId), cancellationToken);
 
             return Result<List<EventPhotoResponse>>.Success(responses);
         }

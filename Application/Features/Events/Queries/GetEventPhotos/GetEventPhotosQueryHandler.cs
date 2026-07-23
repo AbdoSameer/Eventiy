@@ -7,6 +7,7 @@ using Domain.Aggregates.EventAggregate.Entities;
 using Domain.Aggregates.EventAggregate.ValueObject;
 using Domain.Common;
 using Domain.Errors;
+using static Application.Abstractions.Caching.CacheKeys;
 
 namespace Application.Features.Events.Queries.GetEventPhotos;
 
@@ -33,7 +34,7 @@ internal sealed class GetEventPhotosQueryHandler
             return Result<List<EventPhotoResponse>>.Failure(eventIdResult.Errors.ToArray());
 
         // Cache-Aside: photos are nearly static, so we cache them longer than event details.
-        var cacheKey = $"event:photos:{request.EventId}";
+        var cacheKey = EventPhotos(request.EventId);
 
         var cached = await _cache.GetAsync<List<EventPhotoResponse>>(cacheKey, cancellationToken);
         if (cached is not null)
