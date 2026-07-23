@@ -27,7 +27,9 @@ internal sealed class RevokeRefreshTokenCommandHandler(
             return Result<bool>.Failure(UserErrors.RefreshTokenNotFoundOrInactive());
 
         var utcNow = dateTimeProvider.GetUtcNow().UtcDateTime;
-        existingToken.Revoke(utcNow, null);
+        var revokeResult = existingToken.Revoke(utcNow, null);
+        if (revokeResult.IsFailure)
+            return Result<bool>.Failure(revokeResult.Errors.ToArray());
 
         await unitOfWork.CommitAsync(cancellationToken);
 

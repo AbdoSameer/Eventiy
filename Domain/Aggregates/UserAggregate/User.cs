@@ -71,7 +71,9 @@ namespace Domain.Aggregates.UserAggregate
             if (token is null)
                 return Result.Failure(UserErrors.RefreshTokenNotFoundOrInactive());
 
-            token.Revoke(utcNow);
+            var revokeResult = token.Revoke(utcNow);
+            if (revokeResult.IsFailure)
+                return revokeResult;
 
             RaiseDomainEvent(new RefreshTokenRevokedEvent(
                 Id, tokenHash, utcNow));
@@ -79,12 +81,14 @@ namespace Domain.Aggregates.UserAggregate
             return Result.Success();
         }
 
-        public void RevokeAllRefreshTokens(DateTime utcNow)
+        public Result RevokeAllRefreshTokens(DateTime utcNow)
         {
             var activeTokens = _refreshTokens.Where(t => t.IsActiveAt(utcNow)).ToList();
             foreach (var token in activeTokens)
             {
-                token.Revoke(utcNow);
+                var result = token.Revoke(utcNow);
+                if (result.IsFailure)
+                    return result;
             }
 
             if (activeTokens.Count > 0)
@@ -92,6 +96,8 @@ namespace Domain.Aggregates.UserAggregate
                 RaiseDomainEvent(new AllRefreshTokensRevokedEvent(
                     Id, activeTokens.Count, utcNow));
             }
+
+            return Result.Success();
         }
     }
 }

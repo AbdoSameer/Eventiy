@@ -39,7 +39,10 @@ internal sealed class RefreshTokenCommandHandler(
         var newRefreshTokenRaw = jwtGenerator.GenerateRefreshToken();
         var newRefreshTokenHash = jwtGenerator.HashToken(newRefreshTokenRaw);
 
-        existingToken.Revoke(utcNow, newRefreshTokenHash);
+        var revokeResult = existingToken.Revoke(utcNow, newRefreshTokenHash);
+        if (revokeResult.IsFailure)
+            return Result<AuthResponse>.Failure(revokeResult.Errors.ToArray());
+
         user.IssueRefreshToken(newRefreshTokenHash, utcNow.AddDays(7), utcNow);
 
         var (accessToken, expiresAt) = jwtGenerator.GenerateToken(user);

@@ -64,7 +64,9 @@ namespace Infrastructure.Persistence.Configuration
                 rt.ToTable("RefreshTokens");
                 rt.WithOwner().HasForeignKey("UserId");
                 rt.HasKey(r => r.Id);
-                rt.Property(r => r.Id).ValueGeneratedOnAdd();
+                rt.Property(r => r.Id)
+                  .HasConversion(id => id.Value, value => RefreshTokenId.FromDatabase(value))
+                  .ValueGeneratedOnAdd();
                 rt.Property(r => r.TokenHash).HasMaxLength(128).IsRequired();
                 rt.Property(r => r.ExpiresOnUtc).IsRequired();
                 rt.Property(r => r.CreatedOnUtc).IsRequired();

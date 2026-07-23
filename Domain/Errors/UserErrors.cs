@@ -62,5 +62,10 @@ namespace Domain.Errors
             => Error.Unauthorized(
                 "User.RefreshTokenReused",
                 "Refresh token reuse detected. All active sessions have been revoked for security.");
+
+        public static Error RefreshTokenAlreadyRevoked()
+            => Error.Conflict(
+                "User.RefreshTokenAlreadyRevoked",
+                "The refresh token has already been revoked.");
     }
 }
