@@ -40,7 +40,9 @@ namespace Application.Features.Events.Commands.AddTicketType
         {
             var role = _currentUser.GetCurrentUserRole();
             if (role != "Admin" && role != "Organizer")
-                throw new UnauthorizedAccessException("Only administrators or organizers can add ticket types.");
+                return Result.Failure(Error.Unauthorized(
+                    "Event.UnauthorizedAddTicketType",
+                    "Only administrators or organizers can add ticket types."));
 
             var isAdmin = role == "Admin";
 

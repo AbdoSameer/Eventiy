@@ -51,11 +51,8 @@ internal sealed class UpdatePhotoMetadataCommandHandler
 
         if (request.DisplayOrder.HasValue)
         {
-            var photo = @event.Photos.FirstOrDefault(p => p.Id == photoIdResult.Value);
-            if (photo is null)
-                return Result.Failure(Domain.Errors.EventErrors.PhotoNotFound(photoIdResult.Value));
-
-            var orderResult = photo.UpdateDisplayOrder(request.DisplayOrder.Value);
+            var utcNow = _dateTimeProvider.GetUtcNow().UtcDateTime;
+            var orderResult = @event.UpdatePhotoDisplayOrder(photoIdResult.Value, request.DisplayOrder.Value, utcNow);
             if (orderResult.IsFailure)
                 return orderResult;
         }

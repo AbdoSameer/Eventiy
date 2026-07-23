@@ -856,6 +856,25 @@ namespace Domain.Aggregates.EventAggregate
             return Result.Success();
         }
 
+        public Result UpdatePhotoDisplayOrder(EventPhotoId photoId, int displayOrder,
+            DateTime utcNow)
+        {
+            var photo = _photos.FirstOrDefault(p => p.Id == photoId);
+            if (photo is null)
+                return Result.Failure(EventErrors.PhotoNotFound(photoId));
+
+            var orderResult = photo.UpdateDisplayOrder(displayOrder);
+            if (orderResult.IsFailure)
+                return orderResult;
+
+            LastModifiedAt = utcNow;
+
+            RaiseDomainEvent(new EventPhotosUpdatedEvent(
+                Id, "DisplayOrderUpdated", _photos.Count, utcNow));
+
+            return Result.Success();
+        }
+
         public Result ReorderPhotos(List<EventPhotoId> orderedIds,
             DateTime utcNow)
         {

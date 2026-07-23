@@ -21,7 +21,9 @@ public sealed class UpdateEventCommandHandler(
     {
         var role = currentUser.GetCurrentUserRole();
         if (role != "Admin" && role != "Organizer")
-            throw new UnauthorizedAccessException("Only administrators or organizers can update events.");
+            return Result.Failure(Error.Unauthorized(
+                "Event.UnauthorizedUpdate",
+                "Only administrators or organizers can update events."));
 
         var isAdmin = role == "Admin";
 
