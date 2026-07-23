@@ -553,8 +553,11 @@ namespace Domain.Aggregates.EventAggregate
             if (newDate < utcNow)
                 return Result.Failure(EventErrors.InvalidEventDate(newDate));
 
+            var oldDate = Date;
             Date = newDate;
             LastModifiedAt = utcNow;
+
+            RaiseDomainEvent(new EventDateUpdatedEvent(Id, oldDate, newDate, utcNow));
 
             return Result.Success();
         }
@@ -567,8 +570,11 @@ namespace Domain.Aggregates.EventAggregate
             if (newDescription.Length > MAX_DESCRIPTION_LENGTH)
                 return Result.Failure(EventErrors.DescriptionTooLong(MAX_DESCRIPTION_LENGTH));
 
+            var oldDescription = Description;
             Description = newDescription;
             LastModifiedAt = utcNow; 
+
+            RaiseDomainEvent(new EventDescriptionUpdatedEvent(Id, oldDescription, newDescription, utcNow));
 
             return Result.Success();
         }
@@ -588,8 +594,11 @@ namespace Domain.Aggregates.EventAggregate
             if (nameResult.IsFailure)
                 return Result.Failure(nameResult.Errors.ToArray());
 
+            var oldName = EventName.Value;
             EventName = nameResult.Value;
             LastModifiedAt = utcNow; 
+
+            RaiseDomainEvent(new EventNameUpdatedEvent(Id, oldName, EventName.Value, utcNow));
 
             return Result.Success();
         }
@@ -612,8 +621,11 @@ namespace Domain.Aggregates.EventAggregate
             if (locationResult.IsFailure)
                 return Result.Failure(locationResult.Errors.ToArray());
 
+            var oldLocationSummary = Location.ToString();
             Location = locationResult.Value;
             LastModifiedAt = utcNow;
+
+            RaiseDomainEvent(new EventLocationUpdatedEvent(Id, oldLocationSummary, Location.ToString(), utcNow));
 
             return Result.Success();
         }
@@ -634,8 +646,11 @@ namespace Domain.Aggregates.EventAggregate
             if (nameResult.IsFailure)
                 return Result.Failure(nameResult.Errors.ToArray());
 
+            var oldName = EventName.Value;
             EventName = nameResult.Value;
             LastModifiedAt = utcNow;
+
+            RaiseDomainEvent(new EventNameUpdatedEvent(Id, oldName, EventName.Value, utcNow));
 
             return Result.Success();
         }
@@ -665,8 +680,11 @@ namespace Domain.Aggregates.EventAggregate
             if (newDate < utcNow)
                 return Result.Failure(EventErrors.InvalidEventDate(newDate));
 
+            var oldDate = Date;
             Date = newDate;
             LastModifiedAt = utcNow;
+
+            RaiseDomainEvent(new EventDateUpdatedEvent(Id, oldDate, newDate, utcNow));
 
             return Result.Success();
         }
@@ -676,8 +694,11 @@ namespace Domain.Aggregates.EventAggregate
             if (newDescription.Length > MAX_DESCRIPTION_LENGTH)
                 return Result.Failure(EventErrors.DescriptionTooLong(MAX_DESCRIPTION_LENGTH));
 
+            var oldDescription = Description;
             Description = newDescription;
             LastModifiedAt = utcNow;
+
+            RaiseDomainEvent(new EventDescriptionUpdatedEvent(Id, oldDescription, newDescription, utcNow));
 
             return Result.Success();
         }
@@ -697,8 +718,11 @@ namespace Domain.Aggregates.EventAggregate
             if (locationResult.IsFailure)
                 return Result.Failure(locationResult.Errors.ToArray());
 
+            var oldLocationSummary = Location.ToString();
             Location = locationResult.Value;
             LastModifiedAt = utcNow;
+
+            RaiseDomainEvent(new EventLocationUpdatedEvent(Id, oldLocationSummary, Location.ToString(), utcNow));
 
             return Result.Success();
         }
