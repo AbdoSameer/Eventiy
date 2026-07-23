@@ -45,17 +45,8 @@ public sealed class EventSerializer : IEventSerializer
     private static string ExtractDomainFromType(Type type)
     {
         var @namespace = type.Namespace ?? string.Empty;
-
-        if (@namespace.Contains("BookingAggregate"))
-            return "Booking";
-        if (@namespace.Contains("EventAggregate"))
-            return "Event";
-        if (@namespace.Contains("UserAggregate"))
-            return "User";
-        if (@namespace.Contains("PaymentAggregate"))
-            return "Payment";
-
-        return "Unknown";
+        var match = System.Text.RegularExpressions.Regex.Match(@namespace, @"(\w+)Aggregate");
+        return match.Success ? match.Groups[1].Value : "Unknown";
     }
 
     public string Serialize<T>(T @event) where T : IDomainEvent

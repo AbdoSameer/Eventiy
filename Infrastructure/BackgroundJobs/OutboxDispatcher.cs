@@ -72,6 +72,8 @@ public sealed class OutboxDispatcher : IOutboxDispatcher
                 NextRetryOnUtc: nextRetryOnUtc));
         }
 
+        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+
         await context.SaveChangesAsync(cancellationToken);
 
         if (processedIds.Count > 0)
@@ -79,6 +81,8 @@ public sealed class OutboxDispatcher : IOutboxDispatcher
 
         if (failedMessages.Count > 0)
             await outboxRepository.MarkRangeAsFailedAsync(failedMessages, cancellationToken);
+
+        await transaction.CommitAsync(cancellationToken);
 
         return new OutboxDispatchResult(true, processedIds, failedMessages);
     }

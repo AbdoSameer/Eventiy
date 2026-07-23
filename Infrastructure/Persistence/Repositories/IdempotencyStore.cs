@@ -18,16 +18,6 @@ internal sealed class IdempotencyStore : IIdempotencyStore
             .AnyAsync(e => e.EventId == eventId, cancellationToken);
     }
 
-    public async Task MarkAsProcessedAsync(
-        Guid eventId,
-        string idempotencyKey,
-        DateTime processedAt,
-        CancellationToken cancellationToken = default)
-    {
-        MarkAsProcessed(eventId, idempotencyKey, processedAt);
-        await _context.SaveChangesAsync(cancellationToken);
-    }
-
     public void MarkAsProcessed(
         Guid eventId,
         string idempotencyKey,

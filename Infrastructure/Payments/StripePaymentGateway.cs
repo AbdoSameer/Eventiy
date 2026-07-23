@@ -97,7 +97,7 @@ public class StripePaymentGateway : IPaymentService
             var service = new SessionService();
             var sessions = await service.ListAsync(new SessionListOptions
             {
-                Limit = 10,
+                Limit = 100,
             }, cancellationToken: ct);
 
             var session = sessions.FirstOrDefault(s =>
@@ -111,7 +111,11 @@ public class StripePaymentGateway : IPaymentService
                 return Result.Success();
             }
 
-            await service.ExpireAsync(session.Id, cancellationToken: ct);
+            var requestOptions = new RequestOptions
+            {
+                IdempotencyKey = $"expire-session-{session.Id}",
+            };
+            await service.ExpireAsync(session.Id, null, requestOptions, cancellationToken: ct);
 
             _logger.LogInformation(
                 "Expired Stripe Checkout Session {SessionId} for booking {BookingId}",

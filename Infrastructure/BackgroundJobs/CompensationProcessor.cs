@@ -1,5 +1,8 @@
 using Application.Abstractions.Payments;
 using Application.Abstractions.Persistence;
+using Domain.Abstractions.Persistence;
+using Domain.Aggregates.BookingAggregate.Enums;
+using Domain.Aggregates.BookingAggregate.ValueObject;
 using Domain.Common;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -76,6 +79,8 @@ public sealed class CompensationProcessor : BackgroundService
         using var scope = _serviceProvider.CreateScope();
         var compensationRepo = scope.ServiceProvider.GetRequiredService<ICompensationLogRepository>();
         var paymentService = scope.ServiceProvider.GetRequiredService<IPaymentService>();
+        var bookingRepo = scope.ServiceProvider.GetRequiredService<IBookingRepository>();
+        var eventRepo = scope.ServiceProvider.GetRequiredService<IEventRepository>();
         var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
         var timeProvider = scope.ServiceProvider.GetRequiredService<TimeProvider>();
 
@@ -97,7 +102,7 @@ public sealed class CompensationProcessor : BackgroundService
             try
             {
                 var result = await ExecuteCompensation(
-                    paymentService, log, ct);
+                    paymentService, bookingRepo, eventRepo, uow, log, ct);
 
                 if (result.IsSuccess)
                 {
@@ -170,8 +175,11 @@ public sealed class CompensationProcessor : BackgroundService
         await uow.CommitWithoutEventsAsync(ct);
     }
 
-    private static async Task<Result> ExecuteCompensation(
+    private async Task<Result> ExecuteCompensation(
         IPaymentService paymentService,
+        IBookingRepository bookingRepo,
+        IEventRepository eventRepo,
+        IUnitOfWork uow,
         CompensationLogDto log,
         CancellationToken ct)
     {
@@ -179,7 +187,41 @@ public sealed class CompensationProcessor : BackgroundService
             return await paymentService.CancelPaymentAsync(log.BookingId, ct);
 
         if (log.CompensationType == "CompensateOversoldBooking")
+        {
+            var bookingIdResult = BookingId.Create(log.BookingId);
+            if (bookingIdResult.IsFailure)
+                return Result.Failure(bookingIdResult.Errors.ToArray());
+
+            var booking = await bookingRepo.GetByIdAsync(bookingIdResult.Value, ct);
+            if (booking is null)
+                return Result.Success();
+
+            if (booking.Status != BookingStatusEnum.Pending)
+                return Result.Success();
+
+            var utcNow = DateTime.UtcNow;
+
+            var cancelResult = booking.Cancel(utcNow, "Oversold compensation");
+            if (cancelResult.IsFailure)
+                return cancelResult;
+
+            var evt = await eventRepo.GetByIdAsync(booking.EventId, ct);
+            if (evt is null)
+                return Result.Success();
+
+            var releaseResult = evt.ReleaseSeats(
+                booking.TicketTypeId, booking.Quantity, utcNow);
+            if (releaseResult.IsFailure)
+                return releaseResult;
+
+            await uow.CommitAsync(ct);
+
+            _logger.LogInformation(
+                "Booking {BookingId} cancelled and seats released due to oversold compensation",
+                log.BookingId);
+
             return Result.Success();
+        }
 
         return Result.Failure(Error.Failure(
             "Compensation.UnknownType",

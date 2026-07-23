@@ -67,13 +67,20 @@ public sealed class OutboxMessageService : IOutboxMessageService
         if (!string.IsNullOrWhiteSpace(metadata.CorrelationId))
         {
             var correlationKey = $"{domainEvent.Name}_{domainEvent.Id:N}";
-            return correlationKey.Length <= 100
-                ? correlationKey
-                : correlationKey[..100];
+            if (correlationKey.Length <= 100)
+                return correlationKey;
+
+            // Hash instead of truncating to avoid collision from shared prefixes
+            return HashKey(correlationKey);
         }
 
         var raw = $"{domainEvent.Name}_{domainEvent.Id:N}_{payload}";
-        var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(raw));
+        return HashKey(raw);
+    }
+
+    private static string HashKey(string input)
+    {
+        var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
         return Convert.ToHexString(hashBytes)[..32];
     }
 }

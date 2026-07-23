@@ -131,8 +131,8 @@ public sealed class UnitOfWork : IUnitOfWork
         const int uniqueConstraintViolation = 2601;
         const int uniqueKeyViolation = 2627;
 
-        return sqlEx.Number == uniqueConstraintViolation
-            || sqlEx.Number == uniqueKeyViolation;
+        return (sqlEx.Number == uniqueConstraintViolation || sqlEx.Number == uniqueKeyViolation)
+            && sqlEx.Message.Contains("ProcessedEvents");
     }
 
     private void DetachAllTrackedEntities()
