@@ -602,18 +602,8 @@ namespace Domain.Aggregates.EventAggregate
             if (newLocation is null || string.IsNullOrWhiteSpace(newLocation.City))
                 return Result.Failure(EventErrors.LocationCannotBeEmpty());
 
-            var locationResult = Address.Create(
-                newLocation.Country,
-                newLocation.City,
-                newLocation.Street ?? string.Empty,
-                newLocation.PostalCode,
-                newLocation.Latitude,
-                newLocation.Longitude);
-            if (locationResult.IsFailure)
-                return Result.Failure(locationResult.Errors.ToArray());
-
             var oldLocationSummary = Location.ToString();
-            Location = locationResult.Value;
+            Location = newLocation;
             LastModifiedAt = utcNow;
 
             RaiseDomainEvent(new EventLocationUpdatedEvent(Id, oldLocationSummary, Location.ToString(), utcNow));
@@ -699,18 +689,8 @@ namespace Domain.Aggregates.EventAggregate
             if (newLocation is null || string.IsNullOrWhiteSpace(newLocation.City))
                 return Result.Failure(EventErrors.LocationCannotBeEmpty());
 
-            var locationResult = Address.Create(
-                newLocation.Country,
-                newLocation.City,
-                newLocation.Street ?? string.Empty,
-                newLocation.PostalCode,
-                newLocation.Latitude,
-                newLocation.Longitude);
-            if (locationResult.IsFailure)
-                return Result.Failure(locationResult.Errors.ToArray());
-
             var oldLocationSummary = Location.ToString();
-            Location = locationResult.Value;
+            Location = newLocation;
             LastModifiedAt = utcNow;
 
             RaiseDomainEvent(new EventLocationUpdatedEvent(Id, oldLocationSummary, Location.ToString(), utcNow));

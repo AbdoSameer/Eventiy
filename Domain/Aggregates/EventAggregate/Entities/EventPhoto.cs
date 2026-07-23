@@ -82,7 +82,7 @@ public sealed class EventPhoto : Entity<EventPhotoId>
             displayOrder, utcNow));
     }
 
-    public Result SetCover()
+    internal Result SetCover()
     {
         if (IsCover)
             return Result.Failure(EventPhotoErrors.AlreadyCover());
@@ -91,7 +91,7 @@ public sealed class EventPhoto : Entity<EventPhotoId>
         return Result.Success();
     }
 
-    public Result RemoveCover()
+    internal Result RemoveCover()
     {
         if (!IsCover)
             return Result.Failure(EventPhotoErrors.NotCover());
@@ -100,7 +100,7 @@ public sealed class EventPhoto : Entity<EventPhotoId>
         return Result.Success();
     }
 
-    public Result UpdateCaption(string? caption)
+    internal Result UpdateCaption(string? caption)
     {
         if (caption?.Length > MAX_CAPTION_LENGTH)
             return Result.Failure(EventPhotoErrors.CaptionTooLong(MAX_CAPTION_LENGTH));
@@ -109,7 +109,7 @@ public sealed class EventPhoto : Entity<EventPhotoId>
         return Result.Success();
     }
 
-    public Result UpdateDisplayOrder(int displayOrder)
+    internal Result UpdateDisplayOrder(int displayOrder)
     {
         if (displayOrder < 0)
             return Result.Failure(EventPhotoErrors.InvalidDisplayOrder());
