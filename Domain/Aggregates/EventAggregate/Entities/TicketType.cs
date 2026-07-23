@@ -104,11 +104,6 @@ namespace Domain.Aggregates.EventAggregate.Entities
                 return Result<TicketType>.Failure(TicketTypeErrors.CapacityExceedsEventRemainingCapacity(
                     remainingEventCapacity.Value));
 
-            // Create value objects
-            var priceResult = Money.Create(price.Amount, price.Currency);
-            if (priceResult.IsFailure)
-                return Result<TicketType>.Failure(priceResult.Errors.ToArray());
-
             var ticketTypeIdResult = TicketTypeId.Create(Guid.NewGuid());
             if (ticketTypeIdResult.IsFailure)
                 return Result<TicketType>.Failure(ticketTypeIdResult.Errors.ToArray());
@@ -117,7 +112,7 @@ namespace Domain.Aggregates.EventAggregate.Entities
                 eventId,
                 ticketTypeIdResult.Value,
                 name.Trim(),
-                priceResult.Value!,
+                price,
                 capacity,
                 utcNow,
                 sectionCode,

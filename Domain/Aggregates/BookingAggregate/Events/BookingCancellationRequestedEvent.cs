@@ -5,7 +5,7 @@ using Domain.Common;
 
 namespace Domain.Aggregates.BookingAggregate.Events
 {
-    public class BookingCancellationRequestedEvent : DomainEvent
+    public class BookingCancellationRequestedEvent : DomainEvent, IDomainEvent
     {
         public override string Name => nameof(BookingCancellationRequestedEvent);
         public override string Domain => "Booking";

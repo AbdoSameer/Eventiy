@@ -3,7 +3,7 @@ using Domain.Common;
 
 namespace Domain.Aggregates.UserAggregate.Events
 {
-    public class UserRegisteredEvent : DomainEvent
+    public class UserRegisteredEvent : DomainEvent, IDomainEvent
     {
         public override string Name => nameof(UserRegisteredEvent);
         public override string Domain => "User";

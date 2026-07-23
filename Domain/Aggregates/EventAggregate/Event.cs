@@ -90,15 +90,6 @@ namespace Domain.Aggregates.EventAggregate
             if (nameResult.IsFailure)
                 return Result<Event>.Failure(nameResult.Errors.ToArray());
 
-            var locationResult = Address.Create(
-                location.Country,
-                location.City,
-                location.Street ?? string.Empty,
-                latitude: location.Latitude,
-                longitude: location.Longitude);
-            if (locationResult.IsFailure)
-                return Result<Event>.Failure(locationResult.Errors.ToArray());
-
             var eventIdResult = EventId.Create(Guid.NewGuid());
             if (eventIdResult.IsFailure)
                 return Result<Event>.Failure(eventIdResult.Errors.ToArray());
@@ -107,7 +98,7 @@ namespace Domain.Aggregates.EventAggregate
                 eventIdResult.Value,
                 nameResult.Value,
                 date,
-                locationResult.Value,
+                location,
                 description,
                 capacity,
                 eventType,

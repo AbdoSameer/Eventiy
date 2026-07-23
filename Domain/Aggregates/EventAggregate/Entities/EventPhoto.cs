@@ -49,6 +49,9 @@ public sealed class EventPhoto : Entity<EventPhotoId>
         int displayOrder,
         DateTime utcNow)
     {
+        if (eventId is null)
+            return Result<EventPhoto>.Failure(EventPhotoErrors.EventIdRequired());
+
         if (string.IsNullOrWhiteSpace(fileName))
             return Result<EventPhoto>.Failure(EventPhotoErrors.FileNameCannotBeEmpty());
 

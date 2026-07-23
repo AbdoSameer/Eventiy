@@ -6,6 +6,11 @@ public static class EventPhotoErrors
 {
     // ===== Validation Errors (400 Bad Request) 
 
+    public static Error EventIdRequired()
+        => Error.Validation(
+            "EventPhoto.EventIdRequired",
+            "Event ID is required.");
+
     public static Error FileNameCannotBeEmpty()
         => Error.Validation(
             "EventPhoto.FileNameCannotBeEmpty",
