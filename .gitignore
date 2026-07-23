@@ -364,3 +364,6 @@ FodyWeavers.xsd
 
 # Local config overrides — may contain secrets (JWT, connection strings)
 appsettings.*.local.json
+
+# User-uploaded content (should not be tracked in git)
+**/wwwroot/uploads/
