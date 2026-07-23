@@ -1,5 +1,3 @@
-using Application.Features.Bookings.Command.CancelBooking;
-using Application.Features.Bookings.Command.ConfirmBooking;
 using Application.Features.Bookings.Query.GetAllBookings;
 using Eventy.WebApi.Extensions;
 using MediatR;
@@ -23,20 +21,6 @@ public class AdminBookingController : ControllerBase
         CancellationToken ct = default)
     {
         var result = await _sender.Send(new GetAllBookingsQuery(status), ct);
-        return result.ToActionResult();
-    }
-
-    [HttpPost("{bookingId:guid}/confirm")]
-    public async Task<IActionResult> ConfirmBooking(Guid bookingId, CancellationToken ct)
-    {
-        var result = await _sender.Send(new ConfirmBookingCommand(bookingId), ct);
-        return result.ToActionResult();
-    }
-
-    [HttpPut("{bookingId:guid}/cancel")]
-    public async Task<IActionResult> CancelBooking(Guid bookingId, CancellationToken ct)
-    {
-        var result = await _sender.Send(new CancelBookingCommand(bookingId), ct);
         return result.ToActionResult();
     }
 }

@@ -67,7 +67,12 @@ namespace Eventy.WebApi.Controllers
         {
             var refreshToken = Request.Cookies["refreshToken"];
             if (string.IsNullOrEmpty(refreshToken))
-                return Unauthorized();
+                return Unauthorized(new ProblemDetails
+                {
+                    Title = "Unauthorized",
+                    Detail = "Refresh token is missing.",
+                    Status = StatusCodes.Status401Unauthorized
+                });
 
             var result = await sender.Send(new RefreshTokenCommand(refreshToken), cancellationToken);
             if (result.IsSuccess && result.Value?.RefreshToken is not null)

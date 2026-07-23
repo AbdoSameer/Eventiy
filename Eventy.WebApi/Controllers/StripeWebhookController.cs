@@ -94,7 +94,16 @@ public class StripeWebhookController : ControllerBase
                 "Failed to confirm booking {BookingId} from Stripe webhook: {Errors}",
                 bookingId,
                 string.Join("; ", result.Errors.Select(e => e.Code)));
-            return StatusCode(StatusCodes.Status500InternalServerError);
+            return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
+            {
+                Title = "Internal Server Error",
+                Detail = $"Failed to confirm booking {bookingId} from Stripe webhook.",
+                Status = StatusCodes.Status500InternalServerError,
+                Extensions =
+                {
+                    ["errors"] = result.Errors.Select(e => new { e.Code, e.Message, e.Type })
+                }
+            });
         }
 
         return Ok();

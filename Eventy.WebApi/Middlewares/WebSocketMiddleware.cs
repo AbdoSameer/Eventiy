@@ -52,8 +52,11 @@ public class WebSocketMiddleware
             return;
         }
 
-        // ── Authenticate via JWT in query string ──
-        var token = context.Request.Query["token"].FirstOrDefault();
+        // ── Authenticate via JWT in subprotocol header ──
+        var subProtocol = context.Request.Headers["Sec-WebSocket-Protocol"].FirstOrDefault();
+        var token = subProtocol?.StartsWith("Bearer_") == true
+            ? subProtocol["Bearer_".Length..]
+            : null;
         if (string.IsNullOrEmpty(token) || !TryValidateToken(token, out var userId))
         {
             context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
@@ -76,7 +79,7 @@ public class WebSocketMiddleware
 
         try
         {
-            socket = await context.WebSockets.AcceptWebSocketAsync();
+            socket = await context.WebSockets.AcceptWebSocketAsync(subProtocol);
             connectionManager = context.RequestServices.GetRequiredService<IWebSocketConnectionManager>();
             broadcaster = context.RequestServices.GetRequiredService<IRedisPubSubBroadcaster>();
 

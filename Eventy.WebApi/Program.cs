@@ -111,8 +111,7 @@ namespace Eventy.WebApi
             });
             app.UseMiddleware<WebSocketMiddleware>();
             app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
-
-            app.UseStaticFiles();
+            app.UseMiddleware<SecurityHeadersMiddleware>();
 
             // HTTPS redirect: behind a TLS-terminating proxy (Azure App Service,
             // Front Door, our Nginx image) this would cause an infinite redirect
@@ -134,6 +133,7 @@ namespace Eventy.WebApi
             app.UseCors("AllowAngular");
             app.UseAuthentication();
             app.UseAuthorization();
+            app.UseStaticFiles();
             app.UseRateLimiter();
             app.MapControllers();
 

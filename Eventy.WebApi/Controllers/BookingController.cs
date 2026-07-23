@@ -9,12 +9,14 @@ using Eventy.WebApi.Extensions;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Eventy.WebApi.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/bookings")]
     [ApiController]
     [Authorize]
+    [EnableRateLimiting("Booking")]
     public class BookingController : ControllerBase
     {
         private readonly ISender _sender;
@@ -40,9 +42,7 @@ namespace Eventy.WebApi.Controllers
         {
             var result = await _sender.Send(command, ct);
 
-            return result.IsSuccess
-                ? CreatedAtRoute(nameof(GetBookingDetails), new { id = result.Value.BookingId }, result.Value)
-                : result.ToActionResult();
+            return result.ToCreatedResult(nameof(GetBookingDetails), new { id = result.Value.BookingId });
         }
 
         [HttpPost("{bookingId:guid}/confirm")]

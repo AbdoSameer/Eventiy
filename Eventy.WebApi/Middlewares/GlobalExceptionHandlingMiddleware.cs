@@ -53,9 +53,9 @@ public sealed class GlobalExceptionHandlingMiddleware(
         catch (UnauthorizedAccessException ex)
         {
             logger.LogWarning(ex, "Unauthorized access attempt on {Path}", context.Request.Path);
-            await WriteProblemAsync(context, HttpStatusCode.Forbidden,
+            await WriteProblemAsync(context, HttpStatusCode.Unauthorized,
                 "unauthorized",
-                "You do not have permission to perform this action.");
+                "Authentication is required to access this resource.");
         }
         catch (Exception ex)
         {

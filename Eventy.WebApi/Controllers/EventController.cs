@@ -20,7 +20,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Eventy.WebApi.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/events")]
     [ApiController]
     public class EventController : ControllerBase
     {
@@ -61,9 +61,7 @@ namespace Eventy.WebApi.Controllers
         {
             var result = await _sender.Send(command, ct);
 
-            return result.IsSuccess
-                ? CreatedAtRoute(nameof(GetEvent), new { id = result.Value }, result.Value)
-                : result.ToActionResult();
+            return result.ToCreatedResult(nameof(GetEvent), new { id = result.Value });
         }
 
         [HttpPut("{id:guid}")]
@@ -129,7 +127,16 @@ namespace Eventy.WebApi.Controllers
             CancellationToken ct)
         {
             if (photos == null || photos.Count == 0)
-                return BadRequest(new { errors = new[] { new { code = "NoFiles", message = "No photo files provided." } } });
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "Validation Error",
+                    Detail = "No photo files provided.",
+                    Status = StatusCodes.Status400BadRequest,
+                    Extensions =
+                    {
+                        ["errors"] = new[] { new { code = "NoFiles", message = "No photo files provided." } }
+                    }
+                });
 
             var fileData = new List<FileUploadData>();
             foreach (var f in photos)
